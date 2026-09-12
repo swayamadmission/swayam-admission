@@ -1,0 +1,469 @@
+IMPORTANT ADMIN PANEL EXPANSION UPDATE
+
+The admin panel is still incomplete.
+
+Now fully design and implement the following advanced enterprise modules with complete UI/UX workflows, responsive layouts, realistic interactions, proper navigation flow, filters, tables, analytics, empty states, loading states, and production-ready SaaS experience.
+
+These modules are extremely important and should feel like a complete enterprise-grade CRM ecosystem.
+
+Maintain the same modern premium design system and brand identity.
+
+========================================
+BRAND COLORS
+========================================
+
+Primary Green:
+#4A7B5B
+
+Accent Golden:
+#F0AE1A
+
+Background:
+#F8FAFC
+
+Text:
+#0F172A
+
+Soft Secondary:
+#E8F3EC
+
+========================================
+DESIGN STYLE
+========================================
+
+Maintain:
+- modern SaaS dashboard feel
+- premium CRM aesthetics
+- spacious layouts
+- rounded cards
+- soft shadows
+- mobile responsiveness
+- minimal clean UI
+- enterprise-grade experience
+
+Inspired by:
+- Linear
+- Stripe Dashboard
+- Notion
+- modern AI CRM systems
+
+========================================
+1. ROLE & PERMISSION MANAGEMENT (RBAC)
+========================================
+
+Create a complete RBAC management system.
+
+Roles:
+- Super Admin
+- Director
+- State Manager
+- Senior Counselor
+- Counselor
+- Data Entry Operator
+- Finance Team
+- Marketing Team
+- Franchise Partner
+
+Features:
+- create/edit/delete roles
+- permission matrix
+- module-level permissions
+- state-wise restrictions
+- hierarchy assignment
+- reporting manager assignment
+- role cloning
+- permission toggles
+
+UI Requirements:
+- matrix table
+- permission switches
+- role detail drawer
+- hierarchy visualization
+- access summary cards
+
+========================================
+2. COURSES MANAGEMENT MODULE
+========================================
+
+Manage complete course catalog.
+
+Features:
+- add/edit/delete courses
+- categories
+- eligibility
+- duration
+- fees structure
+- career scope
+- SEO metadata
+- featured courses
+- course search & filters
+
+Include:
+- course detail editor
+- category management
+- modern data tables
+- filters
+- analytics cards
+
+========================================
+3. EXAMS MODULE
+========================================
+
+Manage entrance exams.
+
+Features:
+- exam overview
+- eligibility
+- exam dates
+- syllabus
+- counseling process
+- application deadlines
+- notifications
+
+Include:
+- exam calendar
+- timeline view
+- date management
+- upcoming exam widgets
+- responsive cards
+
+========================================
+4. SCHOLARSHIPS MODULE
+========================================
+
+Manage scholarships and eligibility tracking.
+
+Features:
+- add scholarships
+- eligibility rules
+- income criteria
+- category filters
+- state-wise scholarships
+- deadlines
+- application tracking
+
+Special Feature:
+Scholarship Eligibility Checker
+
+Input:
+- state
+- category
+- income
+- course
+
+Output:
+- matching scholarships
+
+Include:
+- eligibility cards
+- modern filters
+- scholarship analytics
+- deadline reminders
+
+========================================
+5. STUDY MATERIALS MODULE
+========================================
+
+Create a complete content management system for educational resources.
+
+Manage:
+- PDFs
+- Notes
+- PYQs
+- Mock Tests
+- Entrance Materials
+
+Categories:
+- CUET
+- JEE
+- NEET
+- BCA
+- Nursing
+- Polytechnic
+
+Features:
+- upload files
+- preview documents
+- category filters
+- download tracking
+- featured materials
+- upload history
+
+UI:
+- card layouts
+- file manager style interface
+- modern uploader
+- drag-and-drop upload
+
+========================================
+6. BLOGS & SEO MODULE
+========================================
+
+Create a modern content management and SEO system.
+
+Features:
+- rich text blog editor
+- SEO metadata
+- slug generation
+- featured image upload
+- category management
+- draft/publish workflow
+- blog analytics
+- preview mode
+
+SEO Features:
+- meta title
+- meta description
+- OG image
+- canonical URL
+- schema preview
+
+UI:
+- modern editor
+- blog table
+- SEO score widget
+- content preview
+
+========================================
+7. DOCUMENT MANAGEMENT MODULE
+========================================
+
+Securely manage student documents.
+
+Document Types:
+- marksheets
+- Aadhaar
+- photos
+- signatures
+- certificates
+- income proof
+
+Features:
+- upload
+- verification
+- rejection reason
+- preview
+- secure download
+- document status tracking
+
+Statuses:
+- pending
+- verified
+- rejected
+- re-upload required
+
+UI:
+- secure document viewer
+- side-by-side verification
+- approval panel
+- mobile-friendly uploads
+
+========================================
+8. AI COUNSELOR MANAGEMENT MODULE
+========================================
+
+Create a modern AI recommendation engine management system.
+
+Features:
+- AI recommendation rules
+- AI prompt settings
+- chat logs
+- course recommendation engine
+- college recommendation engine
+- AI analytics
+- recommendation history
+
+Inputs:
+- marks
+- budget
+- state
+- interests
+- preferred course
+
+Outputs:
+- recommended colleges
+- recommended courses
+- counseling suggestions
+
+UI:
+- modern AI dashboard
+- AI insight cards
+- chat history viewer
+- recommendation analytics
+- AI activity timeline
+
+IMPORTANT:
+AI UI should feel:
+- subtle
+- intelligent
+- premium
+- non-robotic
+
+========================================
+9. MARKETING MODULE
+========================================
+
+Create a modern marketing analytics system.
+
+Features:
+- campaign tracking
+- UTM analytics
+- lead source reporting
+- landing page analytics
+- conversion tracking
+- ad performance
+- source-wise ROI
+
+Lead Sources:
+- Facebook Ads
+- Instagram Ads
+- Google Ads
+- SEO
+- WhatsApp
+- Referral
+
+Include:
+- charts
+- funnel analytics
+- campaign comparison
+- source performance widgets
+
+========================================
+10. NOTIFICATIONS MODULE
+========================================
+
+Manage communication systems.
+
+Channels:
+- WhatsApp
+- Email
+- SMS
+
+Features:
+- template management
+- automation rules
+- campaign history
+- scheduling
+- delivery reports
+- audience targeting
+
+Templates:
+- admission updates
+- OTP
+- follow-up reminders
+- payment reminders
+- document reminders
+
+UI:
+- modern template editor
+- campaign analytics
+- schedule calendar
+- delivery charts
+
+========================================
+11. PAYMENTS MODULE
+========================================
+
+Create a complete finance and payment tracking system.
+
+Features:
+- payment tracking
+- receipt generation
+- commission tracking
+- finance approvals
+- transaction logs
+- pending payments
+- counselor commissions
+
+Statuses:
+- pending
+- paid
+- failed
+- refunded
+- approved
+
+Include:
+- finance dashboard
+- transaction timeline
+- downloadable receipts
+- payment analytics
+- revenue reports
+
+========================================
+12. ACTIVITY LOGS MODULE
+========================================
+
+Track all system activities.
+
+Track:
+- login logs
+- lead updates
+- payment changes
+- role changes
+- counselor activity
+- approval history
+- document actions
+
+Features:
+- filters
+- search
+- timeline view
+- user activity tracking
+- suspicious activity alerts
+
+UI:
+- modern audit logs
+- activity timeline
+- expandable detail drawers
+
+========================================
+IMPORTANT UX REQUIREMENTS
+========================================
+
+All modules should include:
+- loading states
+- empty states
+- success/error states
+- responsive tables
+- search bars
+- advanced filters
+- breadcrumbs
+- pagination
+- export buttons
+- mobile responsiveness
+- smooth navigation
+
+========================================
+MOBILE-FIRST EXPERIENCE
+========================================
+
+Counselors and managers will heavily use mobile devices.
+
+Create:
+- responsive dashboards
+- mobile cards
+- swipe interactions
+- floating action buttons
+- bottom navigation
+- quick WhatsApp/call actions
+
+========================================
+FINAL GOAL
+========================================
+
+The final admin panel should feel like:
+
+“A complete AI-powered admission management operating system for India.”
+
+It should look:
+- scalable
+- premium
+- enterprise-grade
+- modern
+- intelligent
+- production-ready
+
+NOT like:
+- outdated ERP software
+- school management software
+- old educational admin systems.

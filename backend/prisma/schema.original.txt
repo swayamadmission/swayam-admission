@@ -1,0 +1,108 @@
+Created At: 2026-08-17T15:11:58+05:30
+Completed At: 2026-08-17T15:11:59+05:30
+File Path: `file:///c:/Users/mdosa/OneDrive/Desktop/swayam-admission/backend/prisma/schema.prisma`
+Total Lines: 3545
+Total Bytes: 116938
+Showing lines 1 to 100
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: generator client {
+2:   provider = "prisma-client-js"
+3: }
+4: 
+5: datasource db {
+6:   provider = "postgresql"
+7:   url      = env("DATABASE_URL")
+8: }
+9: 
+10: enum Role {
+11:   STUDENT
+12:   ADMIN
+13:   SUPER_ADMIN
+14:   COUNSELOR
+15:   CONTENT_MANAGER
+16:   SEO_MANAGER
+17:   MARKETING_TEAM
+18:   DIRECTOR
+19:   SENIOR_COUNSELOR
+20:   ACCOUNTS_MANAGER
+21:   COLLEGE_MANAGER
+22:   PAYMENT_VERIFIER
+23:   AUDITOR
+24: }
+25: 
+26: enum ApplicationStatus {
+27:   NEW
+28:   UNDER_REVIEW
+29:   DOCUMENT_PENDING
+30:   DOCUMENTS_UPLOADED
+31:   DOCUMENTS_VERIFIED
+32:   COUNSELOR_ASSIGNED
+33:   APPROVED
+34:   COLLEGE_APPROVED
+35:   REJECTED
+36:   ADMISSION_CONFIRMED
+37:   ADMISSION_COMPLETED
+38:   STUDENT_ENROLLED
+39:   PAYMENT_PENDING
+40:   PAYMENT_COMPLETED
+41:   CANCELLED
+42: }
+43: 
+44: enum PaymentStatus {
+45:   INITIATED
+46:   PENDING
+47:   PROCESSING
+48:   SUCCESS
+49:   COMPLETED
+50:   FAILED
+51:   CANCELLED
+52:   REFUNDED
+53:   PARTIALLY_PAID
+54:   OVERDUE
+55:   VERIFICATION_PENDING
+56: }
+57: 
+58: 
+59: enum LeadStage {
+60:   NEW
+61:   CONTACTED
+62:   FOLLOW_UP
+63:   INTERESTED
+64:   NOT_INTERESTED
+65:   CONVERTED
+66:   CLOSED
+67: }
+68: 
+69: enum LeadPriority {
+70:   HOT
+71:   WARM
+72:   COLD
+73: }
+74: 
+75: enum LeadSource {
+76:   WEBSITE
+77:   FACEBOOK
+78:   WHATSAPP
+79:   GOOGLE
+80:   INSTAGRAM
+81:   YOUTUBE
+82:   REFERRAL
+83:   IVR
+84: }
+85: 
+86: enum DocumentType {
+87:   TENTH_MARKSHEET
+88:   TWELFTH_MARKSHEET
+89:   GRADUATION
+90:   DIPLOMA
+91:   AADHAAR
+92:   PAN
+93:   PASSPORT
+94:   DRIVING_LICENSE
+95:   PHOTO
+96:   CERTIFICATE
+97:   MIGRATION
+98:   SIGNATURE
+99:   CASTE_CERTIFICATE
+100:   INCOME_CERTIFICATE
+The above content does NOT show the entire file contents. If you need to view any lines of the file which were not shown to complete your task, call this tool again to view those lines.
