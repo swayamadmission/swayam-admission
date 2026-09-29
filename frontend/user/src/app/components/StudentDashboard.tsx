@@ -35,6 +35,8 @@ import ReferralDashboard from "./ReferralDashboard";
 import CouponApplyWidget from "./CouponApplyWidget";
 import FirstLoginReferralModal from "./FirstLoginReferralModal";
 import { CouponValidationResponse } from "../../api/coupons.api";
+import CareerAdmissionGuides from "./CareerAdmissionGuides";
+import FAQPage from "./FAQPage";
 
 const SIDEBAR_ITEMS = [
   { id:"overview", label:"Overview", icon:LayoutDashboard },
@@ -560,6 +562,58 @@ export default function StudentDashboard() {
     },
   });
 
+  // Deletion Request States & Mutations
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteSelectedDocIds, setDeleteSelectedDocIds] = useState<string[]>([]);
+  const [deleteReason, setDeleteReason] = useState<string>("Uploaded by mistake");
+  const [deleteAdditionalDetails, setDeleteAdditionalDetails] = useState<string>("");
+  const [deleteApplicationId, setDeleteApplicationId] = useState<string>("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState<boolean>(false);
+  const [deletionSubmissionResult, setDeletionSubmissionResult] = useState<any>(null);
+
+  const { data: myDeletionRequestsRes } = useQuery({
+    queryKey: ["my_deletion_requests"],
+    queryFn: () => documentsApi.getMyDeletionRequests(),
+    enabled: isLoggedIn,
+  });
+
+  const submitDeletionMutation = useMutation({
+    mutationFn: (data: {
+      documentIds: string[];
+      reason: string;
+      additionalDetails?: string;
+      applicationId?: string;
+      confirmation: boolean;
+    }) => documentsApi.requestDeletion(data),
+    onSuccess: (res: any) => {
+      setDeletionSubmissionResult(res.data?.data || res.data);
+      queryClient.invalidateQueries({ queryKey: ["my_documents"] });
+      queryClient.invalidateQueries({ queryKey: ["my_documents_checklist"] });
+      queryClient.invalidateQueries({ queryKey: ["my_deletion_requests"] });
+      queryClient.invalidateQueries({ queryKey: ["my_notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+      toast.success("Document deletion request submitted successfully.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to submit deletion request.");
+    },
+  });
+
+  const cancelDeletionMutation = useMutation({
+    mutationFn: (id: string) => documentsApi.cancelDeletionRequest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my_documents"] });
+      queryClient.invalidateQueries({ queryKey: ["my_documents_checklist"] });
+      queryClient.invalidateQueries({ queryKey: ["my_deletion_requests"] });
+      queryClient.invalidateQueries({ queryKey: ["my_notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+      toast.success("Deletion request cancelled successfully.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to cancel deletion request.");
+    },
+  });
+
   const {
     data: notificationsRes,
     isLoading: isNotificationsLoading,
@@ -570,6 +624,12 @@ export default function StudentDashboard() {
   } = useQuery({
     queryKey: ["my_notifications"],
     queryFn: () => notificationsApi.getMyNotifications(),
+    enabled: isLoggedIn,
+  });
+
+  const { data: unreadCountRes } = useQuery({
+    queryKey: ["notifications_unread"],
+    queryFn: () => notificationsApi.getUnreadCount(),
     enabled: isLoggedIn,
   });
 
@@ -590,8 +650,14 @@ export default function StudentDashboard() {
 
   const markReadMutation = useMutation({
     mutationFn: (id: string) => notificationsApi.markAsRead(id),
-    onSuccess: () => {
+    onSuccess: (_, id) => {
       queryClient.invalidateQueries({ queryKey: ["my_notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+      try {
+        const bc = new BroadcastChannel("swayam_erp_sync");
+        bc.postMessage({ type: "notification.read", id });
+        bc.close();
+      } catch {}
     },
   });
 
@@ -599,6 +665,12 @@ export default function StudentDashboard() {
     mutationFn: () => notificationsApi.markAllAsRead(),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my_notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+      try {
+        const bc = new BroadcastChannel("swayam_erp_sync");
+        bc.postMessage({ type: "notification.readAll" });
+        bc.close();
+      } catch {}
     },
   });
 
@@ -1015,6 +1087,7 @@ export default function StudentDashboard() {
     null;
   const isCounselorRequestPending = Boolean(counselorStatusRes?.isRequestPending);
   const myNotifications = normalizeArray(notificationsRes?.data);
+  const unreadCount = Number(unreadCountRes?.data?.count ?? myNotifications.filter((n: any) => !n.isRead).length);
   const materialBookmarks = normalizeArray(materialBookmarksRes?.data?.data || materialBookmarksRes?.data);
   const materialHistory = normalizeArray(materialHistoryRes?.data?.data || materialHistoryRes?.data);
   const recommendedMaterials = normalizeArray(recommendedMaterialsRes?.data?.data || recommendedMaterialsRes?.data);
@@ -1095,7 +1168,7 @@ export default function StudentDashboard() {
                     {studentInitial}
                   </div>
                   <div>
-                    <div style={{fontSize:"14px",fontWeight:700,color:"#0F172A"}}>{studentName}</div>
+                    <div style={{fontSize:"14px",fontWeight:700,color:"#4A7B5B"}}>{studentName}</div>
                     <div style={{fontSize:"11px",color:"#94a3b8"}}>B.Tech 2024 Aspirant</div>
                   </div>
                 </div>
@@ -1107,7 +1180,11 @@ export default function StudentDashboard() {
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-left transition-colors mb-0.5 ${activeSection===item.id?"bg-[#E8F3EC] text-[#4A7B5B]":"text-gray-600 hover:bg-gray-50"}`}
                     style={{fontWeight:activeSection===item.id?600:400}}>
                     <item.icon size={16}/>{item.label}
-                    {item.id==="notifications" && myNotifications.length > 0 && <span className="ml-auto w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center" style={{fontSize:"9px",fontWeight:700}}>{myNotifications.length}</span>}
+                    {item.id==="notifications" && unreadCount > 0 && (
+                      <span className="ml-auto px-1.5 py-0.5 min-w-[20px] rounded-full bg-[#4A7B5B] text-white flex items-center justify-center shadow-xs" style={{fontSize:"10px",fontWeight:700}}>
+                        {unreadCount > 20 ? "20+" : unreadCount}
+                      </span>
+                    )}
                   </button>
                 ))}
                 <div className="border-t border-gray-100 mt-2 pt-2">
@@ -1128,6 +1205,11 @@ export default function StudentDashboard() {
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs whitespace-nowrap shrink-0 transition-colors ${activeSection===item.id?"bg-[#4A7B5B] text-white":"bg-white border border-gray-200 text-gray-600"}`}
                   style={{fontWeight:activeSection===item.id?600:400}}>
                   <item.icon size={12}/>{item.label}
+                  {item.id==="notifications" && unreadCount > 0 && (
+                    <span className={`px-1.5 py-0.2 min-w-[16px] rounded-full text-[9px] font-bold ${activeSection===item.id ? "bg-white text-[#4A7B5B]" : "bg-[#4A7B5B] text-white"}`}>
+                      {unreadCount > 20 ? "20+" : unreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -1136,7 +1218,7 @@ export default function StudentDashboard() {
             {activeSection==="overview" && (
               <div className="space-y-5">
                 <div>
-                  <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"22px"}}>Welcome back, {studentName.split(" ")[0]}! 👋</h2>
+                  <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"22px"}}>Welcome back, {studentName.split(" ")[0]}! 👋</h2>
                   <p style={{fontSize:"13px",color:"#94a3b8"}}>Here's a summary of your admission journey</p>
                 </div>
                 {/* Stats */}
@@ -1151,7 +1233,7 @@ export default function StudentDashboard() {
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{backgroundColor:s.bg}}>
                         <s.icon size={16} style={{color:s.color}}/>
                       </div>
-                      <div style={{fontSize:"24px",fontWeight:800,color:"#0F172A"}}>{s.value}</div>
+                      <div style={{fontSize:"24px",fontWeight:800,color:"#4A7B5B"}}>{s.value}</div>
                       <div style={{fontSize:"11px",color:"#94a3b8"}}>{s.label}</div>
                     </div>
                   ))}
@@ -1162,7 +1244,7 @@ export default function StudentDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]" />
-                      <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Your Assigned Educational Counselor</h3>
+                      <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Your Assigned Educational Counselor</h3>
                     </div>
                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E8F3EC] text-[#4A7B5B]">
                       Live Support
@@ -1176,7 +1258,7 @@ export default function StudentDashboard() {
                           {assignedCounselor.fullName?.charAt(0) || "C"}
                         </div>
                         <div>
-                          <div className="font-bold text-[#0F172A] text-sm">{assignedCounselor.fullName}</div>
+                          <div className="font-bold text-[#4A7B5B] text-sm">{assignedCounselor.fullName}</div>
                           <div className="text-xs text-gray-500">{assignedCounselor.designation || "Senior Educational Counselor"}</div>
                           <div className="text-[11px] text-gray-400">{assignedCounselor.department || "Admissions Department"}</div>
                         </div>
@@ -1209,7 +1291,7 @@ export default function StudentDashboard() {
                           <Clock size={18} />
                         </div>
                         <div>
-                          <div className="font-bold text-[#0F172A] text-sm flex items-center gap-2">
+                          <div className="font-bold text-[#4A7B5B] text-sm flex items-center gap-2">
                             Request Submitted — Pending Assignment
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-200 text-amber-900">
                               In Review
@@ -1234,7 +1316,7 @@ export default function StudentDashboard() {
                           <User size={18} />
                         </div>
                         <div>
-                          <div className="font-bold text-[#0F172A] text-sm">No counselor assigned yet</div>
+                          <div className="font-bold text-[#4A7B5B] text-sm">No counselor assigned yet</div>
                           <div className="text-xs text-gray-500">
                             Get a dedicated admission advisor to guide your course, eligibility, and college selection.
                           </div>
@@ -1254,7 +1336,7 @@ export default function StudentDashboard() {
                 {/* Application status */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 style={{fontSize:"16px",fontWeight:700,color:"#0F172A"}}>Recent Applications</h3>
+                    <h3 style={{fontSize:"16px",fontWeight:700,color:"#4A7B5B"}}>Recent Applications</h3>
                     <button onClick={()=>setActiveSection("applications")} className="text-xs text-[#4A7B5B] hover:underline">View all</button>
                   </div>
                   <div className="space-y-3">
@@ -1271,7 +1353,7 @@ export default function StudentDashboard() {
                       myApplications.slice(0,2).map((app: any)=>(
                         <div key={app.id} className="flex items-center justify-between p-3 bg-[#F8FAFC] rounded-xl">
                           <div>
-                            <div style={{fontSize:"13px",fontWeight:600,color:"#0F172A"}}>
+                            <div style={{fontSize:"13px",fontWeight:600,color:"#4A7B5B"}}>
                               {app.college?.name || app.formData?.preferences?.preferredCollege || "College Preference: Not Selected"}
                             </div>
                             <div style={{fontSize:"11px",color:"#94a3b8"}}>{app.course?.name} · {new Date(app.createdAt).toLocaleDateString()}</div>
@@ -1281,6 +1363,81 @@ export default function StudentDashboard() {
                       ))
                     )}
                   </div>
+                </div>
+
+                {/* Study Materials Overview Card */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#4A7B5B]" />
+                      <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Study Materials & Resources</h3>
+                    </div>
+                    <Link to="/study-materials" className="text-xs text-[#4A7B5B] font-semibold hover:underline flex items-center gap-1">
+                      Browse Library <ChevronRight size={13} />
+                    </Link>
+                  </div>
+
+                  {materialBookmarks.length === 0 && materialHistory.length === 0 && recommendedMaterials.length === 0 ? (
+                    <div className="p-4 bg-[#F8FAFC] rounded-xl border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[#E8F3EC] text-[#4A7B5B] flex items-center justify-center shrink-0">
+                          <BookOpen size={18} />
+                        </div>
+                        <div>
+                          <div className="font-bold text-[#4A7B5B] text-sm">Free Study Library</div>
+                          <div className="text-xs text-gray-500">Access curated lecture notes, PYQs, mock tests, and syllabus guides.</div>
+                        </div>
+                      </div>
+                      <Link
+                        to="/study-materials"
+                        className="px-3.5 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-semibold hover:bg-[#3d694d] transition shrink-0"
+                      >
+                        Explore Materials
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="p-3 bg-[#F8FAFC] rounded-xl border border-gray-100">
+                          <div className="text-xs text-gray-500">Bookmarked</div>
+                          <div className="text-base font-bold text-[#4A7B5B]">{materialBookmarks.length}</div>
+                        </div>
+                        <div className="p-3 bg-[#F8FAFC] rounded-xl border border-gray-100">
+                          <div className="text-xs text-gray-500">Recently Viewed</div>
+                          <div className="text-base font-bold text-[#4A7B5B]">{materialHistory.length}</div>
+                        </div>
+                        <div className="p-3 bg-[#F8FAFC] rounded-xl border border-gray-100 col-span-2 sm:col-span-1">
+                          <div className="text-xs text-gray-500">Recommended</div>
+                          <div className="text-base font-bold text-[#4A7B5B]">{recommendedMaterials.length}</div>
+                        </div>
+                      </div>
+
+                      {/* Display top recent or bookmarked item */}
+                      {(materialHistory[0] || materialBookmarks[0] || recommendedMaterials[0]) && (
+                        <div className="p-3 bg-[#F8FAFC] rounded-xl flex items-center justify-between gap-2 border border-gray-100">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-[#E8F3EC] flex items-center justify-center shrink-0 text-[#4A7B5B]">
+                              <FileText size={14} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-[#4A7B5B] truncate">
+                                {(materialHistory[0] || materialBookmarks[0] || recommendedMaterials[0]).title}
+                              </p>
+                              <p className="text-[11px] text-gray-400">
+                                {(materialHistory[0] || materialBookmarks[0] || recommendedMaterials[0]).materialType} · {(materialHistory[0] || materialBookmarks[0] || recommendedMaterials[0]).category}
+                              </p>
+                            </div>
+                          </div>
+                          <Link
+                            to="/study-materials"
+                            className="px-2.5 py-1 text-xs font-semibold text-[#4A7B5B] bg-[#E8F3EC] rounded-lg hover:bg-[#d8e8dc] shrink-0"
+                          >
+                            Open
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* AI recommendation preview */}
@@ -1302,7 +1459,7 @@ export default function StudentDashboard() {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>My Admission Journey</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>My Admission Journey</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>Track your live progress, checklist, and admission events.</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1326,7 +1483,7 @@ export default function StudentDashboard() {
                           alert("Failed to export journey CSV. Please try again.");
                         }
                       }}
-                      className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-slate-800 transition-all"
+                      className="px-3.5 py-2 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#d8e8dc] border border-[#4A7B5B]/20 transition-all"
                     >
                       <Download size={13} /> Export CSV
                     </button>
@@ -1350,7 +1507,7 @@ export default function StudentDashboard() {
                     <div className="w-14 h-14 bg-[#E8F3EC] text-[#4A7B5B] rounded-2xl flex items-center justify-center mx-auto mb-3">
                       <MapIcon size={28} />
                     </div>
-                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }} className="mb-1">
+                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }} className="mb-1">
                       Your admission journey is being prepared
                     </h3>
                     <p className="text-gray-500 text-xs max-w-md mx-auto mb-5">
@@ -1370,7 +1527,7 @@ export default function StudentDashboard() {
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                         <div>
                           <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current Stage</span>
-                          <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A" }}>
+                          <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#4A7B5B" }}>
                             {journeyRes?.progress?.currentStage || "Profile Setup"}
                           </h3>
                         </div>
@@ -1388,7 +1545,7 @@ export default function StudentDashboard() {
                     </div>
 
                     {/* REFER A STUDENT PROMINENT OVERVIEW HERO CARD */}
-                    <div className="rounded-2xl p-5 bg-gradient-to-r from-[#0F172A] to-[#1E293B] text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm border border-white/10">
+                    <div className="rounded-2xl p-5 bg-gradient-to-r from-[#2D5A3C] via-[#356345] to-[#4A7B5B] text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm border border-white/10">
                       <div className="space-y-1 max-w-md">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#4A7B5B]/30 text-[#E8F3EC] text-[11px] font-semibold border border-[#4A7B5B]/40">
                           <Gift size={13} className="text-[#F0AE1A]" />
@@ -1410,7 +1567,7 @@ export default function StudentDashboard() {
 
                     {/* Assigned Counselor Widget */}
                     {assignedCounselor ? (
-                      <div className="bg-gradient-to-r from-[#0F172A] to-[#1E293B] rounded-2xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="bg-gradient-to-r from-[#4A7B5B] to-[#1E293B] rounded-2xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 bg-[#4A7B5B] rounded-2xl flex items-center justify-center text-white font-black text-lg shrink-0">
                             {assignedCounselor.fullName?.charAt(0) || "C"}
@@ -1485,7 +1642,7 @@ export default function StudentDashboard() {
 
                     {/* Admission Checkpoints Grid */}
                     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xs">
-                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }} className="mb-4">Admission Checkpoints</h3>
+                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }} className="mb-4">Admission Checkpoints</h3>
                       <div className="relative border-l-2 border-slate-100 ml-4 space-y-6 pb-2">
                         {journeySteps.length === 0 ? (
                           <div className="text-center py-6 text-gray-400 text-sm">No checkpoints generated yet.</div>
@@ -1667,7 +1824,7 @@ export default function StudentDashboard() {
                     <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xs space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>My Applications ({journeyRes?.applications?.length || 0})</h3>
+                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>My Applications ({journeyRes?.applications?.length || 0})</h3>
                           <p className="text-xs text-slate-500">Each application tracks its own independent admission journey.</p>
                         </div>
                       </div>
@@ -1766,7 +1923,7 @@ export default function StudentDashboard() {
                     {/* Live Chronological Timeline */}
                     {journeyTimeline.length > 0 && (
                       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-xs">
-                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }} className="mb-4">Activity & Audit Timeline</h3>
+                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }} className="mb-4">Activity & Audit Timeline</h3>
                         <div className="space-y-3">
                           {journeyTimeline.map((evt: any, idx: number) => (
                             <div key={evt.id || `evt_${idx}`} className="flex items-start gap-3.5 p-3.5 bg-slate-50/70 rounded-xl border border-slate-100">
@@ -1795,7 +1952,7 @@ export default function StudentDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>Saved Colleges</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Saved Colleges</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>Institutions you have bookmarked for comparison and applications.</p>
                   </div>
                   <button
@@ -1828,7 +1985,7 @@ export default function StudentDashboard() {
                     <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-4 hover:shadow-sm transition-all">
                       <ImageWithFallback src={item.college?.img} alt={item.college?.name} className="w-16 h-16 rounded-xl object-cover shrink-0"/>
                       <div className="flex-1 min-w-0">
-                        <div style={{fontSize:"15px",fontWeight:700,color:"#0F172A"}}>{item.college?.name}</div>
+                        <div style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{item.college?.name}</div>
                         <div className="flex items-center gap-1 text-gray-400 mb-1">
                           <MapPin size={11}/><span style={{fontSize:"11px"}}>{item.college?.city}, {item.college?.state}</span>
                         </div>
@@ -1869,7 +2026,7 @@ export default function StudentDashboard() {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>My Applications</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>My Applications</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>View live status, counselor guidance, timeline & document requirements.</p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1991,7 +2148,7 @@ export default function StudentDashboard() {
                     <div className="w-16 h-16 bg-[#E8F3EC] text-[#4A7B5B] rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <FileText size={32} />
                     </div>
-                    <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A" }} className="mb-1">
+                    <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#4A7B5B" }} className="mb-1">
                       You haven't submitted any applications yet
                     </h3>
                     <p className="text-gray-500 text-xs max-w-md mx-auto mb-6">
@@ -2006,7 +2163,7 @@ export default function StudentDashboard() {
                       </Link>
                       <Link
                         to="/apply-now"
-                        className="px-4 py-2.5 bg-[#0F172A] text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-all"
+                        className="px-4 py-2.5 bg-[#4A7B5B] text-white text-xs font-bold rounded-xl hover:bg-slate-800 transition-all"
                       >
                         Start New Application
                       </Link>
@@ -2080,7 +2237,7 @@ export default function StudentDashboard() {
                                 )}
                                 <div>
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>{collegeName}</h3>
+                                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>{collegeName}</h3>
                                     <span className="text-[10px] font-mono font-semibold px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">{appNo}</span>
                                   </div>
                                   <p style={{ fontSize: "12px", color: "#64748B" }} className="mt-0.5">
@@ -2129,7 +2286,7 @@ export default function StudentDashboard() {
 
                             {/* Counselor Subcard */}
                             {counselorObj && (
-                              <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-3.5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="bg-gradient-to-r from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-xl p-3.5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                                 <div className="flex items-center gap-3">
                                   <div className="w-9 h-9 rounded-xl bg-[#4A7B5B] text-white flex items-center justify-center font-bold shrink-0 text-sm">
                                     {counselorObj.fullName?.charAt(0) || "C"}
@@ -2171,7 +2328,7 @@ export default function StudentDashboard() {
                               </button>
                               <button
                                 onClick={() => setSelectedTimelineApp(app)}
-                                className="px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5 transition-all"
+                                className="px-3.5 py-2 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold hover:bg-[#d8e8dc] border border-[#4A7B5B]/20 flex items-center gap-1.5 transition-all"
                               >
                                 <Clock size={13} /> Track Progress
                               </button>
@@ -2234,7 +2391,7 @@ export default function StudentDashboard() {
                       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div>
                           <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">College Campus Reporting</span>
-                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
+                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>
                             {reportingModalApp.college?.name || "College Admission"}
                           </h3>
                         </div>
@@ -2378,7 +2535,7 @@ export default function StudentDashboard() {
                       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                         <div>
                           <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Application Audit Log</span>
-                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
+                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>
                             {selectedTimelineApp.college?.name || "College Application"}
                           </h3>
                         </div>
@@ -2427,7 +2584,7 @@ export default function StudentDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>AI Recommendations</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>AI Recommendations</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>Colleges shortlisted based on your profile and preferences</p>
                   </div>
                   <button
@@ -2461,7 +2618,7 @@ export default function StudentDashboard() {
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 style={{fontSize:"15px",fontWeight:700,color:"#0F172A"}}>{rec.name}</h3>
+                            <h3 style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{rec.name}</h3>
                             {rec.matchScore && <span className="px-2 py-0.5 bg-[#4A7B5B] text-white rounded-full" style={{fontSize:"10px",fontWeight:700}}>{rec.matchScore}% Match</span>}
                           </div>
                           <p style={{fontSize:"12px",color:"#94a3b8"}} className="mt-1">{rec.city}, {rec.state} · ₹{rec.totalFees?.toLocaleString() || "N/A"}</p>
@@ -3495,7 +3652,7 @@ export default function StudentDashboard() {
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 style={{ fontWeight: 800, color: "#0F172A", fontSize: "20px" }}>Payments & Admission Fee Center</h2>
+                    <h2 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "20px" }}>Payments & Admission Fee Center</h2>
                     <p style={{ fontSize: "13px", color: "#94a3b8" }}>
                       Manage tuition, semester & hostel fees, view official college bank accounts, submit payment proofs, and download tax-compliant receipts.
                     </p>
@@ -3512,7 +3669,7 @@ export default function StudentDashboard() {
                   <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
                     <div>
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Program Fee</span>
-                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }} className="mt-1">
+                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#4A7B5B" }} className="mt-1">
                         ₹{(paymentSummaryData.totalFees || 0).toLocaleString()}
                       </h3>
                       <span className="text-[10px] text-gray-400">Fixed university structure</span>
@@ -3567,7 +3724,7 @@ export default function StudentDashboard() {
                 {/* Mandatory Admin Payment Routing & Active Payment Requests */}
                 <div className="space-y-6">
                   {/* Official Payment Requests Section */}
-                  <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl space-y-4">
+                  <div className="bg-gradient-to-r from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-3xl p-6 text-white shadow-xl space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                       <div>
                         <div className="flex items-center gap-2">
@@ -3604,7 +3761,7 @@ export default function StudentDashboard() {
                                   ? "bg-red-950/20 border-red-800/40 opacity-70"
                                   : isPaid
                                   ? "bg-emerald-900/20 border-emerald-800/40"
-                                  : "bg-slate-800/80 border-slate-700 hover:border-slate-500"
+                                  : "bg-[#1c4028]/80 border-[#3d694d] hover:border-emerald-400"
                               }`}
                               onClick={() => {
                                 if (!isExpired && !isPaid) {
@@ -3645,7 +3802,7 @@ export default function StudentDashboard() {
                               </div>
 
                               {req.totalAmount > 0 && (
-                                <div className="mt-2.5 pt-2 border-t border-slate-700/60 text-[10px] space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-700/40">
+                                <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] space-y-1 bg-[#14331e]/50 p-2.5 rounded-xl border border-emerald-500/20">
                                   <div className="flex justify-between text-slate-300">
                                     <span>Gross Total Fee:</span>
                                     <span className="font-semibold text-white">₹{Number(req.totalAmount).toLocaleString("en-IN")}</span>
@@ -3697,7 +3854,7 @@ export default function StudentDashboard() {
                         })}
                       </div>
                     ) : (
-                      <div className="p-6 bg-slate-800/50 rounded-2xl border border-dashed border-slate-700 text-center space-y-2">
+                      <div className="p-6 bg-[#1c4028]/40 rounded-2xl border border-dashed border-emerald-500/30 text-center space-y-2">
                         <AlertCircle className="mx-auto text-amber-400" size={32} />
                         <h4 className="text-sm font-bold text-white">No Active Fee Payment Request</h4>
                         <p className="text-xs text-slate-300 max-w-md mx-auto">
@@ -3710,7 +3867,7 @@ export default function StudentDashboard() {
                   {/* Official Bank Account Details Card */}
                   {collegeBankAccountsList.length > 0 ? (
                     collegeBankAccountsList.map((bank: any) => (
-                      <div key={bank.id} className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl space-y-6 relative overflow-hidden">
+                      <div key={bank.id} className="bg-gradient-to-br from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-3xl p-6 text-white shadow-xl space-y-6 relative overflow-hidden">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700/60 pb-5">
                           <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-2xl bg-white p-2 flex items-center justify-center shrink-0 shadow-md">
@@ -3841,7 +3998,7 @@ export default function StudentDashboard() {
                   <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-5">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                       <div>
-                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>Submit Payment Proof for Verification</h3>
+                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Submit Payment Proof for Verification</h3>
                         <p style={{ fontSize: "12px", color: "#94a3b8" }}>
                           Upload payment receipt screenshot against your active Payment Request. Amount is locked by Admin.
                         </p>
@@ -4020,7 +4177,7 @@ export default function StudentDashboard() {
                 <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <div>
-                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>Course Fee Structure Breakdown</h3>
+                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Course Fee Structure Breakdown</h3>
                       <p style={{ fontSize: "12px", color: "#94a3b8" }}>Itemized list of all tuition, hostel, exam, and registration charges.</p>
                     </div>
                     <span className="text-xs font-bold text-slate-400">Currency: INR (₹)</span>
@@ -4068,7 +4225,7 @@ export default function StudentDashboard() {
                 <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-4">
                   <div className="flex items-center justify-between pb-3 border-b border-gray-100">
                     <div>
-                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>Payment Audit & Transaction History</h3>
+                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Payment Audit & Transaction History</h3>
                       <p style={{ fontSize: "12px", color: "#94a3b8" }}>Download official receipts and tax-compliant invoices.</p>
                     </div>
                   </div>
@@ -4115,7 +4272,7 @@ export default function StudentDashboard() {
                               </button>
                               <button
                                 onClick={() => setSelectedInvoice(p)}
-                                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl flex items-center gap-1"
+                                className="px-3 py-1.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white text-xs font-bold rounded-xl flex items-center gap-1"
                               >
                                 <FileText size={12} /> Invoice
                               </button>
@@ -4136,7 +4293,7 @@ export default function StudentDashboard() {
                           <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">
                             {selectedReceipt ? "Official Fee Receipt" : "Tax Invoice"}
                           </span>
-                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
+                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>
                             {selectedReceipt?.receiptNumber || selectedInvoice?.invoiceNumber || "DOCUMENT"}
                           </h3>
                         </div>
@@ -4198,7 +4355,7 @@ export default function StudentDashboard() {
                 {/* Header & Dynamic Metrics */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-100 shadow-xs">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>Student Document Vault & Compliance Center</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Student Document Vault & Compliance Center</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>Authoritative single source of truth for all admission applications and compliance checks.</p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -4211,6 +4368,17 @@ export default function StudentDashboard() {
                       className="px-3 py-2 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1.5 hover:bg-[#d8e8dc] transition-all disabled:opacity-50"
                     >
                       <RotateCcw size={13} className={isDocsFetching || isChecklistFetching ? "animate-spin" : ""} /> Refresh Status
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsDeleteModalOpen(true);
+                        setDeletionSubmissionResult(null);
+                        setDeleteSelectedDocIds([]);
+                        setDeleteConfirmation(false);
+                      }}
+                      className="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-rose-200"
+                    >
+                      <Trash2 size={13} /> Request Document Deletion
                     </button>
                   </div>
                 </div>
@@ -4246,6 +4414,85 @@ export default function StudentDashboard() {
                         <div className="text-xs text-rose-600 font-semibold">Action Required</div>
                         <div className="text-2xl font-black text-rose-700 mt-1">{correction}</div>
                         <div className="text-[11px] text-rose-600 mt-0.5">Need re-upload / correction</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Active Deletion Requests Alert Banner */}
+                {(() => {
+                  const reqs = Array.isArray(myDeletionRequestsRes?.data?.data)
+                    ? myDeletionRequestsRes.data.data
+                    : Array.isArray(myDeletionRequestsRes?.data)
+                    ? (myDeletionRequestsRes.data as any)
+                    : [];
+                  const activeReqs = reqs.filter((r: any) => r.status !== 'CANCELLED' && r.status !== 'DELETED');
+                  if (activeReqs.length === 0) return null;
+
+                  return (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                          <AlertCircle size={16} className="text-amber-600 shrink-0" />
+                          <span>Active Deletion Requests ({activeReqs.length})</span>
+                        </div>
+                        <span className="text-[11px] text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-semibold">
+                          45-Day Statutory Retention Process
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {activeReqs.map((req: any) => {
+                          const reqDate = req.requestedAt ? new Date(req.requestedAt) : new Date();
+                          const schedDate = req.scheduledDeletionAt ? new Date(req.scheduledDeletionAt) : new Date();
+                          const fmtReq = `${String(reqDate.getDate()).padStart(2, '0')}/${String(reqDate.getMonth() + 1).padStart(2, '0')}/${reqDate.getFullYear()}`;
+                          const fmtSched = `${String(schedDate.getDate()).padStart(2, '0')}/${String(schedDate.getMonth() + 1).padStart(2, '0')}/${schedDate.getFullYear()}`;
+
+                          return (
+                            <div key={req.id} className="bg-white p-3.5 rounded-xl border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                              <div>
+                                <div className="font-semibold text-slate-800 flex items-center gap-2 flex-wrap">
+                                  <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                                    {req.id.slice(0, 10).toUpperCase()}
+                                  </span>
+                                  <span>Reason: {req.reason}</span>
+                                </div>
+                                <div className="text-slate-500 mt-1 text-[11px] flex items-center gap-3 flex-wrap">
+                                  <span>Requested: {fmtReq}</span>
+                                  <span className="text-amber-700 font-bold">
+                                    Scheduled Deletion: {fmtSched}
+                                  </span>
+                                  {req.items && req.items.length > 0 && (
+                                    <span className="text-slate-400">({req.items.length} document{req.items.length > 1 ? 's' : ''})</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                  req.status === 'SCHEDULED_FOR_DELETION' || req.status === 'APPROVED'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : req.status === 'ON_HOLD'
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {req.status.replace(/_/g, ' ')}
+                                </span>
+                                {(req.status === 'PENDING_REVIEW' || req.status === 'SCHEDULED_FOR_DELETION') && (
+                                  <button
+                                    onClick={() => {
+                                      if (confirm("Cancel this deletion request? Scheduled permanent deletion will be stopped.")) {
+                                        cancelDeletionMutation.mutate(req.id);
+                                      }
+                                    }}
+                                    disabled={cancelDeletionMutation.isPending}
+                                    className="px-2.5 py-1 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold transition-colors disabled:opacity-50 text-[11px]"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -4358,7 +4605,7 @@ export default function StudentDashboard() {
 
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span style={{fontSize:"14px",fontWeight:700,color:"#0F172A"}}>{docItem.name}</span>
+                                      <span style={{fontSize:"14px",fontWeight:700,color:"#4A7B5B"}}>{docItem.name}</span>
                                       {docItem.isRequired && (
                                         <span className="px-2 py-0.5 bg-rose-50 text-rose-600 rounded-md font-bold text-[10px]">
                                           Required
@@ -4390,20 +4637,40 @@ export default function StudentDashboard() {
 
                                 {/* Status Badge & Actions */}
                                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-center flex-wrap">
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                                    isVerified
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : isCorrection
-                                      ? "bg-rose-100 text-rose-800"
-                                      : isPending
-                                      ? "bg-blue-100 text-blue-800"
-                                      : "bg-gray-100 text-gray-600"
-                                  }`}>
-                                    {docItem.status.replace(/_/g, ' ')}
-                                  </span>
+                                  {(() => {
+                                    const isDel = docItem.status === 'DELETION_REQUESTED' || docItem.status === 'DELETION_SCHEDULED';
+                                    const isHold = docItem.status === 'RETENTION_HOLD';
+                                    const isDeleted = docItem.status === 'DELETED';
+
+                                    let badgeColor = "bg-gray-100 text-gray-600";
+                                    let badgeText = (docItem.status || '').replace(/_/g, ' ');
+
+                                    if (isVerified) {
+                                      badgeColor = "bg-emerald-100 text-emerald-800";
+                                    } else if (isCorrection) {
+                                      badgeColor = "bg-rose-100 text-rose-800";
+                                    } else if (isPending) {
+                                      badgeColor = "bg-blue-100 text-blue-800";
+                                    } else if (isDel) {
+                                      badgeColor = "bg-amber-100 text-amber-800";
+                                      badgeText = docItem.status === 'DELETION_REQUESTED' ? 'Deletion Requested' : 'Deletion Scheduled';
+                                    } else if (isHold) {
+                                      badgeColor = "bg-purple-100 text-purple-800";
+                                      badgeText = 'Retention Hold';
+                                    } else if (isDeleted) {
+                                      badgeColor = "bg-slate-200 text-slate-700";
+                                      badgeText = 'Permanently Deleted';
+                                    }
+
+                                    return (
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${badgeColor}`}>
+                                        {badgeText}
+                                      </span>
+                                    );
+                                  })()}
 
                                   {/* Version History Button */}
-                                  {docItem.documentId && (
+                                  {docItem.documentId && docItem.status !== 'DELETED' && (
                                     <button
                                       onClick={() => setViewHistoryDocId(docItem.documentId!)}
                                       className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
@@ -4413,13 +4680,13 @@ export default function StudentDashboard() {
                                     </button>
                                   )}
 
-                                  {docItem.fileUrl && (
+                                  {docItem.documentId && docItem.status !== 'DELETED' && (
                                     <a
-                                      href={docItem.fileUrl}
+                                      href={documentsApi.getDocumentUrl(docItem.documentId, 'preview')}
                                       target="_blank"
                                       rel="noreferrer"
                                       className="p-2 text-gray-500 hover:text-[#4A7B5B] hover:bg-[#E8F3EC] rounded-xl transition-colors"
-                                      title="View / Download File"
+                                      title="Secure View / Download File"
                                     >
                                       <Download size={16} />
                                     </a>
@@ -4550,6 +4817,293 @@ export default function StudentDashboard() {
                     </div>
                   </div>
                 )}
+
+                {/* Request Document Deletion Modal */}
+                {isDeleteModalOpen && (
+                  <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-gray-100 space-y-4 max-h-[90vh] overflow-y-auto">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                          <Trash2 className="w-5 h-5 text-rose-600" /> Request Document Deletion
+                        </h3>
+                        <button
+                          onClick={() => {
+                            setIsDeleteModalOpen(false);
+                            setDeletionSubmissionResult(null);
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {deletionSubmissionResult ? (
+                        /* Submission Success View */
+                        <div className="space-y-4 py-2">
+                          <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-center space-y-2">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                              <CheckCircle2 size={26} />
+                            </div>
+                            <h4 className="font-bold text-emerald-950 text-base">Request Submitted Successfully</h4>
+                            <p className="text-xs text-emerald-800">
+                              Your document deletion request has been recorded and placed into statutory review.
+                            </p>
+                          </div>
+
+                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+                            <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                              <span className="text-gray-500 font-medium">Request ID:</span>
+                              <span className="font-bold font-mono text-slate-900">
+                                {deletionSubmissionResult.id?.slice(0, 12).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                              <span className="text-gray-500 font-medium">Requested On:</span>
+                              <span className="font-bold text-slate-900">
+                                {(() => {
+                                  const d = new Date(deletionSubmissionResult.requestedAt || new Date());
+                                  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                                })()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                              <span className="text-gray-500 font-medium">Scheduled Deletion:</span>
+                              <span className="font-bold text-rose-700">
+                                {(() => {
+                                  const d = new Date(deletionSubmissionResult.scheduledDeletionAt || new Date());
+                                  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                                })()}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center py-1">
+                              <span className="text-gray-500 font-medium">Status:</span>
+                              <span className="px-2 py-0.5 rounded font-bold text-[11px] bg-amber-100 text-amber-800">
+                                {deletionSubmissionResult.status?.replace(/_/g, ' ') || 'SCHEDULED FOR DELETION'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-gray-500">
+                            Note: The permanent deletion will execute automatically after 45 calendar days unless a valid legal, regulatory, or verification retention hold is active.
+                          </p>
+
+                          <div className="pt-2 flex justify-end">
+                            <button
+                              onClick={() => {
+                                setIsDeleteModalOpen(false);
+                                setDeletionSubmissionResult(null);
+                              }}
+                              className="px-5 py-2.5 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white font-bold text-xs rounded-xl transition-all"
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Deletion Request Form */
+                        <div className="space-y-4 text-xs">
+                          <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-xl text-rose-800 text-[11px]">
+                            Under Swayam Admission Data Retention & Privacy Policy, requested documents enter a 45-day review and cooling-off period before permanent destruction from private storage.
+                          </div>
+
+                          {/* Auto-filled read-only student identity fields */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-gray-500 font-semibold mb-1">Student Name *</label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={studentUser?.fullName || studentUser?.name || "Student"}
+                                className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-medium cursor-not-allowed"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 font-semibold mb-1">Official Student ID *</label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={studentUser?.studentId || (user as any)?.studentId || "SWY-STU-PENDING"}
+                                className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-mono font-medium cursor-not-allowed"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 font-semibold mb-1">Registered Email *</label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={studentUser?.email || "N/A"}
+                                className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-medium cursor-not-allowed truncate"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-500 font-semibold mb-1">Mobile *</label>
+                              <input
+                                type="text"
+                                readOnly
+                                disabled
+                                value={studentUser?.mobile || "N/A"}
+                                className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-medium cursor-not-allowed"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Application ID Selection */}
+                          <div>
+                            <label className="block text-gray-700 font-semibold mb-1">Application ID (Optional)</label>
+                            <select
+                              value={deleteApplicationId}
+                              onChange={(e) => setDeleteApplicationId(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-800 text-xs focus:ring-1 focus:ring-[#4A7B5B]"
+                            >
+                              <option value="">General Student Vault (All Applications)</option>
+                              {myApplications.map((app: any) => (
+                                <option key={app.id} value={app.id}>
+                                  {app.applicationId || app.id.slice(0, 8)} - {app.college?.name || app.course?.name || "Application"}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Dynamic Uploaded Document Selection */}
+                          <div>
+                            <label className="block text-gray-700 font-bold mb-1.5">
+                              Document(s) to Delete * ({deleteSelectedDocIds.length} selected)
+                            </label>
+                            {(() => {
+                              const uploadedDocs = myDocuments.filter((d: any) => d.status !== 'DELETED');
+                              if (uploadedDocs.length === 0) {
+                                return (
+                                  <div className="p-3 bg-gray-50 rounded-xl border text-gray-500 text-center text-xs">
+                                    No uploaded documents available for deletion.
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="space-y-2 max-h-40 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+                                  {uploadedDocs.map((doc: any) => {
+                                    const isChecked = deleteSelectedDocIds.includes(doc.id);
+                                    const docTitle = doc.title || (typeof doc.type === 'string' ? doc.type.replace(/_/g, ' ') : 'Document');
+                                    return (
+                                      <label
+                                        key={doc.id}
+                                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors ${
+                                          isChecked ? 'bg-rose-50 border border-rose-200' : 'hover:bg-white'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setDeleteSelectedDocIds([...deleteSelectedDocIds, doc.id]);
+                                            } else {
+                                              setDeleteSelectedDocIds(deleteSelectedDocIds.filter((id) => id !== doc.id));
+                                            }
+                                          }}
+                                          className="rounded text-rose-600 focus:ring-rose-500"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-semibold text-gray-800 truncate">{docTitle}</div>
+                                          <div className="text-[10px] text-gray-400">
+                                            v{doc.version || 1} · {doc.status} · {doc.fileName}
+                                          </div>
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Reason for Deletion */}
+                          <div>
+                            <label className="block text-gray-700 font-bold mb-1">Reason for Deletion *</label>
+                            <select
+                              value={deleteReason}
+                              onChange={(e) => setDeleteReason(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-800 text-xs focus:ring-1 focus:ring-[#4A7B5B]"
+                            >
+                              <option value="Uploaded by mistake">Uploaded by mistake</option>
+                              <option value="Duplicate document">Duplicate document</option>
+                              <option value="Document no longer required">Document no longer required</option>
+                              <option value="Incorrect document">Incorrect document</option>
+                              <option value="Privacy request">Privacy request</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+
+                          {/* Additional Details */}
+                          <div>
+                            <label className="block text-gray-700 font-semibold mb-1">Additional Details (Optional)</label>
+                            <textarea
+                              rows={2}
+                              value={deleteAdditionalDetails}
+                              onChange={(e) => setDeleteAdditionalDetails(e.target.value)}
+                              placeholder="Provide any additional explanation for this deletion request..."
+                              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-800 text-xs focus:ring-1 focus:ring-[#4A7B5B]"
+                            />
+                          </div>
+
+                          {/* Confirmation Checkbox */}
+                          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+                            <label className="flex items-start gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={deleteConfirmation}
+                                onChange={(e) => setDeleteConfirmation(e.target.checked)}
+                                className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                              />
+                              <span className="text-[11px] text-amber-950 font-medium">
+                                I confirm that I am requesting deletion of the selected document(s) from my Swayam Admission account/system.
+                              </span>
+                            </label>
+                          </div>
+
+                          {/* Modal Actions */}
+                          <div className="pt-2 flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsDeleteModalOpen(false)}
+                              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (deleteSelectedDocIds.length === 0) {
+                                  toast.error("Please select at least one document to delete.");
+                                  return;
+                                }
+                                if (!deleteConfirmation) {
+                                  toast.error("Please check the confirmation box.");
+                                  return;
+                                }
+                                submitDeletionMutation.mutate({
+                                  documentIds: deleteSelectedDocIds,
+                                  reason: deleteReason,
+                                  additionalDetails: deleteAdditionalDetails.trim() || undefined,
+                                  applicationId: deleteApplicationId || undefined,
+                                  confirmation: true,
+                                });
+                              }}
+                              disabled={deleteSelectedDocIds.length === 0 || !deleteConfirmation || submitDeletionMutation.isPending}
+                              className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              <Trash2 size={13} />
+                              {submitDeletionMutation.isPending ? "Submitting..." : "Submit Deletion Request"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -4558,24 +5112,27 @@ export default function StudentDashboard() {
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-2xl border border-gray-100 shadow-xs">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>Notifications & Alerts Center</h2>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Notifications & Alerts Center</h2>
                     <p style={{fontSize:"13px",color:"#94a3b8"}}>Real-time admission journey alerts, payment receipts, reporting updates & broadcasts.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => markAllNotificationsRead()}
-                      className="px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#0F172A] rounded-xl text-xs font-bold hover:bg-[#F8FAFC] transition shadow-xs flex items-center gap-1.5"
+                      className="px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#4A7B5B] rounded-xl text-xs font-bold hover:bg-[#F8FAFC] transition shadow-xs flex items-center gap-1.5"
                     >
                       <CheckCircle2 size={13} className="text-[#4A7B5B]" /> Mark All Read
                     </button>
                     <button
                       onClick={() => setShowPreferencesModal(true)}
-                      className="px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#0F172A] rounded-xl text-xs font-bold hover:bg-[#F8FAFC] transition shadow-xs flex items-center gap-1.5"
+                      className="px-3 py-1.5 bg-white border border-[#E2E8F0] text-[#4A7B5B] rounded-xl text-xs font-bold hover:bg-[#F8FAFC] transition shadow-xs flex items-center gap-1.5"
                     >
                       <Settings size={13} className="text-[#4A7B5B]" /> Preferences
                     </button>
                     <button
-                      onClick={() => refetchNotifications()}
+                      onClick={() => {
+                        refetchNotifications();
+                        queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+                      }}
                       disabled={isNotificationsFetching}
                       className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-[#d8e8dc] disabled:opacity-50 transition"
                     >
@@ -4600,7 +5157,10 @@ export default function StudentDashboard() {
                   <ErrorState
                     title="Unable to load notifications"
                     error={notificationsError}
-                    onRetry={() => refetchNotifications()}
+                    onRetry={() => {
+                      refetchNotifications();
+                      queryClient.invalidateQueries({ queryKey: ["notifications_unread"] });
+                    }}
                     isRetrying={isNotificationsFetching}
                   />
                 ) : myNotifications.length === 0 ? (
@@ -4608,7 +5168,7 @@ export default function StudentDashboard() {
                     <div className="w-16 h-16 bg-[#E8F3EC] text-[#4A7B5B] rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <Bell size={28} />
                     </div>
-                    <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>No notifications available</h3>
+                    <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>No notifications available</h3>
                     <p className="text-gray-400 text-xs mt-1 max-w-sm mx-auto">
                       You're all caught up! Updates regarding application status, document verifications, and payments will appear here.
                     </p>
@@ -4620,6 +5180,32 @@ export default function StudentDashboard() {
                       const isAdmission = n.type === "ADMISSION" || n.category === "APPLICATION" || n.category === "ADMISSION";
                       const isPayment = n.type === "PAYMENT" || n.category === "PAYMENT";
                       const isUnread = !n.isRead;
+
+                      const renderSafeNotificationText = (text: string) => {
+                        if (!text) return "";
+                        return text
+                          .replace(/\{\{\s*studentName\s*\}\}/g, studentUser?.fullName || user?.name || "Student")
+                          .replace(/\{\{\s*(officialStudentId|studentId)\s*\}\}/g, studentUser?.studentId || (user as any)?.studentId || "")
+                          .replace(/\{\{\s*(applicationNumber|applicationId)\s*\}\}/g, "your application")
+                          .replace(/\{\{\s*collegeName\s*\}\}/g, "your selected college")
+                          .replace(/\{\{\s*courseName\s*\}\}/g, "your course")
+                          .replace(/\{\{\s*branchName\s*\}\}/g, "")
+                          .replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, "")
+                          .replace(/\s+for\s+at\s+/g, " at ")
+                          .replace(/\s{2,}/g, " ")
+                          .trim();
+                      };
+
+                      const formatNotifDate = (dateVal: any) => {
+                        if (!dateVal) return "N/A";
+                        const d = new Date(dateVal);
+                        if (isNaN(d.getTime())) return "N/A";
+                        const day = String(d.getDate()).padStart(2, "0");
+                        const month = String(d.getMonth() + 1).padStart(2, "0");
+                        const year = d.getFullYear();
+                        const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                        return `${day}/${month}/${year} ${time}`;
+                      };
 
                       return (
                         <div
@@ -4654,8 +5240,8 @@ export default function StudentDashboard() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2 mb-1">
                               <div className="flex items-center gap-2">
-                                <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }} className="truncate">
-                                  {n.title || "Notification Update"}
+                                <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }} className="truncate">
+                                  {renderSafeNotificationText(n.title) || "Notification Update"}
                                 </h4>
                                 {isUnread && (
                                   <span className="w-2 h-2 rounded-full bg-[#4A7B5B]" />
@@ -4673,12 +5259,12 @@ export default function StudentDashboard() {
                                 </span>
                               )}
                             </div>
-                            <p style={{ fontSize: "12.5px", color: "#475569", lineHeight: 1.5 }}>
-                              {n.message || n.description}
+                            <p style={{ fontSize: "12.5px", color: "#475569", lineHeight: 1.5, whiteSpace: "pre-line" }}>
+                              {renderSafeNotificationText(n.message || n.description)}
                             </p>
                             <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-2 border-t border-gray-50 text-[11px] text-gray-400">
                               <div className="flex items-center gap-2 font-medium">
-                                <span>{new Date(n.createdAt || Date.now()).toLocaleString()}</span>
+                                <span>{formatNotifDate(n.createdAt)}</span>
                                 {n.category && <span className="px-2 py-0.5 bg-slate-100 rounded-md text-slate-600">{n.category}</span>}
                               </div>
 
@@ -4718,7 +5304,7 @@ export default function StudentDashboard() {
                     <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl">
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                         <div>
-                          <h3 className="text-base font-bold text-[#0F172A]">Communication Preferences</h3>
+                          <h3 className="text-base font-bold text-[#4A7B5B]">Communication Preferences</h3>
                           <p className="text-xs text-gray-400">Control how and where you receive Swayam notifications.</p>
                         </div>
                         <button onClick={() => setShowPreferencesModal(false)} className="text-gray-400 hover:text-gray-600">
@@ -4743,7 +5329,7 @@ export default function StudentDashboard() {
                                   <Icon size={16} />
                                 </div>
                                 <div>
-                                  <span className="font-bold text-[#0F172A] block">{ch.label}</span>
+                                  <span className="font-bold text-[#4A7B5B] block">{ch.label}</span>
                                   <span className="text-[11px] text-gray-400">{ch.desc}</span>
                                 </div>
                               </div>
@@ -4791,7 +5377,7 @@ export default function StudentDashboard() {
             {activeSection==="counseling" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}}>Counseling History</h2>
+                  <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Counseling History</h2>
                   <button
                     onClick={() => refetchHistory()}
                     disabled={isHistoryFetching}
@@ -4835,7 +5421,7 @@ export default function StudentDashboard() {
             {activeSection==="materials" && (
               <div className="space-y-6">
                 <div>
-                  <h2 style={{fontWeight:800,color:"#0F172A",fontSize:"20px"}} className="flex items-center gap-2">
+                  <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}} className="flex items-center gap-2">
                     <BookOpen size={20} className="text-[#4A7B5B]"/> Study Materials
                   </h2>
                   <p style={{fontSize:"13px",color:"#94a3b8"}}>Your bookmarks, recent views, and recommended resources</p>
@@ -4844,7 +5430,7 @@ export default function StudentDashboard() {
                 {/* Bookmarked Materials */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 style={{fontSize:"16px",fontWeight:700,color:"#0F172A"}} className="flex items-center gap-2">
+                    <h3 style={{fontSize:"16px",fontWeight:700,color:"#4A7B5B"}} className="flex items-center gap-2">
                       <Bookmark size={15} className="text-[#4A7B5B]"/> Bookmarked Materials
                     </h3>
                     <Link to="/study-materials" className="text-xs text-[#4A7B5B] hover:underline">Browse All</Link>
@@ -4864,7 +5450,7 @@ export default function StudentDashboard() {
                               <FileText size={13} className="text-[#4A7B5B]"/>
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#0F172A] truncate">{m.title}</p>
+                              <p className="text-sm font-semibold text-[#4A7B5B] truncate">{m.title}</p>
                               <p className="text-xs text-[#94A3B8]">{m.materialType} · {m.category}</p>
                             </div>
                           </div>
@@ -4893,7 +5479,7 @@ export default function StudentDashboard() {
                 {/* Recently Viewed */}
                 {materialHistory.length > 0 && (
                   <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                    <h3 className="mb-4 flex items-center gap-2" style={{fontSize:"16px",fontWeight:700,color:"#0F172A"}}>
+                    <h3 className="mb-4 flex items-center gap-2" style={{fontSize:"16px",fontWeight:700,color:"#4A7B5B"}}>
                       <History size={15} className="text-[#64748B]"/> Recently Viewed
                     </h3>
                     <div className="space-y-2">
@@ -4904,7 +5490,7 @@ export default function StudentDashboard() {
                               <FileText size={13} className="text-[#64748B]"/>
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#0F172A] truncate">{m.title}</p>
+                              <p className="text-sm font-semibold text-[#4A7B5B] truncate">{m.title}</p>
                               <p className="text-xs text-[#94A3B8]">{m.materialType} · {m.subject || m.category}</p>
                             </div>
                           </div>
@@ -4923,7 +5509,7 @@ export default function StudentDashboard() {
 
                 {/* Recommended Materials */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
-                  <h3 className="mb-4 flex items-center gap-2" style={{fontSize:"16px",fontWeight:700,color:"#0F172A"}}>
+                  <h3 className="mb-4 flex items-center gap-2" style={{fontSize:"16px",fontWeight:700,color:"#4A7B5B"}}>
                     <Star size={15} className="text-amber-500"/> Recommended for You
                   </h3>
                   {recommendedMaterials.length === 0 ? (
@@ -4940,7 +5526,7 @@ export default function StudentDashboard() {
                               <FileText size={13} className="text-[#4A7B5B]"/>
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#0F172A] truncate">{m.title}</p>
+                              <p className="text-sm font-semibold text-[#4A7B5B] truncate">{m.title}</p>
                               <p className="text-xs text-[#94A3B8]">{m.materialType}</p>
                             </div>
                           </div>
@@ -4965,12 +5551,24 @@ export default function StudentDashboard() {
               </div>
             )}
 
+            {/* CAREER & ADMISSION GUIDES */}
+            {activeSection === "blogs" && (
+              <CareerAdmissionGuides />
+            )}
+
+            {/* FREQUENTLY ASKED QUESTIONS */}
+            {activeSection === "faqs" && (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-2xs">
+                <FAQPage />
+              </div>
+            )}
+
             {/* PAYMENTS & FEES */}
             {activeSection === "payments" && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 style={{ fontWeight: 800, color: "#0F172A", fontSize: "22px" }}>My Payments & Fee Records</h2>
+                    <h2 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "22px" }}>My Payments & Fee Records</h2>
                     <p style={{ fontSize: "13px", color: "#94a3b8" }}>Track your application fees, admission installments, receipts, and invoices.</p>
                   </div>
                 </div>
@@ -5001,7 +5599,7 @@ export default function StudentDashboard() {
 
                 {/* Transactions Table */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5">
-                  <h3 className="text-base font-bold text-[#0F172A] mb-4">Transaction History</h3>
+                  <h3 className="text-base font-bold text-[#4A7B5B] mb-4">Transaction History</h3>
                   {myPayments.length === 0 ? (
                     <div className="text-center py-12 text-[#94A3B8]">
                       <CreditCard size={36} className="mx-auto mb-2 opacity-30" />
@@ -5085,7 +5683,7 @@ export default function StudentDashboard() {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 style={{ fontWeight: 800, color: "#0F172A", fontSize: "22px" }}>Student Support Center</h2>
+                    <h2 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "22px" }}>Student Support Center</h2>
                     <p style={{ fontSize: "13px", color: "#94a3b8" }}>
                       Direct assistance with your admissions, payments, verification, and technical requests.
                     </p>

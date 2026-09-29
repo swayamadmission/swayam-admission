@@ -9,9 +9,17 @@ import {
   UseGuards,
   Query,
   Request,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CollegesService } from './colleges.service';
+import { CollegesBulkService } from './colleges-bulk.service';
 import { CreateCollegeDto } from './dto/create-college.dto';
+import { UpdateCollegeDto } from './dto/update-college.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
@@ -21,7 +29,10 @@ import { IUser } from '../auth/interfaces/user.interface';
 
 @Controller('colleges')
 export class CollegesController {
-  constructor(private collegesService: CollegesService) {}
+  constructor(
+    private collegesService: CollegesService,
+    private collegesBulkService: CollegesBulkService,
+  ) {}
 
   @Get('dashboard/stats')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -75,6 +86,54 @@ export class CollegesController {
     return this.collegesService.compareColleges(idArray);
   }
 
+  // =========================================================================
+  // BULK UPLOAD ENDPOINTS (MUST BE BEFORE :id)
+  // =========================================================================
+
+  @Get('bulk/template')
+  downloadBulkTemplate(
+    @Query('format') format: 'csv' | 'xlsx' = 'xlsx',
+    @Res() res: Response,
+  ) {
+    const template = this.collegesBulkService.generateTemplate(format);
+    res.setHeader('Content-Type', template.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${template.filename}"`);
+    return res.send(template.buffer);
+  }
+
+  @Post('bulk/validate')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.create')
+  @UseInterceptors(FileInterceptor('file'))
+  async validateBulkUpload(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('rows') jsonRows?: any[],
+  ) {
+    let rowsToValidate: any[] = [];
+    if (file && file.buffer) {
+      rowsToValidate = this.collegesBulkService.parseFileBuffer(file.buffer);
+    } else if (jsonRows && Array.isArray(jsonRows)) {
+      rowsToValidate = jsonRows;
+    } else {
+      throw new BadRequestException('Please provide a file or rows array to validate.');
+    }
+
+    const result = await this.collegesBulkService.validateRows(rowsToValidate);
+    return { success: true, data: result };
+  }
+
+  @Post('bulk/import')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.create')
+  async executeBulkImport(
+    @Body() dto: { rows: any[]; updateStrategy?: 'UPDATE_EXISTING' | 'SKIP_EXISTING' },
+    @CurrentUser() user: IUser,
+  ) {
+    const strategy = dto.updateStrategy || 'UPDATE_EXISTING';
+    const result = await this.collegesBulkService.executeImport(dto.rows, strategy, user.id);
+    return { success: true, data: result };
+  }
+
   @Get(':id')
   getCollegeById(@Param('id') id: string) {
     return this.collegesService.getCollegeById(id);
@@ -92,7 +151,7 @@ export class CollegesController {
   @Permissions('college.edit')
   updateCollege(
     @Param('id') id: string,
-    @Body() dto: CreateCollegeDto,
+    @Body() dto: UpdateCollegeDto,
     @CurrentUser() user: IUser,
   ) {
     return this.collegesService.updateCollege(id, dto, user.id);
@@ -120,6 +179,95 @@ export class CollegesController {
   @Permissions('college.edit')
   deactivateCourse(@Param('courseId') courseId: string) {
     return this.collegesService.deactivateCourse(courseId);
+  }
+
+  @Patch('courses/:courseId')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  updateCourse(
+    @Param('courseId') courseId: string,
+    @Body() dto: CreateCourseDto,
+  ) {
+    return this.collegesService.updateCourse(courseId, dto);
+  }
+
+  // =========================================================================
+  // GALLERY MANAGEMENT
+  // =========================================================================
+
+  @Post(':id/gallery')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  addGalleryImage(
+    @Param('id') id: string,
+    @Body() dto: { imageUrl: string; caption?: string; sortOrder?: number; isCover?: boolean },
+  ) {
+    return this.collegesService.addGalleryImage(id, dto);
+  }
+
+  @Patch(':id/gallery/:imageId')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  updateGalleryImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+    @Body() dto: { caption?: string; sortOrder?: number; isCover?: boolean },
+  ) {
+    return this.collegesService.updateGalleryImage(id, imageId, dto);
+  }
+
+  @Delete(':id/gallery/:imageId')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  deleteGalleryImage(
+    @Param('id') id: string,
+    @Param('imageId') imageId: string,
+  ) {
+    return this.collegesService.deleteGalleryImage(id, imageId);
+  }
+
+  // =========================================================================
+  // STUDY MATERIALS LINKING
+  // =========================================================================
+
+  @Get(':id/study-materials')
+  getCollegeStudyMaterials(@Param('id') id: string) {
+    return this.collegesService.getCollegeStudyMaterials(id);
+  }
+
+  @Post(':id/study-materials/link')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  linkStudyMaterial(
+    @Param('id') id: string,
+    @Body('materialId') materialId: string,
+  ) {
+    return this.collegesService.linkStudyMaterial(id, materialId);
+  }
+
+  @Delete(':id/study-materials/:materialId')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  unlinkStudyMaterial(
+    @Param('id') id: string,
+    @Param('materialId') materialId: string,
+  ) {
+    return this.collegesService.unlinkStudyMaterial(id, materialId);
+  }
+
+  // =========================================================================
+  // PUBLISH / UNPUBLISH STATUS
+  // =========================================================================
+
+  @Patch(':id/publish')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  setPublishStatus(
+    @Param('id') id: string,
+    @Body('publish') publish: boolean,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.collegesService.setPublishStatus(id, !!publish, user.id);
   }
 
   // =========================================================================

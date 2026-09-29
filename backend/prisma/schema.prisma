@@ -339,7 +339,13 @@ model AISettings {
   ragEnabled          Boolean  @default(true)
   topKChunks          Int      @default(5)
   rateLimitPerMin     Int      @default(30)
-  dailyCostCap        Float    @default(50.0)
+  dailyCostCap        Float?   @default(100.0)
+  isEnabled           Boolean  @default(true)
+  welcomeMessage      String?  @default("Hi there! 👋 I am the Swayam Admission AI Counselor. How can I help you with colleges, courses, or admissions today?")
+  suggestedChips      String[] @default(["Top Colleges in Bihar", "B.Tech under ₹2L", "Compare Colleges", "Talk to Counselor"])
+  counselorPhone      String?  @default("+919000000000")
+  counselorWhatsapp   String?  @default("+919000000000")
+  counselorWorkingHours String? @default("9:00 AM – 7:00 PM IST (Mon–Sat)")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @default(now()) @updatedAt
 }
@@ -486,6 +492,7 @@ model Application {
   enrollment            StudentEnrollment?
   collegeReviews        CollegeReview[]
   counselorReviews      CounselorReview[]
+  studentReports        StudentCollegeReport[]
   invoices              Invoice[]
   receipts              Receipt[]
   crmActivities         CrmActivity[]
@@ -641,10 +648,45 @@ model Blog {
   revisions        BlogRevision[]
   FAQ              FAQ[]
 
+  // Career & Admission Guides ERP Attributes
+  guideType             String         @default("CAREER")
+  educationLevel        String?
+  stream                String?
+  specialization        String?
+  careerPath            String?
+  skills                String[]       @default([])
+  eligibility           String?
+  entranceExams         String[]       @default([])
+  salaryRange           String?
+  averageSalary         String?
+  growthRate            String?
+  higherStudyOptions    String[]       @default([])
+  jobRoles              String[]       @default([])
+  govPrivatePaths       String?
+  admissionProcess      String?
+  applicationProcess    String?
+  requiredDocuments     String[]       @default([])
+  admissionStages       Json?
+  feesInfo              String?
+  counsellingInfo       String?
+  scholarshipInfo       String?
+  stateSchemesInfo      String?
+  importantTimelines    Json?
+  prepGuidance          String?
+  relatedCourseIds      String[]       @default([])
+  relatedCollegeIds     String[]       @default([])
+  relatedExamIds        String[]       @default([])
+  relatedScholarshipIds String[]       @default([])
+  stateId               String?
+  districtId            String?
+  savedGuides           SavedGuide[]
+
   @@index([category, status])
   @@index([collegeId, courseId, examId, scholarshipId])
   @@index([slug])
   @@index([status, featured])
+  @@index([guideType, status])
+  @@index([educationLevel, stream])
 }
 
 model BlogRevision {
@@ -663,6 +705,19 @@ model BlogRevision {
   Blog           Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
 
   @@index([blogId])
+}
+
+model SavedGuide {
+  id        String   @id @default(cuid())
+  userId    String
+  guideId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide     Blog     @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, guideId])
+  @@index([userId])
+  @@index([guideId])
 }
 
 model BrandingSetting {
@@ -808,6 +863,10 @@ model College {
   naacGrade              String?
   city                   String
   state                  String
+  stateId                String?
+  districtId             String?
+  stateRelation          State?                     @relation(fields: [stateId], references: [id], onDelete: SetNull)
+  districtRelation       District?                  @relation(fields: [districtId], references: [id], onDelete: SetNull)
   address                String?
   pincode                String?
   latitude               Float?
@@ -828,6 +887,19 @@ model College {
   status                 CollegeStatus              @default(DRAFT)
   seoTitle               String?
   seoDescription         String?
+  seoKeywords            String[]                   @default([])
+  rating                 Float?                     @default(4.2)
+  contactPerson          String?
+  boysHostelAvailable    Boolean                    @default(false)
+  girlsHostelAvailable   Boolean                    @default(false)
+  hostelFee              String?
+  hostelFacilities       String[]                   @default([])
+  messInfo               String?
+  otherFacilities        String[]                   @default([])
+  medianPackage          Float?
+  placementCompanies     String[]                   @default([])
+  placementInfo          String?
+  placementYear          String?
   createdAt              DateTime                   @default(now())
   updatedAt              DateTime                   @default(now()) @updatedAt
   approvalFlowConfig     Json?                      @default("[\"COUNSELOR\", \"ACCOUNTS_MANAGER\", \"DIRECTOR\"]")
@@ -868,6 +940,9 @@ model College {
   collegeDocuments       CollegeDocument[]
   changeRequests         CollegeChangeRequest[]
   verifiedFactors        CollegeVerifiedFactor[]
+  studentReports         StudentCollegeReport[]
+  rankingSurveys         RankingSurvey[]
+  rankingDataPoints      RankingDataPoint[]
   invoices               Invoice[]
   receipts               Receipt[]
   reconciliations        PaymentReconciliation[]
@@ -876,6 +951,8 @@ model College {
   @@index([ownership, type])
   @@index([slug])
   @@index([state, city])
+  @@index([stateId])
+  @@index([districtId])
   @@index([status, featured])
 }
 
@@ -925,6 +1002,7 @@ model CollegeGallery {
   imageUrl  String
   caption   String?
   sortOrder Int      @default(0)
+  isCover   Boolean  @default(false)
   createdAt DateTime @default(now())
   College   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
 }
@@ -1025,27 +1103,40 @@ model ConfidentialComplaint {
 }
 
 model RankingEdition {
-  id                 String                 @id @default(cuid())
-  year               Int                    @unique
-  title              String
-  algorithmVersion   String                 @default("v1.0")
-  status             String                 @default("DRAFT")
-  weightsConfig      Json
-  minReviewThreshold Int                    @default(3)
-  dataCutoffDate     DateTime?
-  calculatedAt       DateTime?
-  calculatedById     String?
-  approvedAt         DateTime?
-  approvedById       String?
-  publishedAt        DateTime?
-  publishedById      String?
-  unpublishReason    String?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @default(now()) @updatedAt
-  calculatedBy       User?                  @relation("Ranking_calculatedBy", fields: [calculatedById], references: [id], onDelete: SetNull)
-  approvedBy         User?                  @relation("Ranking_approvedBy", fields: [approvedById], references: [id], onDelete: SetNull)
-  publishedBy        User?                  @relation("Ranking_publishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
-  results            CollegeRankingResult[]
+  id                    String                 @id @default(cuid())
+  year                  Int                    @unique
+  title                 String
+  algorithmVersion      String                 @default("v1.0")
+  status                String                 @default("DRAFT") // DRAFT, DATA_COLLECTION, SURVEY_ACTIVE, ANALYSIS, REPORT_GENERATED, UNDER_REVIEW, CHANGES_REQUESTED, APPROVED, SCHEDULED, PUBLISHED, ARCHIVED
+  weightsConfig         Json
+  minReviewThreshold    Int                    @default(3)
+  dataCutoffDate        DateTime?
+  dataCollectionStart   DateTime?
+  dataCollectionEnd     DateTime?
+  surveyStart           DateTime?
+  surveyEnd             DateTime?
+  reviewStart           DateTime?
+  reviewEnd             DateTime?
+  analysisStart         DateTime?
+  reportGeneratedAt     DateTime?
+  calculatedAt          DateTime?
+  calculatedById        String?
+  approvedAt            DateTime?
+  approvedById          String?
+  publishedAt           DateTime?
+  publishedById         String?
+  unpublishReason       String?
+  methodologyId         String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @default(now()) @updatedAt
+  calculatedBy          User?                  @relation("Ranking_calculatedBy", fields: [calculatedById], references: [id], onDelete: SetNull)
+  approvedBy            User?                  @relation("Ranking_approvedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  publishedBy           User?                  @relation("Ranking_publishedBy", fields: [publishedById], references: [id], onDelete: SetNull)
+  methodology           RankingMethodology?    @relation(fields: [methodologyId], references: [id], onDelete: SetNull)
+  results               CollegeRankingResult[]
+  surveys               RankingSurvey[]
+  dataPoints            RankingDataPoint[]
+  annualReports         RankingAnnualReport[]
 
   @@index([year])
   @@index([status])
@@ -1063,6 +1154,18 @@ model CollegeRankingResult {
   averageReviewRating Float?
   factorBreakdown     Json?
   dataProvenance      Json?
+  confidenceScore     Float          @default(85.0)
+  confidenceLevel     String         @default("HIGH") // HIGH, MEDIUM, LOW
+  pillarScores        Json?          // { academicExcellence, placementCareer, studentDemandExperience, infrastructureCampus, locationConnectivity, hostelLivingExperience, dailyConvenienceScore, safetyHealthcare, affordabilityRoi, trustTransparency }
+  rawMetrics          Json?
+  normalizedMetrics   Json?
+  previousRank        Int?
+  rankChange          Int?           @default(0)
+  scoreChange         Float?         @default(0.0)
+  movement            String         @default("STABLE") // IMPROVED, DECLINED, STABLE, NEW_ENTRY
+  specialBadges       Json?          @default("[]")
+  strengths           Json?          @default("[]")
+  gaps                Json?          @default("[]")
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @default(now()) @updatedAt
   edition             RankingEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
@@ -1071,6 +1174,173 @@ model CollegeRankingResult {
   @@unique([editionId, collegeId])
   @@index([editionId, rank])
   @@index([collegeId])
+}
+
+model RankingMethodology {
+  id            String           @id @default(cuid())
+  version       String           @unique // e.g. "v1.0.0"
+  name          String
+  description   String?
+  status        String           @default("ACTIVE") // ACTIVE, DRAFT, SUPERSEDED
+  pillarsConfig Json             // 9 pillars, weights, subcriteria
+  rulesConfig   Json             // normalization, confidence, tie-break rules
+  createdById   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
+  createdBy     User?            @relation("Methodology_createdBy", fields: [createdById], references: [id], onDelete: SetNull)
+  editions      RankingEdition[]
+
+  @@index([version])
+  @@index([status])
+}
+
+model StudentCollegeReport {
+  id                      String             @id @default(cuid())
+  studentId               String
+  collegeId               String
+  courseId                String?
+  applicationId           String?
+  enrollmentId            String?
+  rankingYear             Int                @default(2026)
+  title                   String?
+  detailedReview          String?
+  evidenceUrls            Json?              @default("[]")
+  isVerifiedStudent       Boolean            @default(false)
+  status                  String             @default("PENDING") // PENDING, VERIFIED, PUBLISHED, REJECTED, FLAGGED, ARCHIVED
+  academicRating          Float?
+  placementRating         Float?
+  studentDemandRating     Float?
+  infrastructureRating    Float?
+  connectivityRating      Float?
+  hostelLivingRating      Float?
+  dailyConvenienceRating  Float?
+  safetyHealthcareRating  Float?
+  affordabilityRoiRating  Float?
+  trustTransparencyRating Float?
+  overallRating           Float              @default(4.0)
+  moderatedById           String?
+  moderatedAt             DateTime?
+  moderationReason        String?
+  ipAddress               String?
+  userAgent               String?
+  submissionFingerprint   String?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @default(now()) @updatedAt
+  student                 User               @relation("StudentReport_student", fields: [studentId], references: [id], onDelete: Cascade)
+  college                 College            @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  course                  Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  application             Application?       @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  enrollment              StudentEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  moderatedBy             User?              @relation("StudentReport_moderatedBy", fields: [moderatedById], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([collegeId])
+  @@index([rankingYear])
+  @@index([status])
+}
+
+model RankingSurvey {
+  id            String                  @id @default(cuid())
+  rankingYear   Int                     @default(2026)
+  editionId     String?
+  collegeId     String
+  templateName  String                  @default("SWAYAM_STANDARD_9_PILLAR_V1")
+  surveyorId    String?
+  status        String                  @default("ASSIGNED") // ASSIGNED, IN_PROGRESS, SUBMITTED, UNDER_REVIEW, APPROVED, REJECTED
+  overallScore  Float?
+  scheduledDate DateTime?
+  conductedAt   DateTime?
+  submittedAt   DateTime?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  reviewNotes   String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @default(now()) @updatedAt
+  edition       RankingEdition?         @relation(fields: [editionId], references: [id], onDelete: SetNull)
+  college       College                 @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  surveyor      User?                   @relation("RankingSurvey_surveyor", fields: [surveyorId], references: [id], onDelete: SetNull)
+  reviewedBy    User?                   @relation("RankingSurvey_reviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+  responses     RankingSurveyResponse[]
+
+  @@index([rankingYear])
+  @@index([collegeId])
+  @@index([status])
+}
+
+model RankingSurveyResponse {
+  id           String        @id @default(cuid())
+  surveyId     String
+  pillar       String        // ACADEMIC_EXCELLENCE, PLACEMENT_CAREER, etc.
+  criterion    String
+  metric       String
+  score        Float
+  observation  String?
+  evidenceUrls Json?         @default("[]")
+  verified     Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  survey       RankingSurvey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+
+  @@index([surveyId])
+  @@index([pillar])
+}
+
+model RankingDataPoint {
+  id               String          @id @default(cuid())
+  collegeId        String
+  rankingYear      Int             @default(2026)
+  editionId        String?
+  pillar           String          // ACADEMIC_EXCELLENCE, PLACEMENT_CAREER, etc.
+  metricKey        String
+  metricName       String
+  rawValue         String
+  normalizedValue  Float
+  sourceType       String          @default("SWAYAM_VERIFIED") // SWAYAM_VERIFIED, SWAYAM_PLATFORM_DATA, STUDENT_VERIFIED, STUDENT_REPORT, SWAYAM_MANUAL_SURVEY, COLLEGE_VERIFIED, COLLEGE_SELF_REPORTED, PUBLIC_VERIFIED, SYSTEM_CALCULATED
+  evidenceUrl      String?
+  status           String          @default("VERIFIED") // PENDING, SUBMITTED, UNDER_REVIEW, VERIFIED, REJECTED, FLAGGED, EXPIRED
+  confidenceWeight Float           @default(1.0)
+  collectedAt      DateTime        @default(now())
+  verifiedAt       DateTime?
+  verifiedById     String?
+  validUntil       DateTime?
+  verifierNotes    String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @default(now()) @updatedAt
+  college          College         @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  edition          RankingEdition? @relation(fields: [editionId], references: [id], onDelete: SetNull)
+  verifiedBy       User?           @relation("DataPoint_verifiedBy", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([collegeId])
+  @@index([rankingYear])
+  @@index([pillar])
+  @@index([status])
+}
+
+model RankingAnnualReport {
+  id                 String         @id @default(cuid())
+  rankingYear        Int            @unique
+  editionId          String
+  methodologyVersion String         @default("v1.0.0")
+  reportVersion      Int            @default(1)
+  title              String
+  status             String         @default("GENERATED") // DRAFT, GENERATING, GENERATED, UNDER_REVIEW, CHANGES_REQUESTED, APPROVED, SCHEDULED, PUBLISHED, ARCHIVED
+  executiveSummary   String?
+  methodologySummary String?
+  keyFindings        Json?          @default("[]")
+  limitations        String?
+  fullReportJson     Json?          // Full 11 sections
+  generatedById      String?
+  generatedAt        DateTime       @default(now())
+  approvedById       String?
+  approvedAt         DateTime?
+  publishedAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @default(now()) @updatedAt
+  edition            RankingEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  generatedBy        User?          @relation("AnnualReport_generatedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  approvedBy         User?          @relation("AnnualReport_approvedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([rankingYear])
+  @@index([status])
 }
 
 model CollegeVerifiedFactor {
@@ -1259,6 +1529,9 @@ model Course {
   averageSalary          Float?
   featured               Boolean                   @default(false)
   status                 CollegeStatus             @default(DRAFT)
+  applicationFee         Float?
+  scholarshipInfo        String?
+  specialization         String?
   eligibleLevels         String[]                  @default([])
   eligibleStreams        String[]                  @default([])
   allowOtherBranch       Boolean                   @default(true)
@@ -1268,6 +1541,7 @@ model Course {
   eligibilities          CourseEligibility[]
   AIRecommendation       AIRecommendation[]
   applications           Application[]
+  studentReports         StudentCollegeReport[]
   Blog                   Blog[]
   careers                CareerCourse[]
   college                College                   @relation(fields: [collegeId], references: [id], onDelete: Cascade)
@@ -1395,6 +1669,7 @@ model District {
   leadAssignments        LeadAssignment[]
   positions              Position[]
   requestedStaffRequests StaffRegistrationRequest[]
+  colleges               College[]
 
   @@unique([stateId, name])
   @@index([name])
@@ -1460,6 +1735,11 @@ model Document {
   user                 User              @relation("Document_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
   verifier             User?             @relation("Document_verifiedByToUser", fields: [verifiedBy], references: [id])
   history              DocumentHistory[]
+  retentionUntil       DateTime?
+  deletionEligibleAt   DateTime?
+  deletedReason        String?
+  isWatermarkRequired  Boolean           @default(true)
+  deletionRequests     DocumentDeletionRequestItem[]
 
   @@index([applicationId])
   @@index([collegeId])
@@ -1496,6 +1776,119 @@ model DocumentRequirement {
   Course           Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([collegeId, courseId, admissionSession, documentType])
+}
+
+model DocumentAccessAudit {
+  id            String   @id @default(cuid())
+  documentId    String?
+  studentId     String?
+  applicationId String?
+  actorUserId   String
+  actorRole     String
+  staffId       String?
+  action        String
+  result        String
+  ipAddress     String?
+  userAgent     String?
+  reason        String?
+  metadata      Json?    @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([documentId])
+  @@index([studentId])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model DocumentDeletionRequest {
+  id                  String                        @id @default(cuid())
+  requestId           String                        @unique
+  studentId           String
+  applicationId       String?
+  reason              String
+  additionalDetails   String?
+  status              String                        @default("PENDING_REVIEW")
+  requestedAt         DateTime                      @default(now())
+  scheduledDeletionAt DateTime
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  reviewNotes         String?
+  rejectionReason     String?
+  completedAt         DateTime?
+  studentConfirmed    Boolean                       @default(true)
+  confirmationText    String?
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @default(now()) @updatedAt
+  items               DocumentDeletionRequestItem[]
+
+  @@index([studentId])
+  @@index([status])
+  @@index([scheduledDeletionAt])
+}
+
+model DocumentDeletionRequestItem {
+  id           String                  @id @default(cuid())
+  requestId    String
+  documentId   String?
+  documentType String?
+  documentName String?
+  status       String                  @default("PENDING")
+  request      DocumentDeletionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  document     Document?               @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([requestId])
+  @@index([documentId])
+}
+
+model RetentionHold {
+  id               String    @id @default(cuid())
+  documentId       String?
+  applicationId    String?
+  studentId        String?
+  reason           String
+  notes            String?
+  status           String    @default("ACTIVE")
+  createdBy        String?
+  createdAt        DateTime  @default(now())
+  expiresAt        DateTime?
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  resolutionNotes  String?
+
+  @@index([documentId])
+  @@index([applicationId])
+  @@index([studentId])
+  @@index([status])
+}
+
+model NotificationDelivery {
+  id                 String    @id @default(cuid())
+  studentId          String
+  requestId          String?
+  documentId         String?
+  eventType          String    // DELETION_REQUESTED, DELETION_SCHEDULED, DOCUMENT_DELETED, DELETION_HELD, DELETION_CANCELLED
+  channel            String    // IN_APP, EMAIL, WHATSAPP, SMS
+  recipient          String    // email, mobile, or userId
+  status             String    @default("SENT") // QUEUED, SENDING, SENT, DELIVERED, FAILED, SKIPPED, RETRYING
+  provider           String?   // IN_APP, SMTP, TWILIO, WHATSAPP_BUSINESS, SYSTEM
+  providerMessageId  String?
+  failureReason      String?
+  failureCode        String?
+  retryCount         Int       @default(0)
+  maxRetries         Int       @default(3)
+  sentAt             DateTime? @default(now())
+  deliveredAt        DateTime?
+  metadata           Json?     @default("{}")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@index([studentId])
+  @@index([requestId])
+  @@index([eventType])
+  @@index([channel])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model EmailTemplate {
@@ -1542,12 +1935,17 @@ model Exam {
   seoDescription     String?
   featured           Boolean         @default(false)
   status             String          @default("PUBLISHED")
+  description        String?
+  stateId            String?
+  state              State?          @relation(fields: [stateId], references: [id], onDelete: SetNull)
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @default(now()) @updatedAt
   Blog               Blog[]
   courses            CourseExam[]
   FAQ                FAQ[]
   StudyMaterial      StudyMaterial[]
+
+  @@index([stateId])
 }
 
 model FAQ {
@@ -2224,6 +2622,8 @@ model Payment {
   receipts             Receipt[]
   refunds              PaymentRefund[]
   reconciliations      PaymentReconciliation[]
+  studyMaterialId      String?
+  studyMaterial        StudyMaterial?            @relation(fields: [studyMaterialId], references: [id])
 
   @@index([applicationId])
   @@index([collegeBankId])
@@ -2236,6 +2636,8 @@ model Payment {
   @@index([status])
   @@index([transactionId])
   @@index([userId])
+  @@index([studyMaterialId])
+  @@index([userId, status])
 }
 
 model PaymentRequest {
@@ -2447,6 +2849,7 @@ model StudentEnrollment {
   branch         CourseBranch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
   confirmedBy    User?             @relation("Enrollment_confirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
   collegeReviews CollegeReview[]
+  studentReports StudentCollegeReport[]
 
   @@index([enrollmentNumber])
   @@index([applicationId])
@@ -2730,9 +3133,16 @@ model Scholarship {
   description       String?
   percentage        Float?
   requiredMarks     Float?
+  stateId           String?
+  states            String[]  @default([])
+  stateRelation     State?    @relation(fields: [stateId], references: [id], onDelete: SetNull)
   Blog              Blog[]
   FAQ               FAQ[]
   payments          Payment[]
+
+  @@index([stateId])
+  @@index([state])
+  @@index([status])
 }
 
 model SecuritySetting {
@@ -2888,11 +3298,20 @@ model State {
   leadAssignments        LeadAssignment[]
   positions              Position[]
   requestedStaffRequests StaffRegistrationRequest[]
+  colleges               College[]
+  exams                  Exam[]
+  scholarships           Scholarship[]
+  updates                StateUpdate[]
+  heroImage              String?
+  description            String?
+  region                 String?
+  popularCourses         String[]                   @default([])
 
   @@index([code])
   @@index([name])
   @@index([status])
   @@index([type])
+  @@index([region])
 }
 
 model StateRestriction {
@@ -2907,6 +3326,28 @@ model StateRestriction {
 
   @@index([roleId])
   @@index([state])
+}
+
+model StateUpdate {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String
+  image       String?
+  publishDate DateTime  @default(now())
+  stateId     String
+  stateName   String?
+  status      String    @default("PUBLISHED") // PUBLISHED | DRAFT
+  type        String?   @default("Admission Update") // Admission Update | Scholarship | Exam | Rankings | Notification
+  author      String?   @default("Swayam Admissions")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  state       State     @relation(fields: [stateId], references: [id], onDelete: Cascade)
+
+  @@index([stateId])
+  @@index([status])
+  @@index([publishDate])
+  @@index([type])
 }
 
 model StudentCommunication {
@@ -3037,40 +3478,57 @@ model StudentProfile {
 }
 
 model StudyMaterial {
-  id             String   @id @default(cuid())
-  title          String
-  slug           String   @unique
-  description    String?
-  materialType   String
-  category       String
-  stream         String?
-  courseId       String?
-  collegeId      String?
-  examId         String?
-  subject        String?
-  semester       String?
-  language       String?  @default("English")
-  fileName       String?
-  fileUrl        String?
-  thumbnail      String?
-  fileSize       String?
-  fileExtension  String?
-  pages          Int?
-  downloadCount  Int      @default(0)
-  viewCount      Int      @default(0)
-  featured       Boolean  @default(false)
-  premium        Boolean  @default(false)
-  tags           String[]
-  status         String   @default("PUBLISHED")
-  seoTitle       String?
-  seoDescription String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @default(now()) @updatedAt
-  Blog           Blog[]
-  FAQ            FAQ[]
-  college        College? @relation(fields: [collegeId], references: [id])
-  course         Course?  @relation(fields: [courseId], references: [id])
-  exam           Exam?    @relation(fields: [examId], references: [id])
+  id               String    @id @default(cuid())
+  title            String
+  slug             String    @unique
+  description      String?
+  materialType     String
+  category         String
+  stream           String?
+  courseId         String?
+  collegeId        String?
+  examId           String?
+  subject          String?
+  semester         String?
+  language         String?   @default("English")
+  fileName         String?
+  fileUrl          String?
+  thumbnail        String?
+  fileSize         String?
+  fileExtension    String?
+  pages            Int?
+  downloadCount    Int       @default(0)
+  viewCount        Int       @default(0)
+  featured         Boolean   @default(false)
+  premium          Boolean   @default(false)
+  price            Float     @default(0)
+  previewFileUrl   String?
+  previewFileName  String?
+  previewFileSize  String?
+  educationLevel   String?
+  academicSession  String?
+  specialization   String?
+  notes            String?
+  hasCredentials   Boolean   @default(false)
+  authorName       String?
+  authorRole       String?
+  providerName     String?
+  credentialsUrl   String?
+  credentialsNotes String?
+  seoKeywords      String[]  @default([])
+  tags             String[]
+  status           String    @default("PUBLISHED")
+  seoTitle         String?
+  seoDescription   String?
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+  Blog             Blog[]
+  FAQ              FAQ[]
+  Payment          Payment[]
+  college          College?  @relation(fields: [collegeId], references: [id])
+  course           Course?   @relation(fields: [courseId], references: [id])
+  exam             Exam?     @relation(fields: [examId], references: [id])
 
   @@index([category, materialType])
   @@index([courseId, collegeId])
@@ -3571,6 +4029,14 @@ model User {
   approvedRankings                                            RankingEdition[]           @relation("Ranking_approvedBy")
   publishedRankings                                           RankingEdition[]           @relation("Ranking_publishedBy")
   verifiedCollegeFactors                                      CollegeVerifiedFactor[]    @relation("Factor_verifiedBy")
+  createdMethodologies                                        RankingMethodology[]       @relation("Methodology_createdBy")
+  submittedStudentReports                                     StudentCollegeReport[]     @relation("StudentReport_student")
+  moderatedStudentReports                                     StudentCollegeReport[]     @relation("StudentReport_moderatedBy")
+  assignedRankingSurveys                                      RankingSurvey[]            @relation("RankingSurvey_surveyor")
+  reviewedRankingSurveys                                      RankingSurvey[]            @relation("RankingSurvey_reviewedBy")
+  verifiedDataPoints                                          RankingDataPoint[]         @relation("DataPoint_verifiedBy")
+  generatedAnnualReports                                      RankingAnnualReport[]      @relation("AnnualReport_generatedBy")
+  approvedAnnualReports                                       RankingAnnualReport[]      @relation("AnnualReport_approvedBy")
   PaymentTermsAcceptance                                      PaymentTermsAcceptance[]
   PaymentTimelineEvent                                        PaymentTimelineEvent[]
   PaymentVerification                                         PaymentVerification[]
@@ -3584,6 +4050,7 @@ model User {
   RoleAuditLog                                                RoleAuditLog[]
   RoleEntity                                                  RoleEntity[]
   SavedItem                                                   SavedItem[]
+  savedGuides                                                 SavedGuide[]
   SavedRecommendation                                         SavedRecommendation[]
   StudentCommunication_StudentCommunication_senderIdToUser    StudentCommunication[]     @relation("StudentCommunication_senderIdToUser")
   StudentCommunication_StudentCommunication_studentIdToUser   StudentCommunication[]     @relation("StudentCommunication_studentIdToUser")
@@ -3864,6 +4331,10 @@ enum DocumentStatus {
   NOT_UPLOADED
   UNDER_VERIFICATION
   EXPIRED
+  ACTION_REQUIRED
+  RETENTION_HOLD
+  DELETION_REQUESTED
+  DELETED
 }
 
 enum DocumentType {
@@ -4006,6 +4477,7 @@ enum PaymentType {
   HOSTEL_FEE
   EXAM_FEE
   DOCUMENT_FEE
+  STUDY_MATERIAL_FEE
   APPLICATION_FEE
   MISCELLANEOUS
 }
@@ -4926,4 +5398,16 @@ model FeeType {
   @@index([courseId])
 }
 
+model SearchQuery {
+  id              String   @id @default(cuid())
+  query           String
+  normalizedQuery String   @unique
+  searchCount     Int      @default(1)
+  lastSearchedAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
 
+  @@index([searchCount])
+  @@index([lastSearchedAt])
+  @@index([normalizedQuery])
+}

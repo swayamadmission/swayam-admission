@@ -12,6 +12,8 @@ import {
   CommunicationChannel,
 } from '@prisma/client';
 
+import { LiveSyncService } from '../events/live-sync.service';
+
 export interface EventNotificationPayload {
   studentUserId?: string;
   studentName?: string;
@@ -40,6 +42,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly dispatcher: NotificationDispatcher,
     private readonly templateEngine: TemplateEngineService,
+    private readonly liveSync: LiveSyncService,
   ) {}
 
   /**
@@ -80,9 +83,20 @@ export class NotificationsService {
   }
 
   /**
-   * Get User Specific Notifications
+   * Get User Specific Notifications (Newest first, template resolved)
    */
   async getMyNotifications(userId: string, role?: Role) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        studentId: true,
+        registrationNumber: true,
+      },
+    });
+
     const notifications = await this.prisma.notification.findMany({
       where: {
         isDeleted: false,
@@ -92,14 +106,17 @@ export class NotificationsService {
           ...(role ? [{ receiverRole: role }] : []),
         ],
       },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
-        user: { select: { id: true, fullName: true, email: true } },
+        user: { select: { id: true, fullName: true, email: true, studentId: true } },
       },
     });
 
-    const data = notifications || [];
+    const data = (notifications || []).map((n) =>
+      this.templateEngine.interpolateNotification(n, user),
+    );
+
     return {
       success: true,
       data,
@@ -138,17 +155,21 @@ export class NotificationsService {
         where,
         skip,
         take: limit,
-        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+        orderBy: { createdAt: 'desc' },
         include: {
           user: {
-            select: { id: true, fullName: true, email: true, role: true },
+            select: { id: true, fullName: true, email: true, role: true, studentId: true },
           },
         },
       }),
     ]);
 
+    const interpolatedData = (data || []).map((n) =>
+      this.templateEngine.interpolateNotification(n, n.user),
+    );
+
     return {
-      data,
+      data: interpolatedData,
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -159,20 +180,44 @@ export class NotificationsService {
    * Get unread counter & recent notifications for logged in user or role
    */
   async getUnreadCount(userId?: string, role?: Role) {
-    const where: any = { isRead: false, isDeleted: false };
-    if (userId || role) {
-      where.OR = [{ userId }, { receiverId: userId }, { receiverRole: role }];
+    if (!userId && !role) {
+      return { count: 0, recent: [] };
     }
 
-    const count = await this.prisma.notification.count({ where });
+    const user = userId
+      ? await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, fullName: true, email: true, studentId: true, registrationNumber: true },
+        })
+      : null;
+
+    const countWhere: any = {
+      isRead: false,
+      isDeleted: false,
+      OR: [{ userId }, { receiverId: userId }, ...(role ? [{ receiverRole: role }] : [])],
+    };
+
+    const count = await this.prisma.notification.count({ where: countWhere });
+
+    const recentWhere: any = {
+      isDeleted: false,
+      OR: [{ userId }, { receiverId: userId }, ...(role ? [{ receiverRole: role }] : [])],
+    };
 
     const recent = await this.prisma.notification.findMany({
-      where,
-      take: 5,
+      where: recentWhere,
+      take: 10,
       orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, studentId: true } },
+      },
     });
 
-    return { count, recent };
+    const interpolatedRecent = (recent || []).map((n) =>
+      this.templateEngine.interpolateNotification(n, user || n.user),
+    );
+
+    return { count, recent: interpolatedRecent };
   }
 
   /**
@@ -197,7 +242,7 @@ export class NotificationsService {
    * Insert New Notification
    */
   async createNotification(dto: CreateNotificationDto) {
-    return this.prisma.notification.create({
+    const created = await this.prisma.notification.create({
       data: {
         title: dto.title,
         message: dto.message,
@@ -209,7 +254,7 @@ export class NotificationsService {
         priority: dto.priority || NotificationPriority.MEDIUM,
         category: dto.category || 'SYSTEM',
         icon: dto.icon || 'Bell',
-        color: dto.color || '#3B82F6',
+        color: dto.color || '#4A7B5B',
         relatedLeadId: dto.relatedLeadId || null,
         relatedStudentId: dto.relatedStudentId || null,
         relatedApplicationId: dto.relatedApplicationId || null,
@@ -223,6 +268,11 @@ export class NotificationsService {
         metadata: dto.metadata || null,
       },
     });
+
+    const targetUser = created.receiverId || created.userId || undefined;
+    this.liveSync.publishEvent('notification.created', created, targetUser);
+
+    return created;
   }
 
   /**
@@ -230,25 +280,36 @@ export class NotificationsService {
    */
   async markAsRead(id: string) {
     await this.findOne(id);
-    return this.prisma.notification.update({
+    const updated = await this.prisma.notification.update({
       where: { id },
       data: { isRead: true, readAt: new Date() },
     });
+
+    const targetUser = updated.receiverId || updated.userId || undefined;
+    this.liveSync.publishEvent('notification.read', { id, isRead: true }, targetUser);
+
+    return updated;
   }
 
   /**
    * Mark All Notifications as Read for User/Role
    */
   async markAllAsRead(userId?: string, role?: Role) {
-    const where: any = { isRead: false };
-    if (userId || role) {
-      where.OR = [{ userId }, { receiverId: userId }, { receiverRole: role }];
+    if (!userId && !role) {
+      return { message: 'No user or role provided' };
     }
+
+    const where: any = {
+      isRead: false,
+      OR: [{ userId }, { receiverId: userId }, ...(role ? [{ receiverRole: role }] : [])],
+    };
 
     await this.prisma.notification.updateMany({
       where,
       data: { isRead: true, readAt: new Date() },
     });
+
+    this.liveSync.publishEvent('notification.readAll', { userId, role }, userId || undefined);
 
     return { message: 'All notifications marked as read.' };
   }

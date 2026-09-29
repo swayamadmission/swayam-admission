@@ -152,7 +152,7 @@ export default function ExamDetailPage() {
             <ChevronRight size={12} />
             <Link to="/exams" className="hover:text-[#4A7B5B] transition-colors">Exams</Link>
             <ChevronRight size={12} />
-            <span style={{ color: "#0F172A", fontWeight: 600 }}>{exam?.name}</span>
+            <span style={{ color: "#4A7B5B", fontWeight: 600 }}>{exam?.name}</span>
           </nav>
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-5">
@@ -161,7 +161,7 @@ export default function ExamDetailPage() {
             </div>
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h1 style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(20px,4vw,30px)" }}>{exam?.name}</h1>
+                <h1 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(20px,4vw,30px)" }}>{exam?.name}</h1>
                 {(exam as any)?.badge && (
                   <span className="px-2.5 py-1 rounded-xl text-white" style={{ fontSize: "11px", fontWeight: 600, backgroundColor: color }}>{(exam as any).badge}</span>
                 )}
@@ -208,7 +208,7 @@ export default function ExamDetailPage() {
             {activeTab === "Overview" && (
               <div className="space-y-5">
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>About {exam?.name}</h3>
+                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>About {exam?.name}</h3>
                   <p style={{ fontSize: "14px", color: "#4B5563", lineHeight: 1.7 }}>{exam?.description}</p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -225,14 +225,14 @@ export default function ExamDetailPage() {
                   ))}
                 </div>
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Eligibility Criteria</h3>
+                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Eligibility Criteria</h3>
                   <div className="flex items-start gap-3 p-4 bg-[#E8F3EC] rounded-xl">
                     <CheckCircle2 size={18} className="text-[#4A7B5B] shrink-0 mt-0.5" />
                     <p style={{ fontSize: "14px", color: "#374151", lineHeight: 1.6 }}>{exam?.eligibility}</p>
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Top Colleges Accepting {exam?.name}</h3>
+                  <h3 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Top Colleges Accepting {exam?.name}</h3>
                   <div className="flex flex-wrap gap-2">
                     {exam?.topColleges.map(c => (
                       <Link key={c} to="/colleges" className="flex items-center gap-2 px-3 py-2 bg-[#F8FAFC] border border-gray-100 rounded-xl hover:border-[#4A7B5B]/30 hover:bg-[#E8F3EC] transition-all">
@@ -250,7 +250,7 @@ export default function ExamDetailPage() {
               <div className="space-y-4">
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-                    <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Exam Pattern</h3>
+                    <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Exam Pattern</h3>
                     <span className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl" style={{ fontSize: "12px", fontWeight: 600 }}>
                       Total: {detail.totalMarks} Marks
                     </span>
@@ -263,7 +263,7 @@ export default function ExamDetailPage() {
                             <BookOpen size={14} className="text-[#4A7B5B]" />
                           </div>
                           <div>
-                            <div style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>{p.section}</div>
+                            <div style={{ fontSize: "14px", fontWeight: 600, color: "#4A7B5B" }}>{p.section}</div>
                             <div style={{ fontSize: "11px", color: "#94a3b8" }}>{p.type}</div>
                           </div>
                         </div>
@@ -285,7 +285,7 @@ export default function ExamDetailPage() {
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
                   <div className="flex items-center gap-3 mb-2">
                     <Clock size={16} className="text-[#4A7B5B]" />
-                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>Duration: {detail.duration}</span>
+                    <span style={{ fontSize: "14px", fontWeight: 600, color: "#4A7B5B" }}>Duration: {detail.duration}</span>
                   </div>
                   <p style={{ fontSize: "13px", color: "#64748b" }}>Time management is critical. Practice with timed mock tests.</p>
                 </div>
@@ -308,7 +308,7 @@ export default function ExamDetailPage() {
                         <div className="w-9 h-9 bg-[#E8F3EC] rounded-xl flex items-center justify-center">
                           <BookOpen size={15} className="text-[#4A7B5B]" />
                         </div>
-                        <span style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>{s.subject}</span>
+                        <span style={{ fontSize: "15px", fontWeight: 700, color: "#4A7B5B" }}>{s.subject}</span>
                         <span className="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full" style={{ fontSize: "10px" }}>{s.topics.length} Topics</span>
                       </div>
                       {openSyllabus === s.subject ? <ChevronUp size={16} className="text-[#4A7B5B]" /> : <ChevronDown size={16} className="text-gray-400" />}
@@ -331,7 +331,7 @@ export default function ExamDetailPage() {
             {activeTab === "Dates" && (
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 <div className="p-5 border-b border-gray-100">
-                  <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Important Dates</h3>
+                  <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Important Dates</h3>
                 </div>
                 <div className="divide-y divide-gray-50">
                   {detail.importantDates.map((d: any, i: number) => (
@@ -340,7 +340,7 @@ export default function ExamDetailPage() {
                         <div className="w-8 h-8 bg-[#E8F3EC] rounded-xl flex items-center justify-center shrink-0">
                           <Calendar size={14} className="text-[#4A7B5B]" />
                         </div>
-                        <span style={{ fontSize: "14px", color: "#0F172A" }}>{d.event}</span>
+                        <span style={{ fontSize: "14px", color: "#4A7B5B" }}>{d.event}</span>
                       </div>
                       <span className="px-3 py-1.5 bg-[#F8FAFC] rounded-xl" style={{ fontSize: "12px", fontWeight: 600, color: "#374151" }}>{d.date}</span>
                     </div>
@@ -353,7 +353,7 @@ export default function ExamDetailPage() {
             {activeTab === "Study Resources" && (
               <div className="space-y-5">
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-4 flex items-center gap-2" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>
+                  <h3 className="mb-4 flex items-center gap-2" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>
                     <BookOpen size={16} className="text-[#4A7B5B]" />
                     Exam Study Resources
                   </h3>
@@ -374,7 +374,7 @@ export default function ExamDetailPage() {
                               <FileText size={15} className="text-[#4A7B5B]" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-semibold text-[#0F172A] truncate">{m.title}</p>
+                              <p className="text-sm font-semibold text-[#4A7B5B] truncate">{m.title}</p>
                               <p className="text-xs text-[#94A3B8]">
                                 {m.materialType} · {m.subject || m.category}
                                 {m.fileSize ? ` · ${m.fileSize}` : ""}
@@ -417,7 +417,7 @@ export default function ExamDetailPage() {
 
               <div className="space-y-5">
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>How to Apply</h3>
+                  <h3 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>How to Apply</h3>
                   <div className="space-y-3">
                     {detail.applicationSteps.map((step: string, i: number) => (
                       <div key={i} className="flex items-start gap-3">
@@ -430,7 +430,7 @@ export default function ExamDetailPage() {
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                  <h3 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Counseling Process</h3>
+                  <h3 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Counseling Process</h3>
                   <div className="space-y-3">
                     {detail.counseling.map((step: string, i: number) => (
                       <div key={i} className="flex items-start gap-3">
@@ -452,7 +452,7 @@ export default function ExamDetailPage() {
                   <div key={i} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
                       className="w-full flex items-center justify-between p-5 text-left">
-                      <span style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }} className="pr-4">{f.q}</span>
+                      <span style={{ fontSize: "14px", fontWeight: 600, color: "#4A7B5B" }} className="pr-4">{f.q}</span>
                       {openFaq === i ? <ChevronUp size={16} className="text-[#4A7B5B] shrink-0" /> : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
                     </button>
                     {openFaq === i && (
@@ -475,7 +475,7 @@ export default function ExamDetailPage() {
                   <Icon size={18} style={{ color: color }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>{exam?.name}</div>
+                  <div style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}>{exam?.name}</div>
                   <div style={{ fontSize: "11px", color: "#94a3b8" }}>Next: {exam?.nextDate}</div>
                 </div>
               </div>
@@ -507,7 +507,7 @@ export default function ExamDetailPage() {
 
             {/* Related exams */}
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
-              <h4 style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }} className="mb-3">Related Exams</h4>
+              <h4 style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }} className="mb-3">Related Exams</h4>
               <div className="space-y-2">
                 <Link to="/exams" className="flex items-center gap-1.5 text-[#4A7B5B] pt-1" style={{ fontSize: "12px", fontWeight: 600 }}>
                   View all exams <ArrowRight size={11} />

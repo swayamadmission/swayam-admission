@@ -103,7 +103,7 @@ export default function StudentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl lg:text-2xl font-bold text-[#0F172A]">Student Management</h1>
+            <h1 className="text-xl lg:text-2xl font-bold text-[#4A7B5B]">Student Management</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E8F3EC] text-[#4A7B5B] border border-[#4A7B5B]/30">
               Live DB
             </span>
@@ -142,7 +142,7 @@ export default function StudentsPage() {
           {
             label: "Showing on Page",
             value: students.length,
-            color: "#0F172A",
+            color: "#4A7B5B",
             sub: `Page ${page} of ${totalPages}`,
           },
         ].map((stat) => (

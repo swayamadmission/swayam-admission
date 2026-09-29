@@ -6,7 +6,6 @@ import {
   IsNumber,
   IsDateString,
   IsBoolean,
-  IsObject,
 } from 'class-validator';
 
 export class CreateExamDto {
@@ -115,6 +114,14 @@ export class CreateExamDto {
   @IsOptional()
   @IsBoolean()
   featured?: boolean;
+
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @IsOptional()
   @IsString()

@@ -108,7 +108,7 @@ export const ReviewModerationPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <ShieldCheck className="text-[#4A7B5B]" size={24} />
-            <h1 className="text-2xl font-bold text-[#0F172A]">Review & Complaint Moderation Hub</h1>
+            <h1 className="text-2xl font-bold text-[#4A7B5B]">Review & Complaint Moderation Hub</h1>
           </div>
           <p className="text-sm text-slate-500">
             Verify student reviews, protect counseling integrity, and triage confidential student concerns.
@@ -145,7 +145,7 @@ export const ReviewModerationPage: React.FC = () => {
               setStatusFilter('all');
             }}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${
-              activeTab === 'complaints' ? 'bg-[#0F172A] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'complaints' ? 'bg-[#4A7B5B] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <AlertOctagon size={14} /> Confidential Complaints
@@ -168,7 +168,7 @@ export const ReviewModerationPage: React.FC = () => {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Awaiting Review</span>
               <Clock className="text-amber-500" size={16} />
             </div>
-            <div className="text-2xl font-bold text-[#0F172A] mt-2">{counts.pending}</div>
+            <div className="text-2xl font-bold text-[#4A7B5B] mt-2">{counts.pending}</div>
           </div>
 
           <div
@@ -221,7 +221,7 @@ export const ReviewModerationPage: React.FC = () => {
       {/* Main Content Table / List */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-[#0F172A] text-sm">
+          <div className="flex items-center gap-2 font-bold text-[#4A7B5B] text-sm">
             <Filter size={16} className="text-[#4A7B5B]" />
             {activeTab === 'college' && 'College Reviews Queue'}
             {activeTab === 'counselor' && 'Counselor Performance Reviews'}
@@ -246,10 +246,10 @@ export const ReviewModerationPage: React.FC = () => {
                   {/* Subject and Verified Student Badge */}
                   <div className="flex flex-wrap items-center gap-2">
                     {activeTab === 'college' && (
-                      <span className="font-bold text-[#0F172A] text-base">{item.college?.name}</span>
+                      <span className="font-bold text-[#4A7B5B] text-base">{item.college?.name}</span>
                     )}
                     {activeTab === 'counselor' && (
-                      <span className="font-bold text-[#0F172A] text-base">
+                      <span className="font-bold text-[#4A7B5B] text-base">
                         Counselor: {item.counselor?.fullName || item.counselor?.email}
                       </span>
                     )}
@@ -320,7 +320,7 @@ export const ReviewModerationPage: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-[#0F172A] text-lg flex items-center gap-2">
+              <h3 className="font-bold text-[#4A7B5B] text-lg flex items-center gap-2">
                 <ShieldCheck className="text-[#4A7B5B]" size={20} /> Review Moderation Action
               </h3>
               <button

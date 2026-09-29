@@ -252,7 +252,7 @@ export default function LeadsPage() {
       <div className="px-5 lg:px-8 py-4 bg-white border-b border-[#F1F5F9]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-xl font-bold text-[#0F172A] tracking-tight">Counselor Assignment & Operational Queue</h1>
+            <h1 className="text-xl font-bold text-[#4A7B5B] tracking-tight">Counselor Assignment & Operational Queue</h1>
             <p className="text-xs text-[#64748B]">State → District → Senior Counselor → Counselor → Student Ownership Hierarchy</p>
           </div>
 
@@ -347,7 +347,7 @@ export default function LeadsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-4">
             <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
               <p className="text-[11px] text-[#64748B] font-medium">New Inquiries</p>
-              <p className="text-lg font-bold text-[#0F172A]">{seniorStats.newLeads}</p>
+              <p className="text-lg font-bold text-[#4A7B5B]">{seniorStats.newLeads}</p>
             </div>
             <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
               <p className="text-[11px] text-[#64748B] font-medium">Unassigned Counselor</p>
@@ -367,7 +367,7 @@ export default function LeadsPage() {
             </div>
             <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
               <p className="text-[11px] text-[#64748B] font-medium">Total Queue</p>
-              <p className="text-lg font-bold text-[#0F172A]">{seniorStats.totalLeads}</p>
+              <p className="text-lg font-bold text-[#4A7B5B]">{seniorStats.totalLeads}</p>
             </div>
           </div>
         )}
@@ -412,7 +412,7 @@ export default function LeadsPage() {
         {activeTab === "TEAM_SUMMARY" ? (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-[#0F172A]">Senior Counselor Team Workload & Capacity Overview</h2>
+              <h2 className="text-lg font-bold text-[#4A7B5B]">Senior Counselor Team Workload & Capacity Overview</h2>
               <span className="text-xs text-[#64748B]">{teamSummary.length} Counselors Managed</span>
             </div>
 
@@ -439,15 +439,15 @@ export default function LeadsPage() {
                     {teamSummary.map(c => (
                       <tr key={c.id} className="hover:bg-[#F8FAFC]">
                         <td className="py-3.5 px-4">
-                          <p className="font-semibold text-[#0F172A]">{c.fullName}</p>
+                          <p className="font-semibold text-[#4A7B5B]">{c.fullName}</p>
                           <p className="text-xs text-[#64748B]">{c.email}</p>
                         </td>
                         <td className="py-3.5 px-4 text-xs text-[#475569] font-mono">{c.employeeId}</td>
                         <td className="py-3.5 px-4 text-xs">
-                          <span className="font-medium text-[#0F172A]">{c.positionTitle}</span>
+                          <span className="font-medium text-[#4A7B5B]">{c.positionTitle}</span>
                           <span className="text-[10px] text-[#4A7B5B] block font-mono">{c.positionCode}</span>
                         </td>
-                        <td className="py-3.5 px-4 text-xs font-semibold text-[#0F172A]">
+                        <td className="py-3.5 px-4 text-xs font-semibold text-[#4A7B5B]">
                           {c.activeCasesCount} / {c.maxCapacity}
                         </td>
                         <td className="py-3.5 px-4 text-xs font-semibold text-blue-600">{c.pendingFollowUps}</td>
@@ -482,7 +482,7 @@ export default function LeadsPage() {
                 <div className="w-12 h-12 rounded-full bg-[#E8F3EC] text-[#4A7B5B] flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-semibold text-[#0F172A] mb-1">
+                <h3 className="text-base font-semibold text-[#4A7B5B] mb-1">
                   {activeTab === "UNAVAILABILITY"
                     ? "No Counselor Unavailability Exceptions!"
                     : activeTab === "EXCEPTIONS"
@@ -502,7 +502,7 @@ export default function LeadsPage() {
                     <thead>
                       <tr className="border-b border-[#E2E8F0] bg-[#F8FAFC] text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
                         <th className="py-3 px-4 w-10">
-                          <button onClick={toggleSelectAll} className="text-[#64748B] hover:text-[#0F172A]">
+                          <button onClick={toggleSelectAll} className="text-[#64748B] hover:text-[#4A7B5B]">
                             {selectedLeadIds.length === rawLeads.length ? (
                               <CheckSquare className="w-4 h-4 text-[#4A7B5B]" />
                             ) : (
@@ -547,7 +547,7 @@ export default function LeadsPage() {
                                   {lead.fullName.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <p className="font-semibold text-[#0F172A] text-sm flex items-center gap-1.5">
+                                  <p className="font-semibold text-[#4A7B5B] text-sm flex items-center gap-1.5">
                                     {lead.fullName}
                                     {isException && (
                                       <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-600 text-[10px] font-bold">
@@ -566,7 +566,7 @@ export default function LeadsPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-xs text-[#334155]">
-                              <div className="flex items-center gap-1 text-[#0F172A] font-medium">
+                              <div className="flex items-center gap-1 text-[#4A7B5B] font-medium">
                                 <MapPin className="w-3 h-3 text-[#4A7B5B]" />
                                 {lead.state || 'N/A'}
                               </div>
@@ -574,7 +574,7 @@ export default function LeadsPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-xs">
-                              <p className="font-medium text-[#0F172A]">{lead.preferredCourse || lead.courseRel?.name || 'N/A'}</p>
+                              <p className="font-medium text-[#4A7B5B]">{lead.preferredCourse || lead.courseRel?.name || 'N/A'}</p>
                               <p className="text-[11px] text-[#64748B]">
                                 {lead.branchRel?.name || lead.customBranchText || 'General'}
                               </p>
@@ -591,7 +591,7 @@ export default function LeadsPage() {
                             <td className="py-3.5 px-4 text-xs">
                               {lead.assignedSeniorCounselor ? (
                                 <div>
-                                  <p className="font-medium text-[#0F172A]">{lead.assignedSeniorCounselor.fullName}</p>
+                                  <p className="font-medium text-[#4A7B5B]">{lead.assignedSeniorCounselor.fullName}</p>
                                   {lead.assignedPosition && (
                                     <p className="text-[10px] text-[#4A7B5B] font-mono">{lead.assignedPosition.code}</p>
                                   )}
@@ -606,7 +606,7 @@ export default function LeadsPage() {
                             <td className="py-3.5 px-4 text-xs">
                               {lead.assignedCounselor ? (
                                 <div>
-                                  <p className="font-medium text-[#0F172A]">{lead.assignedCounselor.fullName}</p>
+                                  <p className="font-medium text-[#4A7B5B]">{lead.assignedCounselor.fullName}</p>
                                   {isCounselorUnavailable && (
                                     <p className="text-[10px] text-amber-600 font-semibold">Staff Resigned / Disabled</p>
                                   )}
@@ -668,7 +668,7 @@ export default function LeadsPage() {
           <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden p-6">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] mb-4">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Assign Educational Counselor</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Assign Educational Counselor</h3>
                 <p className="text-xs text-[#64748B]">
                   Lead: {assignModalLead.fullName} ({assignModalLead.state} • {assignModalLead.district || assignModalLead.city})
                 </p>
@@ -709,7 +709,7 @@ export default function LeadsPage() {
                             className="text-[#4A7B5B] focus:ring-[#4A7B5B]"
                           />
                           <div>
-                            <p className="text-sm font-semibold text-[#0F172A]">{c.fullName}</p>
+                            <p className="text-sm font-semibold text-[#4A7B5B]">{c.fullName}</p>
                             <p className="text-xs text-[#64748B]">{c.email} • {c.department || 'Admissions'}</p>
                           </div>
                         </div>
@@ -731,7 +731,7 @@ export default function LeadsPage() {
                 </div>
 
                 <div className="pt-2">
-                  <label className="text-xs font-semibold text-[#0F172A] block mb-1">Assignment Reason / Note</label>
+                  <label className="text-xs font-semibold text-[#4A7B5B] block mb-1">Assignment Reason / Note</label>
                   <input
                     value={assignReason}
                     onChange={(e) => setAssignReason(e.target.value)}
@@ -789,7 +789,7 @@ export default function LeadsPage() {
           <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden p-6">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] mb-4">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Bulk Reassign Counselor</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Bulk Reassign Counselor</h3>
                 <p className="text-xs text-[#64748B]">{selectedLeadIds.length} leads selected for bulk transfer</p>
               </div>
               <button onClick={() => setShowBulkModal(false)} className="p-1 rounded-lg hover:bg-[#F1F5F9]">
@@ -826,7 +826,7 @@ export default function LeadsPage() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-[#0F172A] block mb-1">Select Target Counselor *</label>
+                  <label className="text-xs font-semibold text-[#4A7B5B] block mb-1">Select Target Counselor *</label>
                   <select
                     value={bulkCounselorId}
                     onChange={(e) => setBulkCounselorId(e.target.value)}
@@ -842,7 +842,7 @@ export default function LeadsPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-[#0F172A] block mb-1">Mandatory Reassignment Reason *</label>
+                  <label className="text-xs font-semibold text-[#4A7B5B] block mb-1">Mandatory Reassignment Reason *</label>
                   <textarea
                     value={bulkReason}
                     onChange={(e) => setBulkReason(e.target.value)}
@@ -901,7 +901,7 @@ export default function LeadsPage() {
           <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden p-6">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] mb-4">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Manual Senior Counselor Route Override</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Manual Senior Counselor Route Override</h3>
                 <p className="text-xs text-[#64748B]">
                   Lead: {manualRouteModalLead.fullName} ({manualRouteModalLead.state} • {manualRouteModalLead.district || manualRouteModalLead.city})
                 </p>
@@ -919,7 +919,7 @@ export default function LeadsPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-[#0F172A] block mb-1">Select Senior Counselor *</label>
+                <label className="text-xs font-semibold text-[#4A7B5B] block mb-1">Select Senior Counselor *</label>
                 <select
                   value={selectedSeniorForRoute}
                   onChange={(e) => setSelectedSeniorForRoute(e.target.value)}
@@ -941,7 +941,7 @@ export default function LeadsPage() {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-[#0F172A] block mb-1">Override Reason *</label>
+                <label className="text-xs font-semibold text-[#4A7B5B] block mb-1">Override Reason *</label>
                 <textarea
                   value={routeReason}
                   onChange={(e) => setRouteReason(e.target.value)}
@@ -986,7 +986,7 @@ export default function LeadsPage() {
             <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-[#0F172A]">{selectedLeadDetail.fullName}</h2>
+                  <h2 className="text-lg font-bold text-[#4A7B5B]">{selectedLeadDetail.fullName}</h2>
                   <span className="px-2 py-0.5 rounded-full bg-[#E8F3EC] text-[#4A7B5B] font-bold text-xs">
                     {selectedLeadDetail.status}
                   </span>
@@ -1002,12 +1002,12 @@ export default function LeadsPage() {
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Routing & Ownership Status Box */}
               <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">CRM Operational Ownership</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">CRM Operational Ownership</h4>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <span className="text-[#64748B] block">Senior Counselor:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedLeadDetail.assignedSeniorCounselor?.fullName || 'Unassigned'}
                     </span>
                     {selectedLeadDetail.assignedPosition && (
@@ -1019,7 +1019,7 @@ export default function LeadsPage() {
 
                   <div>
                     <span className="text-[#64748B] block">Assigned Counselor:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedLeadDetail.assignedCounselor?.fullName || 'Not assigned'}
                     </span>
                   </div>
@@ -1055,7 +1055,7 @@ export default function LeadsPage() {
 
               {/* Personal & Academic Profile */}
               <div>
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-2">Academic & Geography Profile</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider mb-2">Academic & Geography Profile</h4>
                 <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white border border-[#E2E8F0] text-xs">
                   <div><span className="text-[#64748B]">State:</span> <p className="font-medium">{selectedLeadDetail.state || 'N/A'}</p></div>
                   <div><span className="text-[#64748B]">District/City:</span> <p className="font-medium">{selectedLeadDetail.district || selectedLeadDetail.city || 'N/A'}</p></div>
@@ -1071,7 +1071,7 @@ export default function LeadsPage() {
               {/* Centralized Admission Journey & Multi-Applications */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Overall Student Journey</h4>
+                  <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">Overall Student Journey</h4>
                   {studentJourneyData?.overallJourney && (
                     <span className="text-xs font-bold text-[#4A7B5B] bg-[#E8F3EC] px-2.5 py-0.5 rounded-full">
                       {studentJourneyData.overallJourney.progress}% Completed
@@ -1089,7 +1089,7 @@ export default function LeadsPage() {
                         <Clock className="w-4 h-4 text-[#94A3B8] shrink-0 mt-0.5" />
                       )}
                       <div className="flex-1">
-                        <div className="flex items-center justify-between font-semibold text-[#0F172A]">
+                        <div className="flex items-center justify-between font-semibold text-[#4A7B5B]">
                           <span>{step.title}</span>
                           <span className="text-[10px] text-[#64748B]">{step.date}</span>
                         </div>
@@ -1102,7 +1102,7 @@ export default function LeadsPage() {
                 {/* Student Applications Section */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                    <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                       Student Applications ({studentJourneyData?.applicationsCount || 0})
                     </h4>
                   </div>
@@ -1118,7 +1118,7 @@ export default function LeadsPage() {
                           <div className="flex items-start justify-between">
                             <div>
                               <span className="text-[10px] font-mono text-[#64748B]">#APP-{app.applicationNumber}</span>
-                              <h5 className="font-bold text-sm text-[#0F172A]">{app.college.name}</h5>
+                              <h5 className="font-bold text-sm text-[#4A7B5B]">{app.college.name}</h5>
                               <p className="text-xs text-[#475569]">
                                 {app.course.name} • <span className="font-semibold text-[#4A7B5B]">{app.branch.code}</span>
                               </p>
@@ -1151,11 +1151,11 @@ export default function LeadsPage() {
 
               {/* Assignment History Timeline */}
               <div>
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-2">Assignment Ownership History</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider mb-2">Assignment Ownership History</h4>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                   {selectedLeadDetail.leadAssignments?.map((rec) => (
                     <div key={rec.id} className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs">
-                      <div className="flex items-center justify-between font-semibold text-[#0F172A] mb-1">
+                      <div className="flex items-center justify-between font-semibold text-[#4A7B5B] mb-1">
                         <span>{rec.assignedToUser?.fullName || 'System'} ({rec.assignmentType})</span>
                         <span className="text-[10px] text-[#94A3B8]">{new Date(rec.assignedAt).toLocaleString()}</span>
                       </div>
@@ -1186,7 +1186,7 @@ export default function LeadsPage() {
             <div className="p-6 border-b border-[#E2E8F0] bg-[#F8FAFC] flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-mono text-[#64748B]">#APP-{selectedAppJourney.applicationNumber}</span>
-                <h3 className="text-base font-bold text-[#0F172A]">{selectedAppJourney.college.name}</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">{selectedAppJourney.college.name}</h3>
                 <p className="text-xs text-[#475569]">
                   {selectedAppJourney.course.name} • <span className="font-semibold text-[#4A7B5B]">{selectedAppJourney.branch.code}</span>
                 </p>
@@ -1202,7 +1202,7 @@ export default function LeadsPage() {
               <div className="p-4 rounded-2xl bg-[#E8F3EC] border border-[#BBF7D0] flex items-center justify-between">
                 <div>
                   <span className="text-[10px] text-[#4A7B5B] uppercase font-bold tracking-wider">Application Journey Status</span>
-                  <div className="text-base font-extrabold text-[#0F172A]">{selectedAppJourney.status}</div>
+                  <div className="text-base font-extrabold text-[#4A7B5B]">{selectedAppJourney.status}</div>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-bold text-[#4A7B5B]">{selectedAppJourney.progress}% Completed</span>
@@ -1214,7 +1214,7 @@ export default function LeadsPage() {
 
               {/* Application Checkpoints */}
               <div>
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-3">Application Checkpoints</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider mb-3">Application Checkpoints</h4>
                 <div className="space-y-3">
                   {selectedAppJourney.checkpoints.map((step) => (
                     <div key={step.id} className="p-3.5 rounded-xl border border-[#E2E8F0] bg-white flex items-start gap-3">
@@ -1224,7 +1224,7 @@ export default function LeadsPage() {
                         <Clock className="w-5 h-5 text-[#94A3B8] shrink-0 mt-0.5" />
                       )}
                       <div className="flex-1">
-                        <div className="flex items-center justify-between font-semibold text-xs text-[#0F172A]">
+                        <div className="flex items-center justify-between font-semibold text-xs text-[#4A7B5B]">
                           <span>
                             {step.title} {step.isOptional && <span className="text-[10px] text-[#64748B] font-normal">(Optional)</span>}
                           </span>
@@ -1239,11 +1239,11 @@ export default function LeadsPage() {
 
               {/* Application Timeline Events */}
               <div>
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider mb-3">Application Event Audit Log</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider mb-3">Application Event Audit Log</h4>
                 <div className="space-y-2">
                   {selectedAppJourney.timeline.map((evt) => (
                     <div key={evt.id} className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] text-xs space-y-1">
-                      <div className="flex items-center justify-between font-semibold text-[#0F172A]">
+                      <div className="flex items-center justify-between font-semibold text-[#4A7B5B]">
                         <span>{evt.title}</span>
                         <span className="text-[10px] text-[#94A3B8]">{evt.timestamp}</span>
                       </div>

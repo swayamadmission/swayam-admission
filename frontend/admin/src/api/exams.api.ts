@@ -49,6 +49,13 @@ export interface Exam {
   faqs?: any;
   seoTitle?: string;
   seoDescription?: string;
+  description?: string;
+  stateId?: string;
+  state?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   featured: boolean;
   status: string;
   createdAt: string;
@@ -87,6 +94,8 @@ export interface ExamQueryParams {
   level?: string;
   examMode?: string;
   status?: string;
+  stateId?: string;
+  state?: string;
   featured?: boolean;
   registrationStatus?: string;
   sortBy?: string;
@@ -119,6 +128,8 @@ export type CreateExamPayload = {
   faqs?: any;
   seoTitle?: string;
   seoDescription?: string;
+  description?: string;
+  stateId?: string;
   featured?: boolean;
   status?: string;
   courseIds?: string[];

@@ -359,7 +359,7 @@ export default function SettingsPage() {
               <div className="w-8 h-8 rounded-xl bg-[#E8F3EC] flex items-center justify-center text-[#4A7B5B]">
                 <Sliders className="w-4 h-4" />
               </div>
-              <h1 className="text-[#0F172A] text-xl font-extrabold tracking-tight">
+              <h1 className="text-[#4A7B5B] text-xl font-extrabold tracking-tight">
                 Enterprise System Configuration & Governance Control Center
               </h1>
             </div>
@@ -371,7 +371,7 @@ export default function SettingsPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handlePurgeCache}
-              className="h-9 px-3.5 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#0F172A] bg-white hover:bg-slate-50 flex items-center gap-1.5 transition-all"
+              className="h-9 px-3.5 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#4A7B5B] bg-white hover:bg-slate-50 flex items-center gap-1.5 transition-all"
             >
               <RefreshCw className="w-3.5 h-3.5 text-[#4A7B5B]" />
               Purge Cache
@@ -379,7 +379,7 @@ export default function SettingsPage() {
 
             <button
               onClick={handleExportJson}
-              className="h-9 px-3.5 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#0F172A] bg-white hover:bg-slate-50 flex items-center gap-1.5 transition-all"
+              className="h-9 px-3.5 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#4A7B5B] bg-white hover:bg-slate-50 flex items-center gap-1.5 transition-all"
             >
               <Download className="w-3.5 h-3.5 text-[#4A7B5B]" />
               Export JSON
@@ -407,7 +407,7 @@ export default function SettingsPage() {
               placeholder="Search by setting key, label, or description (e.g. escalationHours, capacity)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-10 pl-9 pr-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+              className="w-full h-10 pl-9 pr-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
             />
           </div>
 
@@ -416,7 +416,7 @@ export default function SettingsPage() {
             <select
               value={selectedScope}
               onChange={(e) => setSelectedScope(e.target.value as ConfigurationScope)}
-              className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+              className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
             >
               <option value="GLOBAL">GLOBAL (Platform Default)</option>
               <option value="ORGANIZATION">ORGANIZATION</option>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
               disabled={selectedScope === "GLOBAL"}
               value={scopeIdInput}
               onChange={(e) => setScopeIdInput(e.target.value)}
-              className={`w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] ${
+              className={`w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] ${
                 selectedScope === "GLOBAL" ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-[#F8FAFC] focus:bg-white"
               } focus:outline-none focus:border-[#4A7B5B]`}
             />
@@ -459,7 +459,7 @@ export default function SettingsPage() {
                     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       isActive
                         ? "bg-[#E8F3EC] text-[#4A7B5B] font-bold"
-                        : "text-[#64748B] hover:bg-slate-50 hover:text-[#0F172A]"
+                        : "text-[#64748B] hover:bg-slate-50 hover:text-[#4A7B5B]"
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                 <div className="bg-white p-5 rounded-2xl border border-[#F1F5F9] shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[#4A7B5B] flex items-center gap-2">
                         <AlertTriangle className="w-4 h-4 text-amber-500" />
                         Pending Governance Approvals ({pendingApprovals.length})
                       </h3>
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                   {pendingApprovals.length === 0 ? (
                     <div className="p-8 text-center bg-[#F8FAFC] rounded-xl border border-dashed border-[#E2E8F0]">
                       <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-[#0F172A]">All pending approvals resolved</p>
+                      <p className="text-xs font-bold text-[#4A7B5B]">All pending approvals resolved</p>
                       <p className="text-[11px] text-[#94A3B8] mt-0.5">No configuration change requests currently pending sign-off.</p>
                     </div>
                   ) : (
@@ -516,13 +516,13 @@ export default function SettingsPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-[#0F172A]">{req.key}</span>
+                              <span className="font-mono text-xs font-bold text-[#4A7B5B]">{req.key}</span>
                               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
                                 PENDING REVIEW
                               </span>
                             </div>
                             <span className="text-[11px] text-[#94A3B8]">
-                              Requested by <strong className="text-[#0F172A]">{req.requestedByName}</strong> on{" "}
+                              Requested by <strong className="text-[#4A7B5B]">{req.requestedByName}</strong> on{" "}
                               {new Date(req.createdAt).toLocaleDateString()}
                             </span>
                           </div>
@@ -584,7 +584,7 @@ export default function SettingsPage() {
                 <div className="bg-white p-5 rounded-2xl border border-[#F1F5F9] shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-[#4A7B5B] flex items-center gap-2">
                         <Activity className="w-4 h-4 text-[#4A7B5B]" />
                         Real-Time Platform Diagnostics & System Telemetry
                       </h3>
@@ -608,7 +608,7 @@ export default function SettingsPage() {
                         <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                           <span className="text-[10px] font-extrabold uppercase text-[#94A3B8] block">Database Status</span>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-extrabold text-[#0F172A]">
+                            <span className="text-sm font-extrabold text-[#4A7B5B]">
                               {telemetry.database.status}
                             </span>
                             <span className="text-xs font-mono font-bold text-[#4A7B5B]">
@@ -620,7 +620,7 @@ export default function SettingsPage() {
                         <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                           <span className="text-[10px] font-extrabold uppercase text-[#94A3B8] block">Node.js Memory RSS</span>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-extrabold text-[#0F172A]">
+                            <span className="text-sm font-extrabold text-[#4A7B5B]">
                               {telemetry.system.memoryUsageMb.rss} MB
                             </span>
                             <span className="text-[10px] font-bold text-[#94A3B8]">
@@ -632,7 +632,7 @@ export default function SettingsPage() {
                         <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                           <span className="text-[10px] font-extrabold uppercase text-[#94A3B8] block">Server Uptime</span>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-extrabold text-[#0F172A]">
+                            <span className="text-sm font-extrabold text-[#4A7B5B]">
                               {Math.floor(telemetry.system.uptimeSeconds / 3600)}h {Math.floor((telemetry.system.uptimeSeconds % 3600) / 60)}m
                             </span>
                             <span className="text-[10px] font-bold text-[#94A3B8]">
@@ -644,7 +644,7 @@ export default function SettingsPage() {
                         <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                           <span className="text-[10px] font-extrabold uppercase text-[#94A3B8] block">Config Cache Keys</span>
                           <div className="flex items-center justify-between mt-1">
-                            <span className="text-sm font-extrabold text-[#0F172A]">
+                            <span className="text-sm font-extrabold text-[#4A7B5B]">
                               {telemetry.cache.cachedKeysCount} Keys
                             </span>
                             <span className="text-xs font-bold text-emerald-600">
@@ -656,19 +656,19 @@ export default function SettingsPage() {
 
                       {/* Queue Counts */}
                       <div className="p-4 rounded-xl border border-[#E2E8F0] bg-white">
-                        <span className="text-xs font-bold text-[#0F172A] block mb-3">Live Active Entity Queues</span>
+                        <span className="text-xs font-bold text-[#4A7B5B] block mb-3">Live Active Entity Queues</span>
                         <div className="grid grid-cols-3 gap-3 text-center">
                           <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                             <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Active Pending Tasks</span>
-                            <span className="text-lg font-extrabold text-[#0F172A]">{telemetry.queues.activeTasks}</span>
+                            <span className="text-lg font-extrabold text-[#4A7B5B]">{telemetry.queues.activeTasks}</span>
                           </div>
                           <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                             <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">New Applications</span>
-                            <span className="text-lg font-extrabold text-[#0F172A]">{telemetry.queues.pendingApplications}</span>
+                            <span className="text-lg font-extrabold text-[#4A7B5B]">{telemetry.queues.pendingApplications}</span>
                           </div>
                           <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
                             <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Pending Payments</span>
-                            <span className="text-lg font-extrabold text-[#0F172A]">{telemetry.queues.pendingPayments}</span>
+                            <span className="text-lg font-extrabold text-[#4A7B5B]">{telemetry.queues.pendingPayments}</span>
                           </div>
                         </div>
                       </div>
@@ -684,26 +684,26 @@ export default function SettingsPage() {
             {activeCategoryTab === "legacy" && (
               <div className="bg-white p-5 rounded-2xl border border-[#F1F5F9] shadow-sm space-y-4">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Platform Branding & Identification</h3>
+                  <h3 className="text-sm font-bold text-[#4A7B5B]">Platform Branding & Identification</h3>
                   <p className="text-xs text-[#94A3B8]">Core organizational identity and default values.</p>
                 </div>
                 {legacySettingsRes?.data?.system ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                     <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                       <span className="text-[#94A3B8] block text-[10px] uppercase font-bold">Platform Name</span>
-                      <span className="font-bold text-[#0F172A]">{legacySettingsRes.data.system.platformName}</span>
+                      <span className="font-bold text-[#4A7B5B]">{legacySettingsRes.data.system.platformName}</span>
                     </div>
                     <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                       <span className="text-[#94A3B8] block text-[10px] uppercase font-bold">Support Email</span>
-                      <span className="font-bold text-[#0F172A]">{legacySettingsRes.data.system.supportEmail}</span>
+                      <span className="font-bold text-[#4A7B5B]">{legacySettingsRes.data.system.supportEmail}</span>
                     </div>
                     <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                       <span className="text-[#94A3B8] block text-[10px] uppercase font-bold">Timezone</span>
-                      <span className="font-bold text-[#0F172A]">{legacySettingsRes.data.system.timezone}</span>
+                      <span className="font-bold text-[#4A7B5B]">{legacySettingsRes.data.system.timezone}</span>
                     </div>
                     <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0]">
                       <span className="text-[#94A3B8] block text-[10px] uppercase font-bold">Academic Session</span>
-                      <span className="font-bold text-[#0F172A]">{legacySettingsRes.data.system.academicSession}</span>
+                      <span className="font-bold text-[#4A7B5B]">{legacySettingsRes.data.system.academicSession}</span>
                     </div>
                   </div>
                 ) : (
@@ -716,7 +716,7 @@ export default function SettingsPage() {
             {activeCategoryTab !== "approvals" && activeCategoryTab !== "telemetry" && activeCategoryTab !== "legacy" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-[#0F172A]">
+                  <span className="text-xs font-bold text-[#4A7B5B]">
                     Showing {configurations.length} Configuration Rules ({selectedScope})
                   </span>
                   <span className="text-[11px] text-[#94A3B8]">
@@ -727,12 +727,12 @@ export default function SettingsPage() {
                 {isConfigsLoading ? (
                   <div className="p-12 text-center bg-white rounded-2xl border border-[#F1F5F9]">
                     <RefreshCw className="w-6 h-6 animate-spin text-[#4A7B5B] mx-auto mb-2" />
-                    <p className="text-xs font-bold text-[#0F172A]">Resolving Authoritative Configuration Engine...</p>
+                    <p className="text-xs font-bold text-[#4A7B5B]">Resolving Authoritative Configuration Engine...</p>
                   </div>
                 ) : configurations.length === 0 ? (
                   <div className="p-12 text-center bg-white rounded-2xl border border-[#F1F5F9]">
                     <FileText className="w-8 h-8 text-[#94A3B8] mx-auto mb-2" />
-                    <p className="text-xs font-bold text-[#0F172A]">No configuration rules found</p>
+                    <p className="text-xs font-bold text-[#4A7B5B]">No configuration rules found</p>
                     <p className="text-[11px] text-[#94A3B8] mt-1">Try clearing search filters or changing the active scope.</p>
                   </div>
                 ) : (
@@ -747,7 +747,7 @@ export default function SettingsPage() {
                           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-mono text-xs font-extrabold text-[#0F172A] bg-slate-100 px-2 py-0.5 rounded-md">
+                                <span className="font-mono text-xs font-extrabold text-[#4A7B5B] bg-slate-100 px-2 py-0.5 rounded-md">
                                   {config.key}
                                 </span>
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#E8F3EC] text-[#4A7B5B]">
@@ -767,7 +767,7 @@ export default function SettingsPage() {
                                   </span>
                                 )}
                               </div>
-                              <h4 className="text-xs font-bold text-[#0F172A] mt-1.5">{config.label}</h4>
+                              <h4 className="text-xs font-bold text-[#4A7B5B] mt-1.5">{config.label}</h4>
                               {config.description && (
                                 <p className="text-[11px] text-[#64748B] mt-0.5">{config.description}</p>
                               )}
@@ -803,7 +803,7 @@ export default function SettingsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] text-xs">
                             <div>
                               <span className="text-[10px] font-extrabold uppercase text-[#94A3B8] block">Current Effective Value</span>
-                              <span className="font-mono font-bold text-[#0F172A]">
+                              <span className="font-mono font-bold text-[#4A7B5B]">
                                 {config.dataType === "BOOLEAN"
                                   ? String(config.value) === "true" || config.value === true
                                     ? "ENABLED (true)"
@@ -851,7 +851,7 @@ export default function SettingsPage() {
                 <span className="font-mono text-[10px] font-extrabold text-[#4A7B5B] uppercase bg-[#E8F3EC] px-2 py-0.5 rounded">
                   {editingConfig.dataType} &bull; v{editingConfig.version}
                 </span>
-                <h3 className="text-sm font-bold text-[#0F172A] mt-1">{editingConfig.label}</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B] mt-1">{editingConfig.label}</h3>
                 <span className="font-mono text-[11px] text-[#94A3B8]">{editingConfig.key}</span>
               </div>
               <button
@@ -874,7 +874,7 @@ export default function SettingsPage() {
 
             {/* Type-Aware Value Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A]">New Value</label>
+              <label className="text-xs font-bold text-[#4A7B5B]">New Value</label>
               {editingConfig.dataType === "BOOLEAN" ? (
                 <div className="flex items-center gap-3 p-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
                   <button
@@ -890,7 +890,7 @@ export default function SettingsPage() {
                       }`}
                     />
                   </button>
-                  <span className="text-xs font-bold text-[#0F172A]">
+                  <span className="text-xs font-bold text-[#4A7B5B]">
                     {editValue ? "ENABLED (true)" : "DISABLED (false)"}
                   </span>
                 </div>
@@ -898,7 +898,7 @@ export default function SettingsPage() {
                 <select
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                  className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
                 >
                   {editingConfig.validationRules.enumOptions.map((opt) => (
                     <option key={opt} value={opt}>
@@ -915,7 +915,7 @@ export default function SettingsPage() {
                     step={editingConfig.validationRules?.step || 1}
                     value={editValue}
                     onChange={(e) => setEditValue(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] font-mono text-sm font-bold text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                    className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] font-mono text-sm font-bold text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
                   />
                   {editingConfig.validationRules && (
                     <span className="text-[10px] text-[#94A3B8] mt-1 block">
@@ -935,21 +935,21 @@ export default function SettingsPage() {
                       setEditValue(e.target.value);
                     }
                   }}
-                  className="w-full p-3 font-mono text-xs rounded-xl border border-[#E2E8F0] text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                  className="w-full p-3 font-mono text-xs rounded-xl border border-[#E2E8F0] text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
                 />
               ) : (
                 <input
                   type="text"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                  className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
                 />
               )}
             </div>
 
             {/* Change Reason Input */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#0F172A] flex items-center justify-between">
+              <label className="text-xs font-bold text-[#4A7B5B] flex items-center justify-between">
                 <span>Change Reason</span>
                 {editingConfig.isHighRisk && <span className="text-rose-600 text-[10px] font-bold">* Mandatory</span>}
               </label>
@@ -958,7 +958,7 @@ export default function SettingsPage() {
                 placeholder="e.g. Raised upload limit for high-res scanned certificates"
                 value={editReason}
                 onChange={(e) => setEditReason(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
               />
             </div>
 
@@ -993,7 +993,7 @@ export default function SettingsPage() {
                 <span className="text-[10px] font-extrabold uppercase text-[#4A7B5B] bg-[#E8F3EC] px-2 py-0.5 rounded">
                   Version History & Audits
                 </span>
-                <h3 className="text-sm font-bold text-[#0F172A] mt-1">{selectedConfigForDetail.label}</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B] mt-1">{selectedConfigForDetail.label}</h3>
                 <span className="font-mono text-[11px] text-[#94A3B8]">{selectedConfigForDetail.key}</span>
               </div>
               <button
@@ -1007,7 +1007,7 @@ export default function SettingsPage() {
             <div className="p-3 bg-[#F8FAFC] rounded-xl border border-[#E2E8F0] text-xs space-y-1">
               <div className="flex justify-between">
                 <span className="text-[#94A3B8]">Current Value:</span>
-                <strong className="font-mono text-[#0F172A]">
+                <strong className="font-mono text-[#4A7B5B]">
                   {typeof selectedConfigForDetail.value === "object"
                     ? JSON.stringify(selectedConfigForDetail.value)
                     : String(selectedConfigForDetail.value)}
@@ -1024,7 +1024,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-3">
-              <span className="text-xs font-bold text-[#0F172A] block">Chronological Version Timeline</span>
+              <span className="text-xs font-bold text-[#4A7B5B] block">Chronological Version Timeline</span>
 
               {historyList.length === 0 ? (
                 <div className="p-4 text-center text-xs text-[#94A3B8]">No previous audit revisions recorded.</div>
@@ -1090,7 +1090,7 @@ export default function SettingsPage() {
       {showRollbackModal && rollbackConfig && selectedVersionForRollback && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-xl p-5 space-y-4 animate-in zoom-in-95">
-            <h3 className="text-sm font-bold text-[#0F172A]">
+            <h3 className="text-sm font-bold text-[#4A7B5B]">
               Rollback Setting to Version v{selectedVersionForRollback}
             </h3>
             <p className="text-xs text-[#64748B]">
@@ -1098,13 +1098,13 @@ export default function SettingsPage() {
             </p>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-[#0F172A]">Rollback Reason</label>
+              <label className="text-xs font-bold text-[#4A7B5B]">Rollback Reason</label>
               <input
                 type="text"
                 placeholder="e.g. Reverting due to regulatory change"
                 value={rollbackReason}
                 onChange={(e) => setRollbackReason(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
               />
             </div>
 
@@ -1142,7 +1142,7 @@ export default function SettingsPage() {
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 space-y-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
               <div>
-                <h3 className="text-sm font-bold text-[#0F172A]">Import Configuration Bundle</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Import Configuration Bundle</h3>
                 <p className="text-xs text-[#94A3B8]">
                   Paste JSON configuration payload to validate schema and preview diffs before applying.
                 </p>
@@ -1153,24 +1153,24 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-[#0F172A]">JSON Configuration Payload</label>
+              <label className="text-xs font-bold text-[#4A7B5B]">JSON Configuration Payload</label>
               <textarea
                 rows={7}
                 placeholder='{ "configurations": [ { "key": "crm.task.escalationHours", "value": 36 } ] }'
                 value={importJsonText}
                 onChange={(e) => setImportJsonText(e.target.value)}
-                className="w-full p-3 font-mono text-xs rounded-xl border border-[#E2E8F0] text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full p-3 font-mono text-xs rounded-xl border border-[#E2E8F0] text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-[#0F172A]">Batch Reason</label>
+              <label className="text-xs font-bold text-[#4A7B5B]">Batch Reason</label>
               <input
                 type="text"
                 placeholder="e.g. Q3 2026 Policy Alignment"
                 value={importReason}
                 onChange={(e) => setImportReason(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#0F172A] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] text-xs text-[#4A7B5B] bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#4A7B5B]"
               />
             </div>
 

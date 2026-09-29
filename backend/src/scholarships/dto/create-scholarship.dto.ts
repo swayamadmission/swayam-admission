@@ -40,6 +40,15 @@ export class CreateScholarshipDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  states?: string[];
+
+  @IsOptional()
+  @IsString()
   country?: string;
 
   @IsOptional()

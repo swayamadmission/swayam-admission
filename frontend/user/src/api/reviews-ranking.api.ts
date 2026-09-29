@@ -31,6 +31,27 @@ export interface FileComplaintPayload {
   evidenceUrl?: string;
 }
 
+export interface SubmitStudentCollegeReportPayload {
+  collegeId: string;
+  courseId?: string;
+  applicationId?: string;
+  academicRating: number;
+  placementCareerRating: number;
+  studentDemandExperienceRating: number;
+  infrastructureRating: number;
+  connectivityRating: number;
+  hostelLivingRating: number;
+  safetyHealthcareRating: number;
+  affordabilityRoiRating: number;
+  trustTransparencyRating: number;
+  overallSatisfactionRating: number;
+  headline?: string;
+  detailedExperience?: string;
+  strengthsObserved?: string[];
+  gapsObserved?: string[];
+  evidenceUrls?: string[];
+}
+
 export const reviewsRankingApi = {
   submitCounselorReview: async (payload: SubmitCounselorReviewPayload) => {
     const res = await api.post('/reviews/counselor', payload);
@@ -52,8 +73,45 @@ export const reviewsRankingApi = {
     return res.data;
   },
 
-  getPublicRankings: async (params?: { year?: number; state?: string; tier?: string; search?: string; page?: number; limit?: number }) => {
+  getPublicRankings: async (params?: {
+    year?: number;
+    state?: string;
+    tier?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) => {
     const res = await api.get('/rankings/public', { params });
+    return res.data;
+  },
+
+  getPublicSpecialRankings: async (year: number, type: string, limit: number = 50) => {
+    const res = await api.get(`/rankings/public/${year}/special/${type}`, { params: { limit } });
+    return res.data;
+  },
+
+  getPublicMethodology: async (version?: string) => {
+    const res = await api.get('/rankings/public/methodology', { params: { version } });
+    return res.data;
+  },
+
+  getPublicAnnualReport: async (year: number) => {
+    const res = await api.get(`/rankings/public/${year}/annual-report`);
+    return res.data;
+  },
+
+  compareColleges: async (collegeIds: string[], year?: number) => {
+    const res = await api.post('/rankings/compare', { collegeIds, year });
+    return res.data;
+  },
+
+  submitStudentCollegeReport: async (payload: SubmitStudentCollegeReportPayload) => {
+    const res = await api.post('/rankings/student-reports', payload);
+    return res.data;
+  },
+
+  getMyStudentReports: async () => {
+    const res = await api.get('/rankings/student-reports/my');
     return res.data;
   },
 

@@ -46,6 +46,51 @@ export class BlogController {
     return this.blogService.findPublic(query);
   }
 
+  // 3a. Student Personalized Recommendations
+  @Get('guides/personalized')
+  getPersonalizedGuides(@Req() req: any) {
+    const userId = req.user?.id || req.query?.userId;
+    return this.blogService.getPersonalizedGuides(userId);
+  }
+
+  // 3b. Student Saved Guides
+  @Get('guides/saved')
+  getSavedGuides(@Req() req: any) {
+    const userId = req.user?.id || req.query?.userId;
+    return this.blogService.getSavedGuides(userId);
+  }
+
+  // 3c. Student Save Guide
+  @Post('guides/:id/save')
+  @HttpCode(HttpStatus.OK)
+  saveGuide(
+    @Param('id') guideId: string,
+    @Req() req: any,
+    @Body() body: any,
+  ) {
+    const userId = req.user?.id || req.query?.userId || body?.userId;
+    return this.blogService.saveGuide(userId, guideId);
+  }
+
+  // 3d. Student Unsave Guide
+  @Delete('guides/:id/save')
+  @HttpCode(HttpStatus.OK)
+  unsaveGuide(
+    @Param('id') guideId: string,
+    @Req() req: any,
+    @Query() query: any,
+  ) {
+    const userId = req.user?.id || query?.userId;
+    return this.blogService.unsaveGuide(userId, guideId);
+  }
+
+  // 3e. Counselor Assigned Guidance
+  @Get('guides/counselor')
+  getCounselorGuidance(@Req() req: any) {
+    const userId = req.user?.id || req.query?.userId;
+    return this.blogService.getCounselorGuidance(userId);
+  }
+
   // 4. Public Article by Slug
   @Get('slug/:slug')
   findBySlug(@Param('slug') slug: string) {
@@ -70,6 +115,12 @@ export class BlogController {
   @Get()
   findAll(@Query() query: BlogQueryDto) {
     return this.blogService.findAll(query);
+  }
+
+  // 7a. Admin Preview Mode
+  @Get(':id/preview')
+  getPreview(@Param('id') id: string) {
+    return this.blogService.getPreview(id);
   }
 
   // 8. Admin Article by ID

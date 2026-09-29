@@ -106,7 +106,7 @@ export default function NextActionPanel({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-[#4A7B5B] animate-pulse" />
-          <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+          <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
             CRM Next Operational Action
           </h4>
         </div>
@@ -154,7 +154,7 @@ export default function NextActionPanel({
               >
                 {activeTask.priority} PRIORITY
               </span>
-              <h5 className="font-bold text-sm text-[#0F172A] mt-1.5">{activeTask.title}</h5>
+              <h5 className="font-bold text-sm text-[#4A7B5B] mt-1.5">{activeTask.title}</h5>
               {activeTask.description && (
                 <p className="text-xs text-[#64748B] mt-0.5">{activeTask.description}</p>
               )}
@@ -163,7 +163,7 @@ export default function NextActionPanel({
               <span className="text-[11px] text-[#64748B] block font-medium">Due Date & Time</span>
               <span
                 className={`text-xs font-bold ${
-                  activeTask.isOverdue ? "text-red-600" : "text-[#0F172A]"
+                  activeTask.isOverdue ? "text-red-600" : "text-[#4A7B5B]"
                 }`}
               >
                 {new Date(activeTask.dueDate).toLocaleString([], {
@@ -177,7 +177,7 @@ export default function NextActionPanel({
           <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9] text-xs">
             <div className="flex items-center gap-1.5 text-[#64748B]">
               <UserCheck className="w-3.5 h-3.5 text-[#4A7B5B]" />
-              <span>Assigned: <strong className="text-[#0F172A]">{activeTask.User?.fullName || "Counselor"}</strong></span>
+              <span>Assigned: <strong className="text-[#4A7B5B]">{activeTask.User?.fullName || "Counselor"}</strong></span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -206,11 +206,11 @@ export default function NextActionPanel({
           <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Complete Task</span>
-              <h3 className="text-base font-bold text-[#0F172A]">{completingTask.title}</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">{completingTask.title}</h3>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#0F172A] block mb-1">Outcome *</label>
+              <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Outcome *</label>
               <select
                 value={completeOutcome}
                 onChange={(e) => setCompleteOutcome(e.target.value)}
@@ -227,7 +227,7 @@ export default function NextActionPanel({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#0F172A] block mb-1">Completion Notes / Remarks</label>
+              <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Completion Notes / Remarks</label>
               <textarea
                 value={completeNotes}
                 onChange={(e) => setCompleteNotes(e.target.value)}
@@ -264,11 +264,11 @@ export default function NextActionPanel({
           <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Reschedule Follow-Up</span>
-              <h3 className="text-base font-bold text-[#0F172A]">{reschedulingTask.title}</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">{reschedulingTask.title}</h3>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#0F172A] block mb-1">New Due Date & Time *</label>
+              <label className="text-xs font-bold text-[#4A7B5B] block mb-1">New Due Date & Time *</label>
               <input
                 type="datetime-local"
                 value={rescheduleDate}
@@ -278,7 +278,7 @@ export default function NextActionPanel({
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#0F172A] block mb-1">Reason for Rescheduling *</label>
+              <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Reason for Rescheduling *</label>
               <textarea
                 value={rescheduleReason}
                 onChange={(e) => setRescheduleReason(e.target.value)}

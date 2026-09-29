@@ -209,7 +209,7 @@ export default function CounselorsPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[#0F172A]">Enterprise Counselor Management CRM</h1>
+          <h1 className="text-xl font-bold text-[#4A7B5B]">Enterprise Counselor Management CRM</h1>
           <p className="text-xs text-[#64748B]">Real-time assignment engine, performance CRM & 360° counselor profiles</p>
         </div>
         <div className="flex gap-2">
@@ -251,7 +251,7 @@ export default function CounselorsPage() {
                   <IconComp className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-lg font-bold text-[#0F172A] line-clamp-1">{s.value}</div>
+              <div className="text-lg font-bold text-[#4A7B5B] line-clamp-1">{s.value}</div>
               <div className="text-[11px] text-[#94A3B8] font-medium leading-tight line-clamp-1">{s.label}</div>
             </div>
           );
@@ -315,7 +315,7 @@ export default function CounselorsPage() {
                     />
                   </div>
                   <div>
-                    <div className="text-[#0F172A] font-semibold text-sm line-clamp-1">{c.name}</div>
+                    <div className="text-[#4A7B5B] font-semibold text-sm line-clamp-1">{c.name}</div>
                     <div className="text-[#64748B] text-xs font-medium">{c.designation}</div>
                     <div className="text-[#94A3B8] text-[11px]">{c.department} • {c.experience}</div>
                   </div>
@@ -343,15 +343,15 @@ export default function CounselorsPage() {
               {/* Assignments Counts */}
               <div className="grid grid-cols-4 gap-1 bg-[#F8FAFC] p-2 rounded-xl text-center">
                 <div>
-                  <div className="text-xs font-bold text-[#0F172A]">{c.leads}</div>
+                  <div className="text-xs font-bold text-[#4A7B5B]">{c.leads}</div>
                   <div className="text-[10px] text-[#94A3B8]">Leads</div>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#0F172A]">{c.students}</div>
+                  <div className="text-xs font-bold text-[#4A7B5B]">{c.students}</div>
                   <div className="text-[10px] text-[#94A3B8]">Students</div>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#0F172A]">{c.applications}</div>
+                  <div className="text-xs font-bold text-[#4A7B5B]">{c.applications}</div>
                   <div className="text-[10px] text-[#94A3B8]">Apps</div>
                 </div>
                 <div>
@@ -364,7 +364,7 @@ export default function CounselorsPage() {
               <div className="space-y-1.5 text-xs text-[#475569] bg-[#F8FAFC] p-2 rounded-xl">
                 <div className="flex justify-between items-center">
                   <span className="text-[#94A3B8]">Revenue:</span>
-                  <span className="font-semibold text-[#0F172A]">₹{c.revenueGenerated.toLocaleString()}</span>
+                  <span className="font-semibold text-[#4A7B5B]">₹{c.revenueGenerated.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[#94A3B8]">Commission:</span>
@@ -505,7 +505,7 @@ export default function CounselorsPage() {
                   className={`py-3 border-b-2 whitespace-nowrap px-1 transition-all ${
                     active360Tab === t.id
                       ? "border-[#4A7B5B] text-[#4A7B5B] font-bold"
-                      : "border-transparent hover:text-[#0F172A]"
+                      : "border-transparent hover:text-[#4A7B5B]"
                   }`}
                 >
                   {t.label}
@@ -525,7 +525,7 @@ export default function CounselorsPage() {
                       { label: "Rating", value: `★ ${detailedCounselor.counselorProfile?.rating || 4.8}` },
                     ].map(item => (
                       <div key={item.label} className="p-3 bg-[#F8FAFC] rounded-xl border border-[#F1F5F9] text-center">
-                        <div className="text-lg font-bold text-[#0F172A]">{item.value}</div>
+                        <div className="text-lg font-bold text-[#4A7B5B]">{item.value}</div>
                         <div className="text-xs text-[#94A3B8]">{item.label}</div>
                       </div>
                     ))}
@@ -533,7 +533,7 @@ export default function CounselorsPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="p-4 bg-white border border-[#E2E8F0] rounded-xl space-y-2">
-                      <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Contact & Credentials</h4>
+                      <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">Contact & Credentials</h4>
                       <div className="text-xs space-y-1.5 text-[#475569]">
                         <div><span className="text-[#94A3B8]">Email:</span> {detailedCounselor.email}</div>
                         <div><span className="text-[#94A3B8]">Mobile:</span> {detailedCounselor.mobile}</div>
@@ -542,7 +542,7 @@ export default function CounselorsPage() {
                       </div>
                     </div>
                     <div className="p-4 bg-white border border-[#E2E8F0] rounded-xl space-y-2">
-                      <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Region & Coverage</h4>
+                      <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">Region & Coverage</h4>
                       <div className="text-xs space-y-1.5 text-[#475569]">
                         <div><span className="text-[#94A3B8]">Region:</span> {detailedCounselor.counselorProfile?.assignedRegion || "North Region"}</div>
                         <div><span className="text-[#94A3B8]">States:</span> {(detailedCounselor.counselorProfile?.assignedStates || []).join(", ") || "Delhi, UP"}</div>
@@ -562,7 +562,7 @@ export default function CounselorsPage() {
                     (detailedCounselor.assignedStudents || []).map((st: any) => (
                       <div key={st.id} className="p-3 border border-[#E2E8F0] rounded-xl flex justify-between items-center text-xs bg-white">
                         <div>
-                          <div className="font-semibold text-[#0F172A]">{st.fullName}</div>
+                          <div className="font-semibold text-[#4A7B5B]">{st.fullName}</div>
                           <div className="text-[#94A3B8]">{st.email} • {st.mobile}</div>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-[#E8F3EC] text-[#4A7B5B] font-semibold">Assigned</span>
@@ -580,7 +580,7 @@ export default function CounselorsPage() {
                     (detailedCounselor.assignedLeads || []).map((ld: any) => (
                       <div key={ld.id} className="p-3 border border-[#E2E8F0] rounded-xl flex justify-between items-center text-xs bg-white">
                         <div>
-                          <div className="font-semibold text-[#0F172A]">{ld.fullName}</div>
+                          <div className="font-semibold text-[#4A7B5B]">{ld.fullName}</div>
                           <div className="text-[#94A3B8]">{ld.mobile} • Priority: {ld.priority}</div>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#0EA5E9] font-semibold">{ld.status}</span>
@@ -598,7 +598,7 @@ export default function CounselorsPage() {
                     (detailedCounselor.counseledApplications || []).map((app: any) => (
                       <div key={app.id} className="p-3 border border-[#E2E8F0] rounded-xl flex justify-between items-center text-xs bg-white">
                         <div>
-                          <div className="font-semibold text-[#0F172A]">{app.applicationId} - {app.user?.fullName}</div>
+                          <div className="font-semibold text-[#4A7B5B]">{app.applicationId} - {app.user?.fullName}</div>
                           <div className="text-[#94A3B8]">{app.college?.name} ({app.course?.name})</div>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-[#EDE9FE] text-[#8B5CF6] font-semibold">{app.status}</span>
@@ -616,7 +616,7 @@ export default function CounselorsPage() {
                     (detailedCounselor.counselorDocuments || []).map((doc: any) => (
                       <div key={doc.id} className="p-3 border border-[#E2E8F0] rounded-xl flex justify-between items-center text-xs bg-white">
                         <div>
-                          <div className="font-semibold text-[#0F172A]">{doc.title || doc.fileName}</div>
+                          <div className="font-semibold text-[#4A7B5B]">{doc.title || doc.fileName}</div>
                           <div className="text-[#94A3B8]">{doc.type}</div>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706] font-semibold">{doc.status}</span>
@@ -634,7 +634,7 @@ export default function CounselorsPage() {
                     (detailedCounselor.counselorPayments || []).map((pm: any) => (
                       <div key={pm.id} className="p-3 border border-[#E2E8F0] rounded-xl flex justify-between items-center text-xs bg-white">
                         <div>
-                          <div className="font-semibold text-[#0F172A]">₹{pm.amount} - Student: {pm.user?.fullName}</div>
+                          <div className="font-semibold text-[#4A7B5B]">₹{pm.amount} - Student: {pm.user?.fullName}</div>
                           <div className="text-[#94A3B8]">Commission: ₹{pm.counselorCommission || 0}</div>
                         </div>
                         <span className="px-2 py-0.5 rounded-full bg-[#D1FAE5] text-[#059669] font-semibold">{pm.status}</span>
@@ -646,7 +646,7 @@ export default function CounselorsPage() {
 
               {["schedule", "tasks", "performance", "timeline", "activity", "commission", "notes", "settings", "audit"].includes(active360Tab) && (
                 <div className="p-4 bg-[#F8FAFC] rounded-xl text-center text-xs text-[#64748B]">
-                  Live PostgreSQL records active for tab: <span className="font-semibold uppercase text-[#0F172A]">{active360Tab}</span>
+                  Live PostgreSQL records active for tab: <span className="font-semibold uppercase text-[#4A7B5B]">{active360Tab}</span>
                 </div>
               )}
             </div>
@@ -676,10 +676,10 @@ export default function CounselorsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
             <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-3">
-              <h3 className="font-bold text-sm text-[#0F172A]">
+              <h3 className="font-bold text-sm text-[#4A7B5B]">
                 {assignModal.type === "reassign" ? "Reassign Counselor" : `Assign ${assignModal.type?.toUpperCase()} to ${assignModal.counselorName}`}
               </h3>
-              <button onClick={() => setAssignModal({ type: null })} className="text-[#94A3B8] hover:text-[#0F172A]">
+              <button onClick={() => setAssignModal({ type: null })} className="text-[#94A3B8] hover:text-[#4A7B5B]">
                 <X className="w-4 h-4" />
               </button>
             </div>

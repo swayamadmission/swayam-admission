@@ -39,7 +39,7 @@ Background:
 #F8FAFC
 
 Text Color:
-#0F172A
+#4A7B5B
 
 Soft Secondary Background:
 #E8F3EC

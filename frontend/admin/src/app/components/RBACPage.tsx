@@ -263,7 +263,7 @@ function CreateRoleModal({
               <Shield className="w-5 h-5" style={{ color }} />
             </div>
             <div>
-              <h3 className="font-extrabold text-[#0F172A] text-lg leading-tight">Create Enterprise Access Role</h3>
+              <h3 className="font-extrabold text-[#4A7B5B] text-lg leading-tight">Create Enterprise Access Role</h3>
               <p className="text-xs text-[#94A3B8]">Configure role hierarchy, data scope & backend permission matrix</p>
             </div>
           </div>
@@ -306,7 +306,7 @@ function CreateRoleModal({
           {modalTab === "basic" && (
             <div className="space-y-4">
               <div>
-                <label className="text-[#0F172A] text-xs font-bold block mb-1">Role Name *</label>
+                <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Role Name *</label>
                 <input
                   type="text"
                   value={name}
@@ -317,7 +317,7 @@ function CreateRoleModal({
               </div>
 
               <div>
-                <label className="text-[#0F172A] text-xs font-bold block mb-1">Description</label>
+                <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Description</label>
                 <textarea
                   value={description}
                   onChange={e => setDescription(e.target.value)}
@@ -328,7 +328,7 @@ function CreateRoleModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-[#0F172A] text-xs font-bold block mb-1">Department</label>
+                  <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Department</label>
                   <select
                     value={department}
                     onChange={e => setDepartment(e.target.value)}
@@ -345,7 +345,7 @@ function CreateRoleModal({
                 </div>
 
                 <div>
-                  <label className="text-[#0F172A] text-xs font-bold block mb-1">Parent Role (Hierarchy)</label>
+                  <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Parent Role (Hierarchy)</label>
                   <select
                     value={parentRoleId}
                     onChange={e => setParentRoleId(e.target.value)}
@@ -359,7 +359,7 @@ function CreateRoleModal({
                 </div>
 
                 <div>
-                  <label className="text-[#0F172A] text-xs font-bold block mb-1">Hierarchy Level</label>
+                  <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Hierarchy Level</label>
                   <select
                     value={level}
                     onChange={e => setLevel(Number(e.target.value))}
@@ -404,7 +404,7 @@ function CreateRoleModal({
           {modalTab === "scope" && (
             <div className="space-y-4">
               <div>
-                <label className="text-[#0F172A] text-xs font-bold block mb-1">Data Scope Access</label>
+                <label className="text-[#4A7B5B] text-xs font-bold block mb-1">Data Scope Access</label>
                 <select
                   value={dataScope}
                   onChange={e => setDataScope(e.target.value)}
@@ -664,7 +664,7 @@ export default function RBACPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-[#0F172A] text-2xl font-extrabold tracking-tight">Enterprise IAM, Role Hierarchy & Governance</h2>
+          <h2 className="text-[#4A7B5B] text-2xl font-extrabold tracking-tight">Enterprise IAM, Role Hierarchy & Governance</h2>
           <p className="text-[#94A3B8] text-xs mt-0.5">Dynamic Role-Based Access Control (RBAC), Inheritance, Lifecycle & Two-Person Approval</p>
         </div>
         <div className="flex items-center gap-2">
@@ -701,8 +701,8 @@ export default function RBACPage() {
                   <Icon className="w-4.5 h-4.5" style={{ color: card.color }} />
                 </div>
               </div>
-              <div className="text-2xl font-extrabold text-[#0F172A]">{card.value}</div>
-              <div className="text-xs font-bold text-[#0F172A] mt-0.5">{card.label}</div>
+              <div className="text-2xl font-extrabold text-[#4A7B5B]">{card.value}</div>
+              <div className="text-xs font-bold text-[#4A7B5B] mt-0.5">{card.label}</div>
               <div className="text-xs text-[#94A3B8]">{card.sub}</div>
             </div>
           );

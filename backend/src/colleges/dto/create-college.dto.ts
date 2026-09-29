@@ -93,6 +93,14 @@ export class CreateCollegeDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  districtId?: string;
+
+  @IsOptional()
+  @IsString()
   address?: string;
 
   @IsOptional()
@@ -146,10 +154,55 @@ export class CreateCollegeDto {
   @Min(0)
   averagePackage?: number;
 
-  // Facilities
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  medianPackage?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  placementCompanies?: string[];
+
+  @IsOptional()
+  @IsString()
+  placementInfo?: string;
+
+  @IsOptional()
+  @IsString()
+  placementYear?: string;
+
+  // Facilities & Hostel
   @IsOptional()
   @IsBoolean()
   hostelAvailable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  boysHostelAvailable?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  girlsHostelAvailable?: boolean;
+
+  @IsOptional()
+  @IsString()
+  hostelFee?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  hostelFacilities?: string[];
+
+  @IsOptional()
+  @IsString()
+  messInfo?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  otherFacilities?: string[];
 
   @IsOptional()
   @IsBoolean()
@@ -158,6 +211,16 @@ export class CreateCollegeDto {
   @IsOptional()
   @IsBoolean()
   scholarshipAvailable?: boolean;
+
+  // Overview additions
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  rating?: number;
+
+  @IsOptional()
+  @IsString()
+  contactPerson?: string;
 
   // Admin
   @IsOptional()
@@ -187,13 +250,28 @@ export class CreateCollegeDto {
   @IsString()
   seoDescription?: string;
 
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  seoKeywords?: string[];
+
   // Gallery (create inline)
   @IsOptional()
   @IsArray()
-  gallery?: { imageUrl: string; caption?: string; sortOrder?: number }[];
+  gallery?: {
+    imageUrl: string;
+    caption?: string;
+    sortOrder?: number;
+    isCover?: boolean;
+  }[];
 
   // FAQs (create inline)
   @IsOptional()
   @IsArray()
   faqs?: { question: string; answer: string; sortOrder?: number }[];
+
+  // Courses (create inline/nested)
+  @IsOptional()
+  @IsArray()
+  courses?: any[];
 }

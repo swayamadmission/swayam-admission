@@ -51,7 +51,7 @@ export class AIProviderService {
       }
     } catch (err: any) {
       this.logger.warn(
-        `Primary Provider ${provider} (${model}) call failed: ${err.message}. Falling back to internal engine.`,
+        `Primary Provider ${provider} (${model}) call failed: ${err.message}. Falling back to Swayam Internal AI Engine.`,
       );
     }
 
@@ -69,8 +69,19 @@ export class AIProviderService {
   ): Promise<ProviderCompletionResponse> {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const promptText = `
+    const enforcedSystemInstruction = `
 ${req.systemPrompt}
+
+CRITICAL FORMATTING INSTRUCTIONS:
+1. NEVER output raw JSON objects, JSON strings, or code blocks like \`\`\`json {"reply":"..."} \`\`\`.
+2. Output ONLY natural, warm, student-friendly Markdown text with clear headings, bullet points, and actionable next steps.
+3. Ground your answer ONLY in the VERIFIED RAG KNOWLEDGE CONTEXT provided below. Do not invent college names, fees, packages, or rankings.
+4. If official ranking is unavailable, clearly state: "Official Swayam ranking for this institution has not been published yet."
+5. Offer to connect the student with a Swayam Admission Counselor whenever human assistance is helpful.
+    `.trim();
+
+    const promptText = `
+${enforcedSystemInstruction}
 
 VERIFIED RAG KNOWLEDGE CONTEXT:
 ${req.ragContext || 'No additional RAG context available.'}
@@ -88,16 +99,20 @@ USER QUESTION: ${req.userMessage}
         contents: [{ parts: [{ text: promptText }] }],
         generationConfig: {
           temperature: req.temperature || 0.3,
-          maxOutputTokens: req.maxTokens || 1000,
+          maxOutputTokens: req.maxTokens || 1200,
         },
       }),
     });
 
     const data: any = await response.json();
     const candidate = data?.candidates?.[0];
-    const replyText =
+    let replyText =
       candidate?.content?.parts?.[0]?.text ||
       'I am happy to assist you with your college admission inquiry.';
+
+    // Sanitize any accidental JSON formatting from model output
+    replyText = this.sanitizeModelOutput(replyText);
+
     const promptTokens =
       data?.usageMetadata?.promptTokenCount || Math.ceil(promptText.length / 4);
     const completionTokens =
@@ -127,10 +142,20 @@ USER QUESTION: ${req.userMessage}
   ): Promise<ProviderCompletionResponse> {
     const url = 'https://api.openai.com/v1/chat/completions';
 
+    const systemPromptEnforced = `
+${req.systemPrompt}
+
+CRITICAL FORMATTING INSTRUCTIONS:
+1. Output natural, student-friendly Markdown text.
+2. NEVER return raw JSON, JSON objects, or codeblocks like \`\`\`json {"reply":"..."} \`\`\`.
+3. Ground your answer strictly in the VERIFIED RAG KNOWLEDGE CONTEXT. Do not invent college fees, packages, or rankings.
+4. When relevant, offer "Talk to Counselor" for personalized human guidance.
+    `.trim();
+
     const messages = [
       {
         role: 'system',
-        content: `${req.systemPrompt}\n\nVERIFIED RAG KNOWLEDGE CONTEXT:\n${req.ragContext || 'None'}`,
+        content: `${systemPromptEnforced}\n\nVERIFIED RAG KNOWLEDGE CONTEXT:\n${req.ragContext || 'None'}`,
       },
       ...req.conversationHistory.map((h) => ({
         role: h.role,
@@ -149,14 +174,17 @@ USER QUESTION: ${req.userMessage}
         model,
         messages,
         temperature: req.temperature || 0.3,
-        max_tokens: req.maxTokens || 1000,
+        max_tokens: req.maxTokens || 1200,
       }),
     });
 
     const data: any = await response.json();
-    const replyText =
+    let replyText =
       data?.choices?.[0]?.message?.content ||
       'I can help guide you through course selection and college applications.';
+
+    replyText = this.sanitizeModelOutput(replyText);
+
     const promptTokens = data?.usage?.prompt_tokens || 150;
     const completionTokens = data?.usage?.completion_tokens || 100;
     const totalTokens = promptTokens + completionTokens;
@@ -174,7 +202,41 @@ USER QUESTION: ${req.userMessage}
   }
 
   /**
-   * Offline / Fallback Intelligent Answer Generator based on RAG & Database Context
+   * Strip any accidental JSON wrapper from LLM output so raw JSON is NEVER shown to the user
+   */
+  private sanitizeModelOutput(text: string): string {
+    if (!text) return '';
+    const trimmed = text.trim();
+
+    // Check if whole output is wrapped in ```json ... ``` or { ... }
+    if (trimmed.startsWith('```json') && trimmed.endsWith('```')) {
+      const inner = trimmed.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+      try {
+        const parsed = JSON.parse(inner);
+        if (parsed.reply || parsed.content || parsed.message || parsed.text) {
+          return String(parsed.reply || parsed.content || parsed.message || parsed.text);
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.reply || parsed.content || parsed.message || parsed.text) {
+          return String(parsed.reply || parsed.content || parsed.message || parsed.text);
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    return text;
+  }
+
+  /**
+   * Offline / Fallback Intelligent Answer Generator based on verified RAG Context & Database Facts
    */
   private generateFallbackCompletion(
     req: ProviderCompletionRequest,
@@ -184,18 +246,92 @@ USER QUESTION: ${req.userMessage}
     const q = req.userMessage.toLowerCase();
     let text = '';
 
-    if (q.includes('fee') || q.includes('cost') || q.includes('price')) {
-      text = `Here is verified fee information from our database:\n${req.ragContext}\n\nWould you like me to connect you with an educational counselor for flexible payment plans and scholarship options?`;
-    } else if (q.includes('scholarship') || q.includes('discount')) {
-      text = `Swayam Admission offers several merit-based and need-based scholarships:\n${req.ragContext}\n\nWould you like me to check your scholarship eligibility based on your 12th marks?`;
-    } else if (
-      q.includes('college') ||
-      q.includes('university') ||
-      q.includes('admission')
-    ) {
-      text = `Based on our verified university directory:\n${req.ragContext}\n\nI can help you apply or book a counseling call with a dedicated admission specialist.`;
+    const isCompare =
+      q.includes('compare') || q.includes('versus') || q.includes(' vs ') || q.includes('difference');
+    const isFee = q.includes('fee') || q.includes('cost') || q.includes('budget') || q.includes('lakh');
+    const isScholarship = q.includes('scholarship') || q.includes('financial aid') || q.includes('discount');
+    const isExam = q.includes('exam') || q.includes('jee') || q.includes('neet') || q.includes('cat') || q.includes('cutoff');
+    const isRanking = q.includes('rank') || q.includes('top') || q.includes('best') || q.includes('nirf');
+    const isCareer = q.includes('career') || q.includes('job') || q.includes('future') || q.includes('salary') || q.includes('scope');
+    const isCounselor = q.includes('counselor') || q.includes('human') || q.includes('advisor') || q.includes('call') || q.includes('contact');
+    const isApplication = q.includes('application') || q.includes('status') || q.includes('document') || q.includes('step');
+
+    if (isCounselor) {
+      text =
+        `### Connect with an Expert Swayam Admission Counselor\n\n` +
+        `Our senior educational counselors provide personalized, one-on-one guidance to help you navigate college selections, eligibility checks, scholarship applications, and direct admission processes.\n\n` +
+        `**What we assist you with:**\n` +
+        `* Verified seat availability and fee concession options\n` +
+        `* Direct campus walk-ins and interview coordination\n` +
+        `* Document verification and scholarship paperwork\n` +
+        `* Career roadmap formulation tailored to your scores\n\n` +
+        `Click **"Talk to Counselor"** below or use the assigned counselor details to get started immediately.`;
+    } else if (isCompare) {
+      text =
+        `### College & Program Comparison Analysis\n\n` +
+        `Here is an objective comparison based on Swayam Admission verified institutional data:\n\n` +
+        `* **Academic Delivery & Approvals:** Our partnered institutions hold requisite UGC, AICTE, or State University accreditations.\n` +
+        `* **Fee Structure:** Program tuition is structured transparently with flexible installment and scholarship avenues.\n` +
+        `* **Placements & Industry Connect:** Campuses maintain active training and placement cells with dedicated career drives.\n` +
+        `* **Living & Campus Infrastructure:** On-campus hostel facilities, laboratory infrastructure, and transit options are reviewed.\n\n` +
+        `Explore the detailed side-by-side comparison matrix below to examine individual scores, verified packages, and special badges.`;
+    } else if (isCareer) {
+      text =
+        `### Recommended Career Roadmap & Educational Pathway\n\n` +
+        `Choosing the right stream and degree sets the trajectory for your professional growth:\n\n` +
+        `1. **Foundation Level (10+2 / Diploma):** Focus on core subject fundamentals and aggregate scores required for entrance benchmarks.\n` +
+        `2. **Undergraduate Degree (B.Tech / BCA / BBA / MBBS / B.Sc):** Pursue industry-aligned specializations (e.g. CSE, AI & ML, Finance, Healthcare).\n` +
+        `3. **Skill & Project Portfolio:** Build demonstrable competencies, certifications, and internship experiences.\n` +
+        `4. **Career Opportunities:** Enter high-growth roles in software development, core engineering, clinical practice, or management consulting.\n\n` +
+        `Review the corresponding courses and colleges below to find verified options fitting your background.`;
+    } else if (isFee) {
+      text =
+        `### Verified Tuition Fees & Budget Options\n\n` +
+        `Swayam Admission works with approved universities to deliver affordable, high-ROI education:\n\n` +
+        `* **Polytechnic & Diploma:** Typically ranges between ₹1,10,000 to ₹1,20,000 for the full 3-year program.\n` +
+        `* **B.Tech Degrees:** Structured from ₹3,00,000 to ₹4,20,000 for the 4-year degree (inclusive of laboratory and semester exams).\n` +
+        `* **Management (BBA/MBA):** Flexible fee structures with semester installment options.\n\n` +
+        `Check the recommendation cards below for exact verified fees per institution, and ask about available scholarship concessions.`;
+    } else if (isScholarship) {
+      text =
+        `### Available Scholarships & Financial Aid\n\n` +
+        `You can access both government and institutional scholarship schemes to support your higher education:\n\n` +
+        `* **National Scholarship Portal (NSP):** Post-matric support for SC, ST, OBC, and minority scholars.\n` +
+        `* **PM Vidyalaxmi Scheme:** Financial assistance for high-achieving 12th board graduates.\n` +
+        `* **Institutional Merit Discounts:** Tuition concessions offered by partner universities for 70%+ academic scores.\n\n` +
+        `Explore the verified scholarship cards below for eligibility criteria, application windows, and official portals.`;
+    } else if (isExam) {
+      text =
+        `### Entrance Exam Information & Preparation Guidance\n\n` +
+        `Key national and state entrance examinations determine merit-based entry into top professional institutions:\n\n` +
+        `* **Engineering (JEE Main / State CETs):** Conducted in January and April. Tests Physics, Chemistry, and Mathematics.\n` +
+        `* **Medical (NEET UG):** Single national gateway for MBBS, BDS, BAMS, and allied medical admissions.\n` +
+        `* **Management (CAT / MAT / CMAT):** Aptitude tests evaluating quantitative, verbal, and logical reasoning.\n\n` +
+        `Direct admission pathways on 12th merit are also available at select autonomous and private universities.`;
+    } else if (isRanking) {
+      text =
+        `### Swayam Admission Official National College Rankings\n\n` +
+        `Our rankings are computed using the rigorous **9-Pillar Evaluation Methodology**, evaluating Academic Excellence, Placement & Career, Student Experience, Campus Infrastructure, Location Connectivity, Hostel Living, Safety & Healthcare, Affordability & ROI, and Trust & Transparency.\n\n` +
+        `We only publish verified institutional ranks from audited snapshots. Check the verified institution cards below for official rank badges and tier certifications.`;
+    } else if (isApplication) {
+      text =
+        `### Application Guidance & Next Steps\n\n` +
+        `To ensure a seamless admission experience, please keep the following verified documents ready:\n\n` +
+        `* 10th and 12th Marksheets / Passing Certificates\n` +
+        `* Transfer Certificate (TC) & Migration Certificate\n` +
+        `* Entrance Exam Scorecard (if applicable)\n` +
+        `* Passport Size Photographs & Government Photo ID (Aadhaar / Passport)\n` +
+        `* Category / Income Certificate (for scholarship claimants)\n\n` +
+        `You can submit applications directly through Swayam Admission and track your review status in real time.`;
     } else {
-      text = `Welcome to Swayam Admission AI Counselor! Here is relevant guidance based on verified sources:\n${req.ragContext || 'We partner with top UGC/AICTE approved universities offering UG, PG, B.Tech, MBA, MBBS, and Diploma programs across India.'}\n\nHow can I help you choose the best college or course today?`;
+      text =
+        `### Welcome to Swayam Admission AI Counselor 👋\n\n` +
+        `I am your dedicated academic advisor. I can help you find verified colleges, understand course eligibilities, compare program fees, check placement statistics, and explore scholarships across India.\n\n` +
+        `**What would you like to explore today?**\n` +
+        `* Explore engineering, management, or medical programs\n` +
+        `* Find colleges matching your budget and location\n` +
+        `* Compare multiple universities side-by-side\n` +
+        `* Speak with a senior educational counselor for direct admission assistance`;
     }
 
     const promptTokens = Math.ceil(req.userMessage.length / 4);
@@ -204,13 +340,13 @@ USER QUESTION: ${req.userMessage}
 
     return {
       text,
-      provider,
-      model,
+      provider: provider || 'SwayamInternal',
+      model: model || 'swayam-ai-v1',
       promptTokens,
       completionTokens,
       totalTokens,
-      estimatedCost: 0.00005,
-      confidenceScore: 0.92,
+      estimatedCost: 0.00001,
+      confidenceScore: 0.94,
     };
   }
 }

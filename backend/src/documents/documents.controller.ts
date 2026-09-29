@@ -12,6 +12,7 @@ import {
   UploadedFile,
   BadRequestException,
   Req,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
@@ -22,12 +23,18 @@ import { BulkVerifyDto } from './dto/bulk-verify.dto';
 import { DocumentQueryDto } from './dto/document-query.dto';
 import { ConfigureRequirementDto } from './dto/configure-requirement.dto';
 import { RequestCorrectionDto } from './dto/request-correction.dto';
+import {
+  CreateDeletionRequestDto,
+  ReviewDeletionDto,
+  ResendNotificationDto,
+} from './dto/deletion-request.dto';
+import { AuditQueryDto } from './dto/audit-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionGuard } from '../auth/guards/permission.guard';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { IUser } from '../auth/interfaces/user.interface';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 const allowedExtensions = [
   '.jpg',
@@ -226,6 +233,167 @@ export class DocumentsController {
     return this.documentsService.getUserDocuments(userId, user?.id);
   }
 
+  // ==========================================
+  // DELETION REQUESTS & RETENTION ENDPOINTS
+  // ==========================================
+
+  @Post(['deletion-requests', 'deletion-request'])
+  @UseGuards(JwtAuthGuard)
+  submitDeletionRequest(
+    @Req() req: Request,
+    @CurrentUser() user: IUser,
+    @Body() dto: CreateDeletionRequestDto,
+  ) {
+    return this.documentsService.submitDeletionRequest(
+      user.id,
+      dto,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Get('deletion-requests/my')
+  @UseGuards(JwtAuthGuard)
+  getMyDeletionRequests(@CurrentUser() user: IUser) {
+    return this.documentsService.getMyDeletionRequests(user.id);
+  }
+
+  @Post(['deletion-requests/:id/cancel', 'deletion-request/:id/cancel'])
+  @UseGuards(JwtAuthGuard)
+  cancelDeletionRequest(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.documentsService.cancelDeletionRequest(
+      id,
+      user.id,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Patch(['deletion-requests/:id/cancel', 'deletion-request/:id/cancel'])
+  @UseGuards(JwtAuthGuard)
+  cancelDeletionRequestPatch(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.documentsService.cancelDeletionRequest(
+      id,
+      user.id,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Get(['deletion-requests', 'admin/deletion-requests'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.view')
+  getAdminDeletionRequests(
+    @Query('status') status?: string,
+    @Query('studentId') studentId?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.documentsService.getAdminDeletionRequests({
+      status,
+      studentId,
+      page,
+      limit,
+    });
+  }
+
+  @Post(['deletion-requests/:id/review', 'admin/deletion-requests/:id/review'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.verify')
+  reviewDeletionRequest(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Body() dto: ReviewDeletionDto,
+  ) {
+    return this.documentsService.reviewDeletionRequest(
+      id,
+      user.id,
+      dto,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Patch(['deletion-requests/:id/review', 'admin/deletion-requests/:id/review'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.verify')
+  reviewDeletionRequestPatch(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Body() dto: ReviewDeletionDto,
+  ) {
+    return this.documentsService.reviewDeletionRequest(
+      id,
+      user.id,
+      dto,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Post(['deletion-requests/:id/resend-notification', 'admin/deletion-requests/:id/resend-notification'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.verify')
+  resendDeletionNotification(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Body() dto: ResendNotificationDto,
+  ) {
+    return this.documentsService.resendDeletionNotification(
+      id,
+      user.id,
+      dto?.channels,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+  }
+
+  @Get(['audit-logs', 'admin/audit-logs'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.view')
+  getAuditLogs(@Query() query: AuditQueryDto) {
+    return this.documentsService.getAuditLogs(query);
+  }
+
+  @Get(['notification-logs', 'admin/notification-logs'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.view')
+  getNotificationLogs(
+    @Query('requestId') requestId?: string,
+    @Query('studentId') studentId?: string,
+    @Query('channel') channel?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.documentsService.getNotificationDeliveryLogs({
+      requestId,
+      studentId,
+      channel,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  @Post(['retention/run-cleanup', 'admin/retention/run-cleanup'])
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('document.delete')
+  triggerRetentionCleanup() {
+    return this.documentsService.triggerRetentionCleanup();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Permissions('document.view')
@@ -234,17 +402,55 @@ export class DocumentsController {
   }
 
   @Get(':id/preview')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @Permissions('document.view')
-  previewDocument(@Param('id') id: string, @CurrentUser() user: IUser) {
-    return this.documentsService.previewDocument(id, user?.id);
+  @UseGuards(JwtAuthGuard)
+  async previewDocument(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ) {
+    const result = await this.documentsService.previewDocument(
+      id,
+      user?.id,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+
+    res.set({
+      'Content-Type': result.mimeType || 'application/pdf',
+      'Content-Disposition': `inline; filename="${result.fileName}"`,
+      'Cache-Control': 'private, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+
+    return res.send(result.buffer);
   }
 
   @Get(':id/download')
-  @UseGuards(JwtAuthGuard, PermissionGuard)
-  @Permissions('document.download')
-  downloadDocument(@Param('id') id: string, @CurrentUser() user: IUser) {
-    return this.documentsService.downloadDocument(id, user?.id);
+  @UseGuards(JwtAuthGuard)
+  async downloadDocument(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+  ) {
+    const result = await this.documentsService.downloadDocument(
+      id,
+      user?.id,
+      req.ip,
+      req.headers['user-agent'] as string,
+    );
+
+    res.set({
+      'Content-Type': result.mimeType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${result.fileName}"`,
+      'Cache-Control': 'private, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    });
+
+    return res.send(result.buffer);
   }
 
   @Patch(':id/verify')

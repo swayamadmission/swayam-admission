@@ -134,12 +134,12 @@ export default function CounselorFormModal({ mode, initialData, onClose }: Couns
         {/* Header */}
         <div className="p-5 border-b border-[#F1F5F9] flex justify-between items-center bg-[#F8FAFC]">
           <div>
-            <h2 className="text-lg font-semibold text-[#0F172A]">
+            <h2 className="text-lg font-semibold text-[#4A7B5B]">
               {mode === "create" ? "Add New Counselor" : "Edit Counselor Profile"}
             </h2>
             <p className="text-xs text-[#94A3B8]">Configure counselor details, organization role, and compensation</p>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-[#94A3B8] hover:text-[#0F172A] hover:bg-gray-100">
+          <button onClick={onClose} className="p-1 rounded-lg text-[#94A3B8] hover:text-[#4A7B5B] hover:bg-gray-100">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -158,7 +158,7 @@ export default function CounselorFormModal({ mode, initialData, onClose }: Couns
               className={`py-3 border-b-2 transition-all ${
                 activeTab === tab.id
                   ? "border-[#4A7B5B] text-[#4A7B5B] font-semibold"
-                  : "border-transparent hover:text-[#0F172A]"
+                  : "border-transparent hover:text-[#4A7B5B]"
               }`}
             >
               {tab.label}

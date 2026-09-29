@@ -13,6 +13,22 @@ export class GeographyPublicController {
     return await this.geographyService.getPublicStates();
   }
 
+  @Get('states/detail/:slugOrId')
+  @ApiOperation({
+    summary: 'Get public state details by ID or slug with counts',
+  })
+  async getStateBySlugOrId(@Param('slugOrId') slugOrId: string) {
+    return await this.geographyService.getPublicStateBySlugOrId(slugOrId);
+  }
+
+  @Get('states/:slugOrId/updates')
+  @ApiOperation({
+    summary: 'Get public published updates for a state by slug or ID',
+  })
+  async getStateUpdates(@Param('slugOrId') slugOrId: string) {
+    return await this.geographyService.getPublicStateUpdates(slugOrId);
+  }
+
   @Get('states/:stateId/districts')
   @ApiOperation({
     summary: 'Get all active districts under a state for dependent dropdown',

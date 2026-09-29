@@ -15,6 +15,10 @@ import {
   GeographicQueryDto,
   GeographicStatusEnum,
 } from './dto/geography.dto';
+import {
+  CreateStateUpdateDto,
+  UpdateStateUpdateDto,
+} from './dto/state-update.dto';
 import { Prisma } from '@prisma/client';
 import { COMPLETE_INDIAN_GEOGRAPHY } from './india-geography.data';
 
@@ -73,15 +77,34 @@ export class GeographyService {
   }
 
   /**
-   * List all States with district counts and active assignment counts
+   * List all States with district counts, college counts, exam counts, and filters
    */
-  async getStates() {
+  async getStates(params?: { search?: string; status?: string; region?: string }) {
+    const where: any = {};
+    if (params?.search) {
+      where.OR = [
+        { name: { contains: params.search.trim(), mode: 'insensitive' } },
+        { code: { contains: params.search.trim(), mode: 'insensitive' } },
+      ];
+    }
+    if (params?.status && params.status !== 'ALL') {
+      where.status = params.status;
+    }
+    if (params?.region && params.region !== 'ALL') {
+      where.region = params.region;
+    }
+
     const states = await this.prisma.state.findMany({
+      where,
       include: {
         _count: {
           select: {
             districts: true,
             assignments: { where: { status: 'ACTIVE' } },
+            colleges: { where: { status: { not: 'ARCHIVED' } } },
+            exams: { where: { status: { not: 'ARCHIVED' } } },
+            scholarships: { where: { status: { not: 'ARCHIVED' } } },
+            updates: { where: { status: { not: 'ARCHIVED' } } },
           },
         },
       },
@@ -93,7 +116,15 @@ export class GeographyService {
       name: st.name,
       code: st.code,
       status: st.status,
+      heroImage: st.heroImage,
+      description: st.description,
+      region: st.region,
+      popularCourses: st.popularCourses,
       districtsCount: st._count.districts,
+      collegesCount: st._count.colleges,
+      examsCount: st._count.exams,
+      scholarshipsCount: st._count.scholarships,
+      updatesCount: st._count.updates,
       activeAssignmentsCount: st._count.assignments,
       createdAt: st.createdAt,
       updatedAt: st.updatedAt,
@@ -123,7 +154,11 @@ export class GeographyService {
       data: {
         name: dto.name.trim(),
         code: dto.code.toUpperCase().trim(),
-        status: dto.status || 'ACTIVE',
+        status: dto.status || 'PUBLISHED',
+        heroImage: dto.heroImage,
+        description: dto.description,
+        region: dto.region,
+        popularCourses: dto.popularCourses ?? [],
       },
     });
 
@@ -142,7 +177,7 @@ export class GeographyService {
   }
 
   /**
-   * List Districts for a State
+   * List Districts for a State with live college counts
    */
   async getDistricts(stateId: string) {
     const state = await this.prisma.state.findUnique({
@@ -153,15 +188,30 @@ export class GeographyService {
       throw new NotFoundException(`State with ID "${stateId}" not found`);
     }
 
-    return this.prisma.district.findMany({
+    const districts = await this.prisma.district.findMany({
       where: { stateId },
       include: {
         _count: {
-          select: { assignments: { where: { status: 'ACTIVE' } } },
+          select: {
+            assignments: { where: { status: 'ACTIVE' } },
+            colleges: { where: { status: { not: 'ARCHIVED' } } },
+          },
         },
       },
       orderBy: { name: 'asc' },
     });
+
+    return districts.map((d) => ({
+      id: d.id,
+      name: d.name,
+      code: d.code,
+      stateId: d.stateId,
+      status: d.status,
+      collegesCount: d._count.colleges,
+      activeAssignmentsCount: d._count.assignments,
+      createdAt: d.createdAt,
+      updatedAt: d.updatedAt,
+    }));
   }
 
   /**
@@ -211,6 +261,193 @@ export class GeographyService {
     });
 
     return district;
+  }
+
+  /**
+   * Update a State
+   */
+  async updateState(id: string, dto: Partial<CreateStateDto>, actorUserId?: string) {
+    const existing = await this.prisma.state.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException(`State with ID "${id}" not found`);
+    }
+
+    const updated = await this.prisma.state.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name.trim() }),
+        ...(dto.code !== undefined && { code: dto.code.toUpperCase().trim() }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.heroImage !== undefined && { heroImage: dto.heroImage }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.region !== undefined && { region: dto.region }),
+        ...(dto.popularCourses !== undefined && { popularCourses: dto.popularCourses }),
+      },
+    });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'STATE_UPDATED',
+      entity: 'STATE',
+      entityId: id,
+      entityName: updated.name,
+      userId: actorUserId,
+      oldValue: existing as any,
+      newValue: updated as any,
+      description: `State "${updated.name}" updated`,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Delete / Disable a State
+   */
+  async deleteState(id: string, actorUserId?: string) {
+    const existing = await this.prisma.state.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            colleges: { where: { status: { not: 'ARCHIVED' } } },
+            districts: true,
+            exams: { where: { status: { not: 'ARCHIVED' } } },
+            scholarships: { where: { status: { not: 'ARCHIVED' } } },
+            updates: { where: { status: { not: 'ARCHIVED' } } },
+            leads: true,
+            assignments: { where: { status: 'ACTIVE' } },
+          },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException(`State with ID "${id}" not found`);
+    }
+
+    const dependencies: string[] = [];
+    if (existing._count.colleges > 0) dependencies.push(`${existing._count.colleges} college(s)`);
+    if (existing._count.districts > 0) dependencies.push(`${existing._count.districts} district(s)/city(ies)`);
+    if (existing._count.exams > 0) dependencies.push(`${existing._count.exams} entrance exam(s)`);
+    if (existing._count.scholarships > 0) dependencies.push(`${existing._count.scholarships} scholarship(s)`);
+    if (existing._count.updates > 0) dependencies.push(`${existing._count.updates} update(s)`);
+    if (existing._count.leads > 0) dependencies.push(`${existing._count.leads} lead(s)`);
+    if (existing._count.assignments > 0) dependencies.push(`${existing._count.assignments} staff assignment(s)`);
+
+    if (dependencies.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete state "${existing.name}". It has associated dependent records: ${dependencies.join(', ')}. Please reassign or delete these related records before deleting the state, or unpublish/disable the state instead.`,
+      );
+    }
+
+    await this.prisma.state.delete({ where: { id } });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'STATE_DELETED',
+      entity: 'STATE',
+      entityId: id,
+      entityName: existing.name,
+      userId: actorUserId,
+      oldValue: { status: existing.status },
+      description: `State "${existing.name}" safely removed`,
+    });
+
+    return { message: 'State deleted successfully', id };
+  }
+
+  /**
+   * Update a District
+   */
+  async updateDistrict(id: string, dto: Partial<CreateDistrictDto>, actorUserId?: string) {
+    const existing = await this.prisma.district.findUnique({
+      where: { id },
+      include: { state: true },
+    });
+    if (!existing) {
+      throw new NotFoundException(`District with ID "${id}" not found`);
+    }
+
+    const updated = await this.prisma.district.update({
+      where: { id },
+      data: {
+        ...(dto.name && { name: dto.name.trim() }),
+        ...(dto.code !== undefined && { code: dto.code ? dto.code.toUpperCase().trim() : null }),
+        ...(dto.status && { status: dto.status }),
+      },
+      include: { state: { select: { name: true, code: true } } },
+    });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'DISTRICT_UPDATED',
+      entity: 'DISTRICT',
+      entityId: id,
+      entityName: `${updated.name}, ${updated.state.name}`,
+      userId: actorUserId,
+      oldValue: existing as any,
+      newValue: updated as any,
+      description: `District "${updated.name}" updated`,
+    });
+
+    return updated;
+  }
+
+  /**
+   * Delete / Disable a District
+   */
+  async deleteDistrict(id: string, actorUserId?: string) {
+    const existing = await this.prisma.district.findUnique({
+      where: { id },
+      include: {
+        state: true,
+        _count: {
+          select: {
+            colleges: true,
+            leads: true,
+            assignments: true,
+          },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException(`District with ID "${id}" not found`);
+    }
+
+    if (existing._count.colleges > 0 || existing._count.leads > 0 || existing._count.assignments > 0) {
+      const updated = await this.prisma.district.update({
+        where: { id },
+        data: { status: 'DISABLED' },
+      });
+
+      await this.auditService.logAction({
+        module: 'ORGANIZATION',
+        action: 'DISTRICT_DISABLED',
+        entity: 'DISTRICT',
+        entityId: id,
+        entityName: `${existing.name}, ${existing.state.name}`,
+        userId: actorUserId,
+        oldValue: { status: existing.status },
+        newValue: { status: 'DISABLED' },
+        description: `District "${existing.name}" disabled (retained due to dependent records)`,
+      });
+
+      return { message: 'District disabled successfully', id };
+    }
+
+    await this.prisma.district.delete({ where: { id } });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'DISTRICT_DELETED',
+      entity: 'DISTRICT',
+      entityId: id,
+      entityName: `${existing.name}, ${existing.state.name}`,
+      userId: actorUserId,
+      oldValue: { status: existing.status },
+      description: `District "${existing.name}" permanently removed (0 dependencies)`,
+    });
+
+    return { message: 'District deleted successfully', id };
   }
 
   /**
@@ -719,12 +956,28 @@ export class GeographyService {
    */
   async getPublicStates() {
     let states = await this.prisma.state.findMany({
-      where: { status: 'ACTIVE' },
+      where: {
+        OR: [{ status: 'PUBLISHED' }, { status: 'ACTIVE' }],
+      },
       select: {
         id: true,
         name: true,
         code: true,
         type: true,
+        status: true,
+        heroImage: true,
+        description: true,
+        region: true,
+        popularCourses: true,
+        _count: {
+          select: {
+            colleges: { where: { status: { not: 'ARCHIVED' } } },
+            districts: true,
+            exams: { where: { status: { not: 'ARCHIVED' } } },
+            scholarships: { where: { status: { not: 'ARCHIVED' } } },
+            updates: { where: { status: { not: 'ARCHIVED' } } },
+          },
+        },
       },
       orderBy: { name: 'asc' },
     });
@@ -733,19 +986,162 @@ export class GeographyService {
       try {
         await this.seedDefaultGeography();
         states = await this.prisma.state.findMany({
-          where: { status: 'ACTIVE' },
+          where: {
+            OR: [{ status: 'PUBLISHED' }, { status: 'ACTIVE' }],
+          },
           select: {
             id: true,
             name: true,
             code: true,
             type: true,
+            status: true,
+            heroImage: true,
+            description: true,
+            region: true,
+            popularCourses: true,
+            _count: {
+              select: {
+                colleges: { where: { status: { not: 'ARCHIVED' } } },
+                districts: true,
+                exams: { where: { status: { not: 'ARCHIVED' } } },
+                scholarships: { where: { status: { not: 'ARCHIVED' } } },
+                updates: { where: { status: { not: 'ARCHIVED' } } },
+              },
+            },
           },
           orderBy: { name: 'asc' },
         });
       } catch {}
     }
 
-    return states;
+    return states.map((st) => ({
+      id: st.id,
+      name: st.name,
+      code: st.code,
+      type: st.type,
+      status: st.status,
+      heroImage: st.heroImage,
+      description: st.description,
+      region: st.region,
+      popularCourses: st.popularCourses,
+      slug: st.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+      collegesCount: st._count?.colleges || 0,
+      districtsCount: st._count?.districts || 0,
+      examsCount: st._count?.exams || 0,
+      scholarshipsCount: st._count?.scholarships || 0,
+      updatesCount: st._count?.updates || 0,
+    }));
+  }
+
+  /**
+   * Public: Get single state by ID, code, or slug with districts and counts
+   */
+  async getPublicStateBySlugOrId(slugOrId: string) {
+    if (!slugOrId) {
+      throw new NotFoundException('State identifier required');
+    }
+
+    const normalized = slugOrId.toLowerCase().trim();
+
+    // 1. Direct lookup by ID, code, or exact name
+    let state = await this.prisma.state.findFirst({
+      where: {
+        AND: [
+          { OR: [{ status: 'PUBLISHED' }, { status: 'ACTIVE' }] },
+          {
+            OR: [
+              { id: slugOrId },
+              { code: { equals: normalized.toUpperCase() } },
+              { name: { equals: normalized.replace(/-/g, ' '), mode: 'insensitive' } },
+            ],
+          },
+        ],
+      },
+      include: {
+        districts: {
+          where: { status: 'ACTIVE' },
+          select: { id: true, name: true, code: true, stateId: true },
+          orderBy: { name: 'asc' },
+        },
+        _count: {
+          select: {
+            colleges: { where: { status: { not: 'ARCHIVED' } } },
+            districts: true,
+            exams: { where: { status: { not: 'ARCHIVED' } } },
+            scholarships: { where: { status: { not: 'ARCHIVED' } } },
+            updates: { where: { status: { not: 'ARCHIVED' } } },
+          },
+        },
+      },
+    });
+
+    // 2. Slug match against all active published states
+    if (!state) {
+      const allStates = await this.prisma.state.findMany({
+        where: {
+          OR: [{ status: 'PUBLISHED' }, { status: 'ACTIVE' }],
+        },
+        include: {
+          districts: {
+            where: { status: 'ACTIVE' },
+            select: { id: true, name: true, code: true, stateId: true },
+            orderBy: { name: 'asc' },
+          },
+          _count: {
+            select: {
+              colleges: { where: { status: { not: 'ARCHIVED' } } },
+              districts: true,
+              exams: { where: { status: { not: 'ARCHIVED' } } },
+              scholarships: { where: { status: { not: 'ARCHIVED' } } },
+              updates: { where: { status: { not: 'ARCHIVED' } } },
+            },
+          },
+        },
+      });
+
+      state =
+        allStates.find((s) => {
+          const sSlug = s.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, '');
+          if (sSlug === normalized) return true;
+          if (
+            normalized === 'delhi-ncr' &&
+            s.name.toLowerCase().includes('delhi')
+          )
+            return true;
+          return false;
+        }) || null;
+    }
+
+    if (!state) {
+      throw new NotFoundException(`State "${slugOrId}" is currently unpublished or not found`);
+    }
+
+    const slug = state.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    return {
+      id: state.id,
+      name: state.name,
+      code: state.code,
+      type: state.type,
+      status: state.status,
+      heroImage: state.heroImage,
+      description: state.description,
+      region: state.region,
+      popularCourses: state.popularCourses,
+      slug,
+      collegesCount: state._count?.colleges || 0,
+      districtsCount: state._count?.districts || 0,
+      examsCount: state._count?.exams || 0,
+      scholarshipsCount: state._count?.scholarships || 0,
+      updatesCount: state._count?.updates || 0,
+      districts: state.districts,
+    };
   }
 
   /**
@@ -1059,5 +1455,354 @@ export class GeographyService {
       state: stateName,
       district: districtName,
     };
+  }
+
+  /**
+   * Admin: Get comprehensive State details and metrics for all 6 sections
+   */
+  async getStateDetail(idOrSlug: string) {
+    if (!idOrSlug) {
+      throw new BadRequestException('State identifier required');
+    }
+
+    const normalized = idOrSlug.toLowerCase().trim();
+
+    let state = await this.prisma.state.findFirst({
+      where: {
+        OR: [
+          { id: idOrSlug },
+          { code: { equals: normalized.toUpperCase() } },
+          { name: { equals: normalized.replace(/-/g, ' '), mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        districts: {
+          orderBy: { name: 'asc' },
+          include: {
+            _count: {
+              select: { colleges: { where: { status: { not: 'ARCHIVED' } } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!state) {
+      const allStates = await this.prisma.state.findMany({
+        include: {
+          districts: {
+            orderBy: { name: 'asc' },
+            include: {
+              _count: {
+                select: { colleges: { where: { status: { not: 'ARCHIVED' } } } },
+              },
+            },
+          },
+        },
+      });
+
+      state =
+        allStates.find((s) => {
+          const sSlug = s.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)+/g, '');
+          if (sSlug === normalized) return true;
+          if (
+            normalized === 'delhi-ncr' &&
+            s.name.toLowerCase().includes('delhi')
+          )
+            return true;
+          return false;
+        }) || null;
+    }
+
+    if (!state) {
+      throw new NotFoundException(`State "${idOrSlug}" not found`);
+    }
+
+    // Dynamic metrics across database entities
+    const [
+      totalColleges,
+      governmentColleges,
+      privateColleges,
+      scholarshipsCount,
+      examsCount,
+      updatesCount,
+    ] = await Promise.all([
+      this.prisma.college.count({
+        where: {
+          status: { not: 'ARCHIVED' },
+          OR: [
+            { stateId: state.id },
+            { state: { equals: state.name, mode: 'insensitive' } },
+          ],
+        },
+      }),
+      this.prisma.college.count({
+        where: {
+          status: { not: 'ARCHIVED' },
+          ownership: 'GOVERNMENT',
+          OR: [
+            { stateId: state.id },
+            { state: { equals: state.name, mode: 'insensitive' } },
+          ],
+        },
+      }),
+      this.prisma.college.count({
+        where: {
+          status: { not: 'ARCHIVED' },
+          ownership: 'PRIVATE',
+          OR: [
+            { stateId: state.id },
+            { state: { equals: state.name, mode: 'insensitive' } },
+          ],
+        },
+      }),
+      this.prisma.scholarship.count({
+        where: {
+          status: { not: 'ARCHIVED' },
+          OR: [
+            { stateId: state.id },
+            { state: { equals: state.name, mode: 'insensitive' } },
+            { states: { has: state.name } },
+          ],
+        },
+      }),
+      this.prisma.exam.count({
+        where: {
+          status: { not: 'ARCHIVED' },
+          OR: [
+            { stateId: state.id },
+            { state: { name: { equals: state.name, mode: 'insensitive' } } },
+          ],
+        },
+      }),
+      this.prisma.stateUpdate.count({
+        where: {
+          stateId: state.id,
+          status: { not: 'ARCHIVED' },
+        },
+      }),
+    ]);
+
+    const slug = state.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+
+    return {
+      id: state.id,
+      name: state.name,
+      code: state.code,
+      type: state.type,
+      status: state.status,
+      heroImage: state.heroImage,
+      description: state.description,
+      region: state.region,
+      popularCourses: state.popularCourses,
+      slug,
+      collegesCount: totalColleges,
+      governmentColleges,
+      privateColleges,
+      scholarshipsCount,
+      examsCount,
+      districtsCount: state.districts.length,
+      updatesCount,
+      metrics: {
+        totalColleges,
+        governmentColleges,
+        privateColleges,
+        scholarshipsCount,
+        examsCount,
+        districtsCount: state.districts.length,
+        updatesCount,
+      },
+      districts: state.districts.map((d) => ({
+        id: d.id,
+        name: d.name,
+        code: d.code,
+        status: d.status,
+        collegesCount: d._count?.colleges || 0,
+      })),
+    };
+  }
+
+  /**
+   * State Updates (News, circulars, notifications)
+   */
+  async getStateUpdates(params?: {
+    stateId?: string;
+    state?: string;
+    status?: string;
+  }) {
+    const where: any = {};
+    if (params?.status && params.status !== 'ALL') {
+      where.status = params.status;
+    } else {
+      where.status = { not: 'ARCHIVED' };
+    }
+
+    if (params?.stateId) {
+      where.stateId = params.stateId;
+    } else if (params?.state) {
+      where.OR = [
+        { state: { name: { equals: params.state, mode: 'insensitive' } } },
+        { stateName: { equals: params.state, mode: 'insensitive' } },
+      ];
+    }
+
+    return this.prisma.stateUpdate.findMany({
+      where,
+      include: {
+        state: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { publishDate: 'desc' },
+    });
+  }
+
+  async createStateUpdate(dto: CreateStateUpdateDto, actorUserId?: string) {
+    const state = await this.prisma.state.findUnique({
+      where: { id: dto.stateId },
+    });
+    if (!state) {
+      throw new NotFoundException(`State with ID "${dto.stateId}" not found`);
+    }
+
+    const baseSlug = dto.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    const slug = `${baseSlug}-${Date.now().toString().slice(-6)}`;
+
+    const update = await this.prisma.stateUpdate.create({
+      data: {
+        title: dto.title,
+        slug,
+        content: dto.content,
+        image: dto.image,
+        publishDate: dto.publishDate ? new Date(dto.publishDate) : new Date(),
+        stateId: dto.stateId,
+        stateName: state.name,
+        status: dto.status || 'PUBLISHED',
+        type: dto.type || 'Admission Update',
+        author: dto.author || 'Swayam Admissions',
+      },
+      include: {
+        state: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'STATE_UPDATE_CREATED',
+      entity: 'STATE_UPDATE',
+      entityId: update.id,
+      entityName: update.title,
+      userId: actorUserId,
+      newValue: update as any,
+      description: `State update "${update.title}" added to ${state.name}`,
+    });
+
+    return update;
+  }
+
+  async updateStateUpdate(
+    id: string,
+    dto: UpdateStateUpdateDto,
+    actorUserId?: string,
+  ) {
+    const existing = await this.prisma.stateUpdate.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`State update with ID "${id}" not found`);
+    }
+
+    const updated = await this.prisma.stateUpdate.update({
+      where: { id },
+      data: {
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.content !== undefined && { content: dto.content }),
+        ...(dto.image !== undefined && { image: dto.image }),
+        ...(dto.publishDate !== undefined && {
+          publishDate: new Date(dto.publishDate),
+        }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        ...(dto.type !== undefined && { type: dto.type }),
+        ...(dto.author !== undefined && { author: dto.author }),
+      },
+      include: {
+        state: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'STATE_UPDATE_EDITED',
+      entity: 'STATE_UPDATE',
+      entityId: id,
+      entityName: updated.title,
+      userId: actorUserId,
+      oldValue: existing as any,
+      newValue: updated as any,
+      description: `State update "${updated.title}" updated`,
+    });
+
+    return updated;
+  }
+
+  async deleteStateUpdate(id: string, actorUserId?: string) {
+    const existing = await this.prisma.stateUpdate.findUnique({
+      where: { id },
+    });
+    if (!existing) {
+      throw new NotFoundException(`State update with ID "${id}" not found`);
+    }
+
+    await this.prisma.stateUpdate.delete({ where: { id } });
+
+    await this.auditService.logAction({
+      module: 'ORGANIZATION',
+      action: 'STATE_UPDATE_DELETED',
+      entity: 'STATE_UPDATE',
+      entityId: id,
+      entityName: existing.title,
+      userId: actorUserId,
+      oldValue: existing as any,
+      description: `State update "${existing.title}" deleted`,
+    });
+
+    return { message: 'State update deleted successfully', id };
+  }
+
+  /**
+   * Public: Get published updates for a state
+   */
+  async getPublicStateUpdates(slugOrId: string) {
+    const state = await this.prisma.state.findFirst({
+      where: {
+        OR: [
+          { id: slugOrId },
+          { name: { equals: slugOrId.replace(/-/g, ' '), mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    const where: any = { status: 'PUBLISHED' };
+    if (state) {
+      where.stateId = state.id;
+    } else {
+      where.OR = [
+        { state: { name: { equals: slugOrId.replace(/-/g, ' '), mode: 'insensitive' } } },
+        { stateName: { equals: slugOrId.replace(/-/g, ' '), mode: 'insensitive' } },
+      ];
+    }
+
+    return this.prisma.stateUpdate.findMany({
+      where,
+      orderBy: { publishDate: 'desc' },
+      take: 20,
+    });
   }
 }

@@ -14,5 +14,12 @@ export class ChatDto {
   language?: string;
 
   @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
   studentProfile?: any;
+
+  @IsOptional()
+  context?: any;
 }

@@ -46,7 +46,7 @@ export default function CoursesPage() {
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
           <div className="mb-2" style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>Explore</div>
-          <h1 className="mb-2" style={{fontWeight:800,color:"#0F172A",fontSize:"clamp(24px,4vw,36px)"}}>All Courses</h1>
+          <h1 className="mb-2" style={{fontWeight:800,color:"#4A7B5B",fontSize:"clamp(24px,4vw,36px)"}}>All Courses</h1>
           <p style={{fontSize:"14px",color:"#64748b"}}>Discover 100+ courses across engineering, management, medical, law and more</p>
         </div>
       </div>
@@ -106,7 +106,7 @@ export default function CoursesPage() {
                   )}
                 </div>
               </div>
-              <h3 className="mb-1" style={{fontSize:"15px",fontWeight:700,color:"#0F172A"}}>{course.name}</h3>
+              <h3 className="mb-1" style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{course.name}</h3>
               <div className="flex items-center gap-1 mb-3">
                 <Star size={11} className="fill-[#F0AE1A] text-[#F0AE1A]"/>
                 <span style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>{course.rating || "4.8"}</span>
@@ -120,7 +120,7 @@ export default function CoursesPage() {
                 ].map(({label,value})=>(
                   <div key={label} className="bg-[#F8FAFC] rounded-xl p-2.5">
                     <div style={{fontSize:"10px",color:"#94a3b8"}}>{label}</div>
-                    <div style={{fontSize:"12px",fontWeight:600,color:"#0F172A"}}>{value || "Varies"}</div>
+                    <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>{value || "Varies"}</div>
                   </div>
                 ))}
               </div>

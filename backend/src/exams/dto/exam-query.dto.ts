@@ -28,6 +28,14 @@ export class ExamQueryDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
   examMode?: string;
 
   @IsOptional()

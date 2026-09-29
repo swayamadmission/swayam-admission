@@ -299,7 +299,7 @@ export const OrganizationPage: React.FC = () => {
               <Building2 className="w-6 h-6" style={{ color: '#4A7B5B' }} />
             </div>
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: '#0F172A' }}>Organization Structure</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: '#4A7B5B' }}>Organization Structure</h1>
               <p className="text-xs" style={{ color: '#94A3B8' }}>
                 Departments, organizational units & teams, and geographic responsibility mapping
               </p>
@@ -380,7 +380,7 @@ export const OrganizationPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: '#0F172A' }}>{departments.length}</span>
+            <span className="text-2xl font-bold" style={{ color: '#4A7B5B' }}>{departments.length}</span>
             <span className="text-xs font-medium" style={{ color: '#4A7B5B' }}>({activeDeptsCount} Active)</span>
           </div>
           <p className="mt-1 text-xs" style={{ color: '#94A3B8' }}>Corporate & Operational divisions</p>
@@ -394,7 +394,7 @@ export const OrganizationPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: '#0F172A' }}>{units.length}</span>
+            <span className="text-2xl font-bold" style={{ color: '#4A7B5B' }}>{units.length}</span>
             <span className="text-xs font-medium" style={{ color: '#4A7B5B' }}>({activeUnitsCount} Active)</span>
           </div>
           <p className="mt-1 text-xs" style={{ color: '#94A3B8' }}>Operational hierarchy & squads</p>
@@ -408,7 +408,7 @@ export const OrganizationPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: '#0F172A' }}>{totalMembersCount}</span>
+            <span className="text-2xl font-bold" style={{ color: '#4A7B5B' }}>{totalMembersCount}</span>
             <span className="text-xs font-medium" style={{ color: '#10B981' }}>Assigned</span>
           </div>
           <p className="mt-1 text-xs" style={{ color: '#94A3B8' }}>Operational roster (Distinct from Roles)</p>
@@ -422,7 +422,7 @@ export const OrganizationPage: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold" style={{ color: '#0F172A' }}>{geoAssignments.length}</span>
+            <span className="text-2xl font-bold" style={{ color: '#4A7B5B' }}>{geoAssignments.length}</span>
             <span className="text-xs font-medium" style={{ color: '#F0AE1A' }}>({activeAssignmentsCount} Active)</span>
           </div>
           <p className="mt-1 text-xs" style={{ color: '#94A3B8' }}>Responsible Senior Counselors</p>
@@ -510,7 +510,7 @@ export const OrganizationPage: React.FC = () => {
             placeholder={`Search ${activeTab}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] transition-colors"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] transition-colors"
           />
           {searchTerm && (
             <button
@@ -527,7 +527,7 @@ export const OrganizationPage: React.FC = () => {
             <select
               value={selectedDepartmentFilter}
               onChange={(e) => setSelectedDepartmentFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
             >
               <option value="ALL">All Departments</option>
               {departments.map((d) => (
@@ -542,7 +542,7 @@ export const OrganizationPage: React.FC = () => {
             <select
               value={selectedStateFilter}
               onChange={(e) => setSelectedStateFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+              className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
             >
               <option value="ALL">All States</option>
               {states.map((st) => (
@@ -556,7 +556,7 @@ export const OrganizationPage: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active Only</option>
@@ -585,7 +585,7 @@ export const OrganizationPage: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" style={{ color: '#0F172A' }}>
+              <table className="w-full text-left text-sm" style={{ color: '#4A7B5B' }}>
                 <thead className="bg-slate-50/80 text-xs uppercase font-semibold tracking-wider border-b border-[#F1F5F9]" style={{ color: '#64748B' }}>
                   <tr>
                     <th className="px-6 py-4">Department</th>
@@ -620,7 +620,7 @@ export const OrganizationPage: React.FC = () => {
                               {dept.name.charAt(0)}
                             </div>
                             <div>
-                              <span className="font-semibold group-hover:text-[#4A7B5B] transition-colors" style={{ color: '#0F172A' }}>
+                              <span className="font-semibold group-hover:text-[#4A7B5B] transition-colors" style={{ color: '#4A7B5B' }}>
                                 {dept.name}
                               </span>
                               {dept.description && (
@@ -641,7 +641,7 @@ export const OrganizationPage: React.FC = () => {
                                 {dept.manager.fullName.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-xs font-medium" style={{ color: '#0F172A' }}>{dept.manager.fullName}</p>
+                                <p className="text-xs font-medium" style={{ color: '#4A7B5B' }}>{dept.manager.fullName}</p>
                                 <p className="text-[10px]" style={{ color: '#94A3B8' }}>{dept.manager.email}</p>
                               </div>
                             </div>
@@ -748,7 +748,7 @@ export const OrganizationPage: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" style={{ color: '#0F172A' }}>
+              <table className="w-full text-left text-sm" style={{ color: '#4A7B5B' }}>
                 <thead className="bg-slate-50/80 text-xs uppercase font-semibold tracking-wider border-b border-[#F1F5F9]" style={{ color: '#64748B' }}>
                   <tr>
                     <th className="px-6 py-4">Unit / Team Name</th>
@@ -783,7 +783,7 @@ export const OrganizationPage: React.FC = () => {
                               <Layers className="w-4 h-4" />
                             </div>
                             <div>
-                              <span className="font-semibold group-hover:text-[#4A7B5B] transition-colors" style={{ color: '#0F172A' }}>
+                              <span className="font-semibold group-hover:text-[#4A7B5B] transition-colors" style={{ color: '#4A7B5B' }}>
                                 {unit.name}
                               </span>
                               {unit.description && (
@@ -798,7 +798,7 @@ export const OrganizationPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-xs font-medium" style={{ color: '#0F172A' }}>
+                          <span className="text-xs font-medium" style={{ color: '#4A7B5B' }}>
                             {unit.department?.name || '—'}
                           </span>
                         </td>
@@ -809,7 +809,7 @@ export const OrganizationPage: React.FC = () => {
                                 {unit.manager.fullName.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-xs font-medium" style={{ color: '#0F172A' }}>{unit.manager.fullName}</p>
+                                <p className="text-xs font-medium" style={{ color: '#4A7B5B' }}>{unit.manager.fullName}</p>
                                 <p className="text-[10px]" style={{ color: '#94A3B8' }}>{unit.manager.email}</p>
                               </div>
                             </div>
@@ -904,7 +904,7 @@ export const OrganizationPage: React.FC = () => {
           <div className="p-4 rounded-xl border flex items-start gap-3" style={{ background: '#E8F3EC', borderColor: '#4A7B5B30' }}>
             <Info className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#4A7B5B' }} />
             <div className="text-xs" style={{ color: '#475569' }}>
-              <span className="font-semibold" style={{ color: '#0F172A' }}>Historical Ownership Protection: </span>
+              <span className="font-semibold" style={{ color: '#4A7B5B' }}>Historical Ownership Protection: </span>
               Reassigning a state or district creates an immutable new responsibility timeline and archives the
               previous assignment. Existing students, applications, and payments previously handled by Senior
               Counselor A remain historically assigned to A.
@@ -913,7 +913,7 @@ export const OrganizationPage: React.FC = () => {
 
           <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm" style={{ color: '#0F172A' }}>
+              <table className="w-full text-left text-sm" style={{ color: '#4A7B5B' }}>
                 <thead className="bg-slate-50/80 text-xs uppercase font-semibold tracking-wider border-b border-[#F1F5F9]" style={{ color: '#64748B' }}>
                   <tr>
                     <th className="px-6 py-4">State</th>
@@ -944,7 +944,7 @@ export const OrganizationPage: React.FC = () => {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <Globe className="w-4 h-4" style={{ color: '#4A7B5B' }} />
-                            <span className="font-semibold" style={{ color: '#0F172A' }}>{geo.state.name}</span>
+                            <span className="font-semibold" style={{ color: '#4A7B5B' }}>{geo.state.name}</span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
                               {geo.state.code}
                             </span>
@@ -952,7 +952,7 @@ export const OrganizationPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                           {geo.district ? (
-                            <span className="font-semibold text-[#0F172A]">{geo.district.name}</span>
+                            <span className="font-semibold text-[#4A7B5B]">{geo.district.name}</span>
                           ) : (
                             <span className="px-2 py-0.5 rounded text-xs font-semibold" style={{ background: '#E8F3EC', color: '#4A7B5B', border: '1px solid #4A7B5B30' }}>
                               State-wide (All Districts)
@@ -965,7 +965,7 @@ export const OrganizationPage: React.FC = () => {
                               {geo.responsibleUser.fullName.charAt(0)}
                             </div>
                             <div>
-                              <p className="text-xs font-medium" style={{ color: '#0F172A' }}>
+                              <p className="text-xs font-medium" style={{ color: '#4A7B5B' }}>
                                 {geo.responsibleUser.fullName}
                               </p>
                               <p className="text-[10px] text-slate-400">{geo.responsibleUser.email}</p>
@@ -979,7 +979,7 @@ export const OrganizationPage: React.FC = () => {
                                 {geo.backupUser.fullName.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-xs font-medium" style={{ color: '#0F172A' }}>{geo.backupUser.fullName}</p>
+                                <p className="text-xs font-medium" style={{ color: '#4A7B5B' }}>{geo.backupUser.fullName}</p>
                                 <p className="text-[10px] text-slate-400">{geo.backupUser.email}</p>
                               </div>
                             </div>
@@ -1055,7 +1055,7 @@ export const OrganizationPage: React.FC = () => {
       {activeTab === 'audit' && (
         <div className="space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-[#F1F5F9]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <h3 className="text-lg font-bold mb-2" style={{ color: '#0F172A' }}>Organizational Governance & Audit Trail</h3>
+            <h3 className="text-lg font-bold mb-2" style={{ color: '#4A7B5B' }}>Organizational Governance & Audit Trail</h3>
             <p className="text-sm mb-6" style={{ color: '#94A3B8' }}>
               Full enterprise audit trail of structural changes, department modifications, team membership
               transitions, and geographic reassignments.
@@ -1081,7 +1081,7 @@ export const OrganizationPage: React.FC = () => {
                           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 font-mono border border-slate-200" style={{ color: '#4A7B5B' }}>
                             {log.action}
                           </span>
-                          <span className="text-sm font-medium" style={{ color: '#0F172A' }}>{log.description}</span>
+                          <span className="text-sm font-medium" style={{ color: '#4A7B5B' }}>{log.description}</span>
                         </div>
                         <p className="text-xs mt-1" style={{ color: '#94A3B8' }}>
                           Entity: <span style={{ color: '#475569' }}>{log.entityName || log.entity}</span>
@@ -1110,7 +1110,7 @@ export const OrganizationPage: React.FC = () => {
                   <Building2 className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[#0F172A]">
+                  <h2 className="text-lg font-bold text-[#4A7B5B]">
                     {editingDept ? 'Edit Department' : 'Create Department'}
                   </h2>
                   <p className="text-xs text-[#94A3B8]">Configure department hierarchy, code & scope</p>
@@ -1155,7 +1155,7 @@ export const OrganizationPage: React.FC = () => {
               className="space-y-4"
             >
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Department Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1164,13 +1164,13 @@ export const OrganizationPage: React.FC = () => {
                   required
                   defaultValue={editingDept?.name || ''}
                   placeholder="e.g. Counseling & Admissions, Finance, Technology"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Department Code
                   </label>
                   <input
@@ -1178,18 +1178,18 @@ export const OrganizationPage: React.FC = () => {
                     type="text"
                     defaultValue={editingDept?.code || ''}
                     placeholder="e.g. COUNSEL, FIN, ADM"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Parent Department
                   </label>
                   <select
                     name="parentDepartmentId"
                     defaultValue={editingDept?.parentDepartmentId || ''}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                   >
                     <option value="">None (Top-level)</option>
                     {departments
@@ -1204,7 +1204,7 @@ export const OrganizationPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Description
                 </label>
                 <textarea
@@ -1212,18 +1212,18 @@ export const OrganizationPage: React.FC = () => {
                   rows={3}
                   defaultValue={editingDept?.description || ''}
                   placeholder="Operational scope and responsibility summary..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Status
                 </label>
                 <select
                   name="status"
                   defaultValue={editingDept?.status || 'ACTIVE'}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 >
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="DISABLED">DISABLED</option>
@@ -1271,7 +1271,7 @@ export const OrganizationPage: React.FC = () => {
                   <Layers className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[#0F172A]">
+                  <h2 className="text-lg font-bold text-[#4A7B5B]">
                     {editingUnit ? 'Edit Organizational Unit' : 'Create Unit / Team'}
                   </h2>
                   <p className="text-xs text-[#94A3B8]">Define unit structure, type and reporting parent</p>
@@ -1322,7 +1322,7 @@ export const OrganizationPage: React.FC = () => {
               className="space-y-4"
             >
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Unit / Team Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1331,13 +1331,13 @@ export const OrganizationPage: React.FC = () => {
                   required
                   defaultValue={editingUnit?.name || ''}
                   placeholder="e.g. Lead Ingestion Unit, Verification Squad Alpha"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Department <span className="text-rose-500">*</span>
                   </label>
                   <select
@@ -1345,7 +1345,7 @@ export const OrganizationPage: React.FC = () => {
                     required
                     disabled={!!editingUnit}
                     defaultValue={editingUnit?.departmentId || departments[0]?.id || ''}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
                   >
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
@@ -1356,13 +1356,13 @@ export const OrganizationPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Unit Type
                   </label>
                   <select
                     name="unitType"
                     defaultValue={editingUnit?.unitType || 'UNIT'}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                   >
                     <option value="UNIT">UNIT</option>
                     <option value="TEAM">TEAM</option>
@@ -1372,13 +1372,13 @@ export const OrganizationPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Parent Unit (Optional Hierarchy)
                 </label>
                 <select
                   name="parentTeamId"
                   defaultValue={editingUnit?.parentTeamId || ''}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 >
                   <option value="">None (Top unit in department)</option>
                   {units
@@ -1392,7 +1392,7 @@ export const OrganizationPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Description
                 </label>
                 <textarea
@@ -1400,7 +1400,7 @@ export const OrganizationPage: React.FC = () => {
                   rows={2}
                   defaultValue={editingUnit?.description || ''}
                   placeholder="Functional duties..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
                 />
               </div>
 
@@ -1444,7 +1444,7 @@ export const OrganizationPage: React.FC = () => {
                   <UserPlus className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[#0F172A]">Assign Member</h2>
+                  <h2 className="text-lg font-bold text-[#4A7B5B]">Assign Member</h2>
                   <p className="text-xs text-[#94A3B8]">Unit: {targetUnitForMember.name}</p>
                 </div>
               </div>
@@ -1482,7 +1482,7 @@ export const OrganizationPage: React.FC = () => {
               className="space-y-4"
             >
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   User ID / Counselor ID <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1490,19 +1490,19 @@ export const OrganizationPage: React.FC = () => {
                   type="text"
                   required
                   placeholder="Paste User UUID"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Member Role
                   </label>
                   <select
                     name="memberRole"
                     defaultValue="MEMBER"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                   >
                     <option value="MEMBER">MEMBER</option>
                     <option value="LEAD">LEAD</option>
@@ -1512,13 +1512,13 @@ export const OrganizationPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     Primary Team?
                   </label>
                   <select
                     name="isPrimary"
                     defaultValue="true"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                   >
                     <option value="true">Yes (Primary Unit)</option>
                     <option value="false">No (Secondary)</option>
@@ -1562,7 +1562,7 @@ export const OrganizationPage: React.FC = () => {
                   <MapPin className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-[#0F172A]">
+                  <h2 className="text-lg font-bold text-[#4A7B5B]">
                     {editingGeoAssignment ? 'Reassign Geographic Responsibility' : 'Assign Geographic Responsibility'}
                   </h2>
                   <p className="text-xs text-[#94A3B8]">
@@ -1612,7 +1612,7 @@ export const OrganizationPage: React.FC = () => {
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     State <span className="text-rose-500">*</span>
                   </label>
                   <select
@@ -1620,7 +1620,7 @@ export const OrganizationPage: React.FC = () => {
                     required
                     disabled={!!editingGeoAssignment}
                     defaultValue={editingGeoAssignment?.stateId || states[0]?.id || ''}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
                   >
                     {states.map((st) => (
                       <option key={st.id} value={st.id}>
@@ -1631,7 +1631,7 @@ export const OrganizationPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                     District (Optional)
                   </label>
                   <input
@@ -1640,13 +1640,13 @@ export const OrganizationPage: React.FC = () => {
                     disabled={!!editingGeoAssignment}
                     defaultValue={editingGeoAssignment?.districtId || ''}
                     placeholder="Leave empty for State-wide"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] disabled:bg-slate-100 disabled:text-slate-500 transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Primary Responsible Senior Counselor (User ID) <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -1655,12 +1655,12 @@ export const OrganizationPage: React.FC = () => {
                   required
                   defaultValue={editingGeoAssignment?.responsibleUserId || ''}
                   placeholder="Paste Senior Counselor UUID"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Backup Responsible Counselor (User ID)
                 </label>
                 <input
@@ -1668,12 +1668,12 @@ export const OrganizationPage: React.FC = () => {
                   type="text"
                   defaultValue={editingGeoAssignment?.backupUserId || ''}
                   placeholder="Optional Backup Counselor UUID"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] font-mono placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0F172A] mb-1.5">
+                <label className="block text-xs font-bold text-[#4A7B5B] mb-1.5">
                   Notes / Handover Reason
                 </label>
                 <textarea
@@ -1681,7 +1681,7 @@ export const OrganizationPage: React.FC = () => {
                   rows={2}
                   defaultValue={editingGeoAssignment?.notes || ''}
                   placeholder="Operational notes..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#E2E8F0] text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B] focus:ring-1 focus:ring-[#4A7B5B] transition-all resize-none"
                 />
               </div>
 
@@ -1725,7 +1725,7 @@ export const OrganizationPage: React.FC = () => {
                   <Layers className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-[#0F172A]">{selectedUnitDrawer.name}</h2>
+                  <h2 className="text-xl font-bold text-[#4A7B5B]">{selectedUnitDrawer.name}</h2>
                   <p className="text-xs text-[#64748B]">
                     {selectedUnitDrawer.department?.name} • {selectedUnitDrawer.unitType}
                   </p>
@@ -1733,7 +1733,7 @@ export const OrganizationPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedUnitDrawer(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#0F172A] hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#4A7B5B] hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1759,7 +1759,7 @@ export const OrganizationPage: React.FC = () => {
             {/* Team Members Roster */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Active Team Members ({singleUnitDetail?.members?.length || 0})
                 </h3>
               </div>
@@ -1780,7 +1780,7 @@ export const OrganizationPage: React.FC = () => {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-[#0F172A]">{m.user?.fullName}</span>
+                            <span className="text-sm font-bold text-[#4A7B5B]">{m.user?.fullName}</span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
                               {m.memberRole}
                             </span>
@@ -1815,7 +1815,7 @@ export const OrganizationPage: React.FC = () => {
             {/* Represented Roles in this Unit */}
             {singleUnitDetail?.representedRoles && singleUnitDetail.representedRoles.length > 0 && (
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                   IAM Roles Active in this Unit
                 </h3>
                 <div className="flex flex-wrap gap-2">
@@ -1847,7 +1847,7 @@ export const OrganizationPage: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-bold text-[#0F172A]">{selectedDeptDrawer.name}</h2>
+                    <h2 className="text-xl font-bold text-[#4A7B5B]">{selectedDeptDrawer.name}</h2>
                     {selectedDeptDrawer.code && (
                       <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                         {selectedDeptDrawer.code}
@@ -1859,7 +1859,7 @@ export const OrganizationPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedDeptDrawer(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#0F172A] hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#4A7B5B] hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1886,7 +1886,7 @@ export const OrganizationPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
                 <span className="text-xs text-[#64748B] block">Units / Teams</span>
-                <span className="text-lg font-bold text-[#0F172A] mt-1 block">
+                <span className="text-lg font-bold text-[#4A7B5B] mt-1 block">
                   {singleDeptDetail?.teams?.length || selectedDeptDrawer.unitsCount || 0}
                 </span>
               </div>
@@ -1900,14 +1900,14 @@ export const OrganizationPage: React.FC = () => {
 
             {/* Responsible Manager */}
             <div className="space-y-2">
-              <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Responsible Manager</h3>
+              <h3 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">Responsible Manager</h3>
               {selectedDeptDrawer.manager ? (
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center" style={{ background: '#E8F3EC', color: '#4A7B5B', border: '1px solid #4A7B5B30' }}>
                     {selectedDeptDrawer.manager.fullName.charAt(0)}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#0F172A]">{selectedDeptDrawer.manager.fullName}</p>
+                    <p className="text-sm font-bold text-[#4A7B5B]">{selectedDeptDrawer.manager.fullName}</p>
                     <p className="text-xs text-[#64748B]">{selectedDeptDrawer.manager.email}</p>
                   </div>
                 </div>
@@ -1920,7 +1920,7 @@ export const OrganizationPage: React.FC = () => {
 
             {/* Units under this department */}
             <div className="space-y-3">
-              <h3 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+              <h3 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                 Organizational Units in this Department ({units.filter((u) => u.departmentId === selectedDeptDrawer.id).length})
               </h3>
               {isLoadingSingleDept ? (
@@ -1940,7 +1940,7 @@ export const OrganizationPage: React.FC = () => {
                             <Layers className="w-4 h-4" />
                           </div>
                           <div>
-                            <span className="text-sm font-bold text-[#0F172A]">{unit.name}</span>
+                            <span className="text-sm font-bold text-[#4A7B5B]">{unit.name}</span>
                             <p className="text-xs text-[#64748B]">{unit.unitType} • {unit.membersCount || 0} Members</p>
                           </div>
                         </div>
@@ -1975,7 +1975,7 @@ export const OrganizationPage: React.FC = () => {
                   <Clock className="w-5 h-5" style={{ color: '#4A7B5B' }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-[#0F172A]">
+                  <h2 className="text-xl font-bold text-[#4A7B5B]">
                     {selectedGeoHistory.districtName || selectedGeoHistory.stateName}
                   </h2>
                   <p className="text-xs text-[#64748B]">Geographic Responsibility Timeline</p>
@@ -1983,7 +1983,7 @@ export const OrganizationPage: React.FC = () => {
               </div>
               <button
                 onClick={() => setSelectedGeoHistory(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#0F172A] hover:bg-gray-100 transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#4A7B5B] hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2012,7 +2012,7 @@ export const OrganizationPage: React.FC = () => {
                       }`}
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-[#0F172A]">
+                      <span className="text-sm font-bold text-[#4A7B5B]">
                         {as.responsibleUser?.fullName}
                       </span>
                       <span
@@ -2033,7 +2033,7 @@ export const OrganizationPage: React.FC = () => {
                       </span>
                     </div>
                     {as.backupUser && (
-                      <p className="text-xs text-[#64748B] mt-1">Backup: <strong className="text-[#0F172A]">{as.backupUser.fullName}</strong></p>
+                      <p className="text-xs text-[#64748B] mt-1">Backup: <strong className="text-[#4A7B5B]">{as.backupUser.fullName}</strong></p>
                     )}
                   </div>
                 ))

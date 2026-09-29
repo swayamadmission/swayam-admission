@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { ExamService } from './exam.service';
 import { CreateExamDto } from './dto/create-exam.dto';
@@ -21,8 +22,13 @@ export class ExamController {
   }
 
   @Get()
-  findAll() {
-    return this.examService.findAll();
+  findAll(
+    @Query('stateId') stateId?: string,
+    @Query('state') state?: string,
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+  ) {
+    return this.examService.findAll({ stateId, state, status, category });
   }
 
   @Get(':id')

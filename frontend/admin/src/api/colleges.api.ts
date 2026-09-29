@@ -1,5 +1,15 @@
 import api from "./axios";
 
+export interface CollegeGallery {
+  id?: string;
+  collegeId?: string;
+  imageUrl: string;
+  caption?: string;
+  sortOrder?: number;
+  isCover?: boolean;
+  createdAt?: string;
+}
+
 export interface College {
   id: string;
   name: string;
@@ -17,8 +27,13 @@ export interface College {
   ranking?: number;
   nirfRanking?: number;
   naacGrade?: string;
+  rating?: number;
   city: string;
   state: string;
+  stateId?: string;
+  districtId?: string;
+  stateRelation?: { id: string; name: string; code: string };
+  districtRelation?: { id: string; name: string; code?: string };
   address?: string;
   pincode?: string;
   latitude?: number;
@@ -27,10 +42,23 @@ export interface College {
   email?: string;
   phone?: string;
   whatsapp?: string;
+  contactPerson?: string;
+  description?: string;
   placementPercentage?: number;
+  placementRate?: number;
   highestPackage?: number;
   averagePackage?: number;
+  medianPackage?: number;
+  placementCompanies?: string[];
+  placementInfo?: string;
+  placementYear?: string;
   hostelAvailable?: boolean;
+  boysHostelAvailable?: boolean;
+  girlsHostelAvailable?: boolean;
+  hostelFee?: string;
+  hostelFacilities?: string[];
+  messInfo?: string;
+  otherFacilities?: string | string[];
   transportAvailable?: boolean;
   scholarshipAvailable?: boolean;
   applicationFee?: number;
@@ -39,12 +67,80 @@ export interface College {
   status: string;
   seoTitle?: string;
   seoDescription?: string;
-  gallery?: any[];
+  seoKeywords?: string[];
+  gallery?: Array<{
+    id?: string;
+    collegeId?: string;
+    imageUrl: string;
+    caption?: string;
+    sortOrder?: number;
+    isCover?: boolean;
+    createdAt?: string;
+  }>;
+  galleries?: Array<{
+    id?: string;
+    collegeId?: string;
+    imageUrl: string;
+    caption?: string;
+    sortOrder?: number;
+    isCover?: boolean;
+    createdAt?: string;
+  }>;
   faqs?: any[];
-  courses?: any[];
+  courses?: Array<{
+    id: string;
+    collegeId?: string;
+    name: string;
+    slug?: string;
+    duration: string;
+    seats?: number;
+    totalFees?: number;
+    fees?: number;
+    semesterFees?: number;
+    applicationFee?: number;
+    level?: string;
+    degree?: string;
+    category?: string;
+    specialization?: string;
+    eligibility?: string;
+    scholarshipInfo?: string;
+    status: string;
+    branches?: any[];
+  }>;
+  StudyMaterial?: Array<{
+    id: string;
+    title: string;
+    slug?: string;
+    materialType?: string;
+    category?: string;
+    subject?: string;
+    stream?: string;
+    fileUrl?: string;
+    downloads?: number;
+    downloadCount?: number;
+    status?: string;
+  }>;
+  studyMaterials?: Array<{
+    id: string;
+    title: string;
+    slug?: string;
+    materialType?: string;
+    category?: string;
+    subject?: string;
+    stream?: string;
+    fileUrl?: string;
+    downloads?: number;
+    downloadCount?: number;
+    status?: string;
+  }>;
   _count?: {
     applications?: number;
-  }
+    courses?: number;
+    gallery?: number;
+    galleries?: number;
+    StudyMaterial?: number;
+    studyMaterials?: number;
+  };
 }
 
 export interface CollegeQueryParams {
@@ -169,14 +265,70 @@ export interface CollegePortalMetricsResponse {
   };
 }
 
+export interface BulkValidationPreviewRow {
+  rowIndex: number;
+  action: 'CREATE' | 'UPDATE' | 'INVALID';
+  name: string;
+  city: string;
+  state: string;
+  ownership: string;
+  type: string;
+  fees?: number | string;
+  placementRate?: number | string;
+  hasHostel: boolean;
+  galleryCount: number;
+  coursesCount: number;
+  status: string;
+  errors: string[];
+  sanitizedData?: any;
+}
+
+export interface BulkValidationResponse {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  duplicateRows: number;
+  rowsToCreate: number;
+  rowsToUpdate: number;
+  errors: Array<{
+    row: number;
+    collegeName?: string;
+    field: string;
+    message: string;
+  }>;
+  previewRows: BulkValidationPreviewRow[];
+}
+
+export interface BulkImportResponse {
+  totalProcessed: number;
+  successfullyCreated: number;
+  successfullyUpdated: number;
+  skipped: number;
+  failed: number;
+  duplicateRecords: number;
+  items: Array<{
+    row: number;
+    name: string;
+    city: string;
+    state: string;
+    status: 'CREATED' | 'UPDATED' | 'SKIPPED' | 'FAILED';
+    collegeId?: string;
+    message?: string;
+  }>;
+  reportCsv: string;
+}
+
 export const collegesApi = {
   getStats: () =>
     api.get<CollegeDashboardStats>("/colleges/dashboard/stats"),
 
   findAll: (params?: CollegeQueryParams) => 
-    api.get<{ data: College[], total: number, page: number, limit: number }>("/colleges", { params }),
+    api.get<{ data: College[]; total: number; page: number; limit: number }>("/colleges", { params }),
 
   findById: (id: string) => 
+    api.get<College>(`/colleges/${id}`),
+
+  findOne: (id: string) => 
     api.get<College>(`/colleges/${id}`),
 
   create: (data: Partial<College>) =>
@@ -197,6 +349,75 @@ export const collegesApi = {
   suspend: (id: string, reason?: string) =>
     api.post<{ success: boolean; data: College; message: string }>(`/colleges/${id}/suspend`, { reason }),
 
+  setPublishStatus: (id: string, publish: boolean | string) => {
+    const isPublish = typeof publish === "boolean" ? publish : publish === "PUBLISHED";
+    return api.patch<College>(`/colleges/${id}/publish`, { publish: isPublish, status: isPublish ? "PUBLISHED" : "DRAFT" });
+  },
+
+  // Bulk Import
+  downloadTemplate: async (format: 'csv' | 'xlsx' = 'xlsx') => {
+    const res = await api.get(`/colleges/bulk/template`, {
+      params: { format },
+      responseType: 'blob',
+    });
+    const blob = new Blob([res.data], {
+      type: format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `swayam_colleges_bulk_template.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  },
+
+  validateBulkUpload: (fileOrRows: File | any[]) => {
+    if (fileOrRows instanceof File) {
+      const formData = new FormData();
+      formData.append('file', fileOrRows);
+      return api.post<{ success: boolean; data: BulkValidationResponse }>('/colleges/bulk/validate', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+    return api.post<{ success: boolean; data: BulkValidationResponse }>('/colleges/bulk/validate', { rows: fileOrRows });
+  },
+
+  executeBulkImport: (rows: any[], updateStrategy: 'UPDATE_EXISTING' | 'SKIP_EXISTING' = 'UPDATE_EXISTING') =>
+    api.post<{ success: boolean; data: BulkImportResponse }>('/colleges/bulk/import', { rows, updateStrategy }),
+
+  // Courses
+  addCourse: (collegeId: string, data: any) =>
+    api.post(`/colleges/${collegeId}/courses`, data),
+
+  updateCourse: (courseId: string, data: any) =>
+    api.patch(`/colleges/courses/${courseId}`, data),
+
+  deleteCourse: (courseId: string) =>
+    api.delete(`/colleges/courses/${courseId}`),
+
+  // Gallery
+  addGalleryImage: (collegeId: string, data: { imageUrl: string; caption?: string; sortOrder?: number; isCover?: boolean }) =>
+    api.post(`/colleges/${collegeId}/gallery`, data),
+
+  updateGalleryImage: (collegeId: string, imageId: string, data: { caption?: string; sortOrder?: number; isCover?: boolean }) =>
+    api.patch(`/colleges/${collegeId}/gallery/${imageId}`, data),
+
+  deleteGalleryImage: (collegeId: string, imageId: string) =>
+    api.delete(`/colleges/${collegeId}/gallery/${imageId}`),
+
+  // Study Materials
+  getStudyMaterials: (collegeId: string) =>
+    api.get(`/colleges/${collegeId}/study-materials`),
+
+  linkStudyMaterial: (collegeId: string, materialId: string) =>
+    api.post(`/colleges/${collegeId}/study-materials/link`, { materialId }),
+
+  unlinkStudyMaterial: (collegeId: string, materialId: string) =>
+    api.delete(`/colleges/${collegeId}/study-materials/${materialId}`),
+
+  // Portal & IAM
   getPortalMetrics: (id: string) =>
     api.get<CollegePortalMetricsResponse>(`/colleges/${id}/portal-metrics`),
 
@@ -227,4 +448,3 @@ export const collegesApi = {
   reviewChangeRequest: (requestId: string, data: { status: 'APPROVED' | 'REJECTED'; remarks?: string }) =>
     api.post<{ success: boolean; data: any; message: string }>(`/colleges/change-requests/${requestId}/review`, data),
 };
-

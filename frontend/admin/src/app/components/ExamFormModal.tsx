@@ -6,6 +6,7 @@ import {
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { examsApi, type Exam, type CreateExamPayload } from "../../api/exams.api";
 import { coursesApi } from "../../api/courses.api";
+import { organizationApi, StateItem } from "../../api/organization.api";
 
 interface ExamFormModalProps {
   isOpen: boolean;
@@ -70,10 +71,20 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
     faqs: null,
     seoTitle: "",
     seoDescription: "",
+    description: "",
+    stateId: "",
     featured: false,
     status: "PUBLISHED",
     courseIds: [],
   });
+
+  // Fetch states list
+  const { data: statesRes } = useQuery({
+    queryKey: ["geography_states"],
+    queryFn: () => organizationApi.getStates(),
+    enabled: isOpen,
+  });
+  const statesList: StateItem[] = Array.isArray(statesRes) ? statesRes : (statesRes as any)?.data || [];
 
   // Fetch courses list for linking
   const { data: coursesRes } = useQuery({
@@ -119,6 +130,8 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
         faqs: exam.faqs ?? null,
         seoTitle: exam.seoTitle ?? "",
         seoDescription: exam.seoDescription ?? "",
+        description: exam.description ?? "",
+        stateId: exam.stateId ?? "",
         featured: Boolean(exam.featured),
         status: exam.status ?? "PUBLISHED",
         courseIds: Array.isArray(exam.courses) ? exam.courses.map((c) => c?.courseId).filter(Boolean) : [],
@@ -150,6 +163,8 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
         faqs: null,
         seoTitle: "",
         seoDescription: "",
+        description: "",
+        stateId: "",
         featured: false,
         status: "PUBLISHED",
         courseIds: [],
@@ -388,6 +403,38 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
+                      <label className="block text-xs font-medium text-[#374151] mb-1.5">
+                        Assigned State (State Tab Sync)
+                      </label>
+                      <div className="relative">
+                        <select
+                          name="stateId"
+                          value={form.stateId || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setForm((prev) => ({
+                              ...prev,
+                              stateId: val,
+                              level: val ? (prev.level === "NATIONAL" ? "STATE" : prev.level) : prev.level,
+                            }));
+                          }}
+                          className={selectCls}
+                        >
+                          <option value="">National / All India (No State)</option>
+                          {statesList.map((st) => (
+                            <option key={st.id} value={st.id}>
+                              {st.name} ({st.code})
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
+                      </div>
+                      <p className="text-[11px] text-[#94A3B8] mt-1">
+                        Assigning to a state publishes it directly under that State's Exam tab.
+                      </p>
+                    </div>
+
+                    <div>
                       <label className="block text-xs font-medium text-[#374151] mb-1.5">Status</label>
                       <div className="relative">
                         <select name="status" value={form.status} onChange={handleChange} className={selectCls}>
@@ -397,20 +444,33 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8] pointer-events-none" />
                       </div>
+
+                      <div className="flex items-center gap-3 pt-3">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            name="featured"
+                            checked={Boolean(form.featured)}
+                            onChange={handleChange}
+                            className="sr-only peer"
+                          />
+                          <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#4A7B5B] peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                          <span className="ml-2 text-xs font-medium text-[#374151]">Featured Exam</span>
+                        </label>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 pt-5">
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name="featured"
-                          checked={Boolean(form.featured)}
-                          onChange={handleChange}
-                          className="sr-only peer"
-                        />
-                        <div className="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#4A7B5B] peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
-                        <span className="ml-2 text-xs font-medium text-[#374151]">Featured Exam</span>
-                      </label>
-                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[#374151] mb-1.5">Description & Overview</label>
+                    <textarea
+                      name="description"
+                      value={form.description || ""}
+                      onChange={handleChange}
+                      rows={3}
+                      placeholder="Comprehensive overview of this entrance exam, conducting body, syllabus, and eligibility highlights..."
+                      className="w-full px-3 py-2 text-sm border border-[#E2E8F0] rounded-xl focus:outline-none focus:border-[#4A7B5B] placeholder:text-[#94A3B8]"
+                    />
                   </div>
                 </>
               )}
@@ -662,7 +722,7 @@ export default function ExamFormModal({ isOpen, onClose, exam }: ExamFormModalPr
                               }`}
                             >
                               <div>
-                                <div className="text-xs font-semibold text-[#0F172A]">{c.name ?? "Unnamed Course"}</div>
+                                <div className="text-xs font-semibold text-[#4A7B5B]">{c.name ?? "Unnamed Course"}</div>
                                 <div className="text-[11px] text-[#94A3B8]">
                                   {c.college?.name ?? "College N/A"} ({c.college?.city ?? ""}, {c.college?.state ?? ""})
                                 </div>

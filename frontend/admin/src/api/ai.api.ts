@@ -18,6 +18,12 @@ export interface AISettingsPayload {
   topKChunks?: number;
   rateLimitPerMin?: number;
   dailyCostCap?: number;
+  isEnabled?: boolean;
+  welcomeMessage?: string;
+  suggestedChips?: string[];
+  counselorPhone?: string;
+  counselorWhatsapp?: string;
+  counselorWorkingHours?: string;
 }
 
 export const aiApi = {
@@ -71,6 +77,9 @@ export const aiApi = {
 
   getKnowledge: () =>
     api.get<any[]>("/ai/knowledge"),
+
+  syncDatabase: () =>
+    api.post("/ai/sync-database"),
 
   deleteKnowledge: (id: string) =>
     api.delete(`/ai/knowledge/${id}`),

@@ -90,7 +90,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#0F172A]">
+          <h2 className="text-lg font-bold text-[#4A7B5B]">
             Campus Reporting & Student Final Enrollment
           </h2>
           <p className="text-xs text-[#64748B]">
@@ -121,7 +121,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
         ) : records.length === 0 ? (
           <div className="p-12 text-center text-[#64748B] space-y-3">
             <Award className="w-10 h-10 mx-auto text-[#94A3B8]" />
-            <p className="font-medium text-[#0F172A]">No reporting records found</p>
+            <p className="font-medium text-[#4A7B5B]">No reporting records found</p>
             <p className="text-xs">
               Admitted students with paid seat confirmation will appear here for physical reporting.
             </p>
@@ -142,13 +142,13 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
               <tbody className="divide-y divide-[#E2E8F0]">
                 {records.map((rec) => (
                   <tr key={rec.id} className="hover:bg-[#F8FAFC]/70 transition">
-                    <td className="py-3.5 px-4 font-semibold text-[#0F172A]">
+                    <td className="py-3.5 px-4 font-semibold text-[#4A7B5B]">
                       {rec.application?.user?.fullName || rec.studentName || "Candidate"}
                       <div className="text-xs font-normal text-[#64748B]">
                         App #: {rec.application?.applicationNumber || "N/A"}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-[#0F172A]">
+                    <td className="py-3.5 px-4 text-[#4A7B5B]">
                       {rec.application?.course?.name || "Academic Program"}
                     </td>
                     <td className="py-3.5 px-4 text-xs text-[#64748B]">
@@ -171,7 +171,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
                     </td>
                     <td className="py-3.5 px-4 text-xs">
                       {rec.enrollment ? (
-                        <div className="space-y-0.5 font-mono text-[#0F172A]">
+                        <div className="space-y-0.5 font-mono text-[#4A7B5B]">
                           <div>Roll: {rec.enrollment.rollNumber || "Assigned"}</div>
                           <div className="text-[#64748B]">Reg: {rec.enrollment.registrationNumber || "N/A"}</div>
                         </div>
@@ -216,14 +216,14 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] my-8 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
               <div>
-                <h3 className="font-bold text-[#0F172A] text-lg">Final Student Enrollment</h3>
+                <h3 className="font-bold text-[#4A7B5B] text-lg">Final Student Enrollment</h3>
                 <p className="text-xs text-[#64748B]">
                   Candidate: {selectedRecord.application?.user?.fullName}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedRecord(null)}
-                className="text-[#64748B] hover:text-[#0F172A]"
+                className="text-[#64748B] hover:text-[#4A7B5B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -231,7 +231,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
 
             <form onSubmit={handleEnrollStudent} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   Institutional Roll Number *
                 </label>
                 <input
@@ -245,7 +245,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   University / College Registration Number
                 </label>
                 <input
@@ -258,7 +258,7 @@ export const CollegeReportingEnrollment: React.FC<CollegeReportingEnrollmentProp
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   Enrollment Remarks
                 </label>
                 <textarea

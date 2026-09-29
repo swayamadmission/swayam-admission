@@ -17,6 +17,7 @@ import { LeadModule } from './lead/lead.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AiCounselorModule } from './ai-counselor/ai-counselor.module';
+import { AiModule } from './ai/ai.module';
 import { OrganizationModule } from './organization/organization.module';
 import { HealthModule } from './health/health.module';
 import { PositionsModule } from './positions/positions.module';
@@ -65,6 +66,7 @@ import { EducationFinanceModule } from './education-finance/education-finance.mo
     DocumentsModule,
     NotificationsModule,
     AiCounselorModule,
+    AiModule,
     OrganizationModule,
     HealthModule,
     PositionsModule,

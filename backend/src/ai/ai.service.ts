@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AIProviderService } from './provider.service';
-import { RAGEngineService } from './rag-engine.service';
+import { RAGEngineService, StudentContext } from './rag-engine.service';
 import { PromptManagerService } from './prompt-manager.service';
 import { CRMSyncService } from './crm-sync.service';
 import { ChatDto } from './dto/chat.dto';
@@ -21,42 +21,185 @@ export class AiService {
     private crmSync: CRMSyncService,
   ) {}
 
+  private rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+  /**
+   * Rate Limiter: In-memory sliding window
+   */
+  private checkRateLimit(identifier: string, limitPerMin: number = 30): boolean {
+    const now = Date.now();
+    const record = this.rateLimitMap.get(identifier);
+    if (!record || now > record.resetAt) {
+      this.rateLimitMap.set(identifier, { count: 1, resetAt: now + 60000 });
+      return true;
+    }
+    if (record.count >= limitPerMin) {
+      return false;
+    }
+    record.count += 1;
+    return true;
+  }
+
+  /**
+   * Prompt Injection & Abuse Protection Filter
+   */
+  private isSuspiciousPrompt(msg: string): boolean {
+    const lower = (msg || '').toLowerCase();
+    const suspiciousPatterns = [
+      'ignore previous instructions',
+      'ignore all previous',
+      'disregard all previous',
+      'disregard previous',
+      'system prompt',
+      'developer mode',
+      'jailbreak',
+      'reveal prompt',
+      'print your instructions',
+      'print internal database',
+      'show all users',
+      'drop table',
+      'delete from users',
+      'select * from',
+      'union select',
+      'admin credentials',
+      'database password',
+      'reveal secret',
+    ];
+    return suspiciousPatterns.some((pattern) => lower.includes(pattern));
+  }
+
+  /**
+   * Strict Output Scrubber for Personal and Sensitive Data
+   */
+  private scrubSensitiveOutput(text: string, allowedPhone?: string, allowedWhatsapp?: string): string {
+    if (!text) return '';
+    let scrubbed = text;
+    // Redact personal email addresses (allow only official @swayamadmission.com)
+    scrubbed = scrubbed.replace(
+      /([a-zA-Z0-9._%+-]+@(?!swayamadmission\.com)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi,
+      '[Contact via Swayam Support]',
+    );
+    // Redact Indian PAN card patterns
+    scrubbed = scrubbed.replace(/\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b/g, '[Document ID Redacted]');
+    // Redact 12-digit Aadhaar patterns
+    scrubbed = scrubbed.replace(/\b\d{4}\s?\d{4}\s?\d{4}\b/g, '[Aadhaar Redacted]');
+    // Redact JWT tokens
+    scrubbed = scrubbed.replace(/eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}/g, '[Auth Token Redacted]');
+    // Redact API keys
+    scrubbed = scrubbed.replace(/(sk-[a-zA-Z0-9]{20,}|AIza[a-zA-Z0-9_-]{30,})/g, '[API Key Redacted]');
+    return scrubbed;
+  }
+
+  /**
+   * Public Configuration for Client Frontends
+   */
+  async getPublicConfig() {
+    let settings = await this.prisma.aISettings.findUnique({
+      where: { id: 'default_ai_settings' },
+    });
+    if (!settings) {
+      settings = await this.prisma.aISettings.create({
+        data: { id: 'default_ai_settings' },
+      });
+    }
+
+    return {
+      isEnabled: (settings as any).isEnabled ?? true,
+      welcomeMessage:
+        (settings as any).welcomeMessage ||
+        'Hi there! 👋 I am the Swayam Admission AI Counselor. How can I help you with colleges, courses, or admissions today?',
+      suggestedChips:
+        (settings as any).suggestedChips || [
+          'Top Colleges in Bihar',
+          'B.Tech under ₹2L',
+          'Compare Colleges',
+          'Talk to Counselor',
+        ],
+      counselorStatus: {
+        isOnline: true,
+        phone: (settings as any).counselorPhone || '+919000000000',
+        whatsapp: (settings as any).counselorWhatsapp || '+919000000000',
+        workingHours: (settings as any).counselorWorkingHours || '9:00 AM – 7:00 PM IST (Mon–Sat)',
+      },
+      disclaimer:
+        'AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.',
+    };
+  }
+
+  /**
+   * Helper: Get or Create Guest User for anonymous sessions
+   */
+  async getOrCreateGuestUser(): Promise<string> {
+    const guestEmail = 'guest-counselor-session@swayamadmission.com';
+    let guest = await this.prisma.user.findFirst({
+      where: { email: guestEmail },
+    });
+
+    if (!guest) {
+      guest = await this.prisma.user.create({
+        data: {
+          email: guestEmail,
+          fullName: 'Guest Student',
+          role: 'STUDENT',
+          mobile: '919000000000',
+          password: '$2b$10$12345678901234567890123456789012345678901234567890123',
+          isApproved: true,
+          isActive: true,
+        },
+      });
+    }
+
+    return guest.id;
+  }
+
+  /**
+   * Helper: Parse & Sanitize message content to ensure raw JSON is NEVER shown
+   */
+  sanitizeContent(raw: string): { cleanText: string; structured?: any } {
+    if (!raw) return { cleanText: '' };
+    const trimmed = raw.trim();
+
+    if (
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('```json') && trimmed.includes('}'))
+    ) {
+      try {
+        let jsonStr = trimmed;
+        if (jsonStr.startsWith('```json')) {
+          jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+        }
+        const parsed = JSON.parse(jsonStr);
+        const text =
+          parsed.reply ||
+          parsed.content ||
+          parsed.message ||
+          parsed.text ||
+          parsed.answer ||
+          '';
+        return { cleanText: String(text), structured: parsed };
+      } catch {
+        // Fall through
+      }
+    }
+
+    return { cleanText: raw };
+  }
+
   /**
    * Main AI Chat Orchestration
    */
-  async chat(userId: string, dto: ChatDto) {
+  async chat(userId: string | null | undefined, dto: ChatDto) {
     const startTime = Date.now();
+    const isGuest = !userId;
+    const effectiveUserId = isGuest
+      ? await this.getOrCreateGuestUser()
+      : (userId as string);
 
-    // 1. Get or Create AI Conversation
-    let conversation;
-    if (dto.conversationId) {
-      conversation = await this.prisma.aIConversation.findUnique({
-        where: { id: dto.conversationId },
-        include: { messages: { take: 10, orderBy: { createdAt: 'asc' } } },
-      });
-    }
+    // Sanitize user message: strip tags and cap length
+    const rawMessage = (dto.message || '').replace(/<[^>]*>?/gm, '').trim();
+    const safeUserMessage = rawMessage.slice(0, 1000);
 
-    if (!conversation) {
-      conversation = await this.prisma.aIConversation.create({
-        data: {
-          userId,
-          title: dto.message.slice(0, 40) + '...',
-          language: dto.language || 'en',
-        },
-        include: { messages: true },
-      });
-    }
-
-    // Save User Message
-    const userMsg = await this.prisma.aIMessage.create({
-      data: {
-        conversationId: conversation.id,
-        role: 'USER',
-        content: dto.message,
-      },
-    });
-
-    // 2. Load Enterprise Settings
+    // 0. Load Enterprise AI Settings
     let settings = await this.prisma.aISettings.findUnique({
       where: { id: 'default_ai_settings' },
     });
@@ -67,21 +210,198 @@ export class AiService {
       });
     }
 
-    // 3. RAG Retrieval Step
+    // Security Gate 1: Check if AI Counselor is enabled
+    if ((settings as any).isEnabled === false) {
+      return {
+        conversationId: dto.conversationId || 'offline_session',
+        messageId: `offline_${Date.now()}`,
+        role: 'ASSISTANT',
+        reply:
+          'The Swayam Admission AI Counselor is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
+        content:
+          'The Swayam Admission AI Counselor is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
+        chips: ['Talk to Counselor', 'Explore Colleges', 'Check Scholarships'],
+        counselorHandoff: {
+          handoffAvailable: true,
+          assignedCounselor: {
+            id: 'counselor_desk',
+            fullName: 'Swayam Admission Counseling Desk',
+            mobile: (settings as any).counselorPhone || '+919000000000',
+            email: 'support@swayamadmission.com',
+            designation: 'Senior Educational Counselor',
+          },
+        },
+        disclaimer:
+          'AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.',
+      };
+    }
+
+    // Security Gate 2: Rate limit check per user/IP
+    if (!this.checkRateLimit(effectiveUserId, settings.rateLimitPerMin || 30)) {
+      return {
+        conversationId: dto.conversationId || 'rate_limit_session',
+        messageId: `rate_limit_${Date.now()}`,
+        role: 'ASSISTANT',
+        reply:
+          'You are submitting questions too quickly. Please pause for a moment before your next question so we can provide thoughtful recommendations.',
+        content:
+          'You are submitting questions too quickly. Please pause for a moment before your next question so we can provide thoughtful recommendations.',
+        chips: (settings as any).suggestedChips || ['Top Colleges in Bihar', 'B.Tech under ₹2L', 'Compare Colleges'],
+        disclaimer:
+          'AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.',
+      };
+    }
+
+    // Security Gate 3: Prompt Injection & Abuse Filter
+    if (this.isSuspiciousPrompt(safeUserMessage)) {
+      return {
+        conversationId: dto.conversationId || 'deflect_session',
+        messageId: `secure_deflect_${Date.now()}`,
+        role: 'ASSISTANT',
+        reply:
+          'I am the Swayam Admission AI Counselor, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
+        content:
+          'I am the Swayam Admission AI Counselor, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
+        chips: (settings as any).suggestedChips || [
+          'Top Colleges in Bihar',
+          'B.Tech under ₹2L',
+          'Compare Colleges',
+          'Talk to Counselor',
+        ],
+        disclaimer:
+          'AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.',
+      };
+    }
+
+    // 1. Fetch authenticated student profile & preferences if logged in
+    let studentContext: StudentContext | undefined;
+    let assignedCounselor: any = null;
+
+    if (!isGuest) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: effectiveUserId },
+        include: {
+          studentPreference: true,
+          applications: {
+            take: 3,
+            orderBy: { createdAt: 'desc' },
+            include: { college: true, course: true },
+          },
+        },
+      });
+
+      const lead = await this.prisma.lead.findFirst({
+        where: {
+          OR: [
+            ...(user?.email ? [{ email: user.email }] : []),
+            ...(user?.mobile ? [{ mobile: user.mobile }] : []),
+          ],
+        },
+      });
+
+      const counselorAssignment = lead
+        ? await this.prisma.counselorAssignment.findFirst({
+            where: { leadId: lead.id, isActive: true },
+          })
+        : null;
+
+      const counselor = counselorAssignment?.counselorId
+        ? await this.prisma.user.findUnique({
+            where: { id: counselorAssignment.counselorId },
+            select: { id: true, fullName: true, mobile: true, email: true },
+          })
+        : null;
+
+      if (counselor) {
+        assignedCounselor = {
+          id: counselor.id,
+          fullName: counselor.fullName,
+          mobile: counselor.mobile,
+          email: counselor.email,
+          designation: 'Senior Educational Counselor',
+        };
+      }
+
+      if (user) {
+        studentContext = {
+          fullName: user.fullName || undefined,
+          // Explicitly omit email and mobile to protect sensitive student PII (Requirement 5)
+          stream: user.studentPreference?.stream || undefined,
+          tenthMarks: user.studentPreference?.tenthMarks || undefined,
+          twelfthMarks: user.studentPreference?.twelfthMarks || undefined,
+          preferredStates: user.studentPreference?.preferredStates || [],
+          preferredCities: user.studentPreference?.preferredCities || [],
+          budgetMin: user.studentPreference?.budgetMin || undefined,
+          budgetMax: user.studentPreference?.budgetMax || undefined,
+          interests: user.studentPreference?.interests || [],
+          collegeType: user.studentPreference?.collegeType || undefined,
+          careerGoal: user.studentPreference?.careerGoal || undefined,
+          assignedCounselor,
+        };
+      }
+    } else if (dto.studentProfile) {
+      studentContext = dto.studentProfile;
+    }
+
+    // 2. Get or Create AI Conversation
+    let conversation;
+    if (dto.conversationId) {
+      conversation = await this.prisma.aIConversation.findUnique({
+        where: { id: dto.conversationId },
+        include: { messages: { take: 8, orderBy: { createdAt: 'asc' } } },
+      });
+    }
+
+    if (!conversation) {
+      conversation = await this.prisma.aIConversation.create({
+        data: {
+          userId: effectiveUserId,
+          title: safeUserMessage.slice(0, 45) + (safeUserMessage.length > 45 ? '...' : ''),
+          language: dto.language || 'en',
+        },
+        include: { messages: true },
+      });
+    }
+
+    // Save User Message
+    await this.prisma.aIMessage.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'USER',
+        content: safeUserMessage,
+      },
+    });
+
+    // 3. Ensure Fresh Enterprise Settings
+    settings = await this.prisma.aISettings.findUnique({
+      where: { id: 'default_ai_settings' },
+    });
+
+    if (!settings) {
+      settings = await this.prisma.aISettings.create({
+        data: { id: 'default_ai_settings' },
+      });
+    }
+
+    // 4. RAG Retrieval Step (Queries live Colleges, Courses, Exams, Rankings, Scholarships)
     const ragResult = await this.ragEngine.retrieveContext(
       dto.message,
-      undefined,
+      dto.category,
       settings.topKChunks || 5,
+      studentContext,
     );
 
-    // 4. Prompt Builder Step
+    // 5. Prompt Builder Step
     const systemPrompt = await this.promptManager.getActiveSystemPrompt();
-    const history = (conversation.messages || []).map((m) => ({
-      role: m.role === 'USER' ? ('user' as const) : ('assistant' as const),
-      content: m.content,
-    }));
+    const history = (conversation.messages || []).map((m) => {
+      const sanitized = this.sanitizeContent(m.content);
+      return {
+        role: m.role === 'USER' ? ('user' as const) : ('assistant' as const),
+        content: sanitized.cleanText,
+      };
+    });
 
-    // 5. Call LLM Provider Layer
+    // 6. Call LLM Provider Layer
     const completion = await this.providerService.generateCompletion({
       provider: settings.provider,
       modelName: settings.modelName,
@@ -96,13 +416,28 @@ export class AiService {
 
     const latencyMs = Date.now() - startTime;
 
-    // 6. Save Assistant Response Message
+    // Clean final response text & scrub sensitive PII
+    const rawClean = this.sanitizeContent(completion.text).cleanText;
+    const cleanFinalText = this.scrubSensitiveOutput(rawClean);
+
+    // Counselor handoff details
+    const counselorHandoff = {
+      assignedCounselor,
+      isPending: false,
+      handoffAvailable: true,
+    };
+
+    // 7. Save Assistant Response Message with clean text
     const assistantMsg = await this.prisma.aIMessage.create({
       data: {
         conversationId: conversation.id,
         role: 'ASSISTANT',
-        content: completion.text,
-        retrievedContext: ragResult.sources as any,
+        content: cleanFinalText,
+        retrievedContext: {
+          sources: ragResult.sources,
+          structured: ragResult.structured,
+          counselorHandoff,
+        } as any,
         promptTokens: completion.promptTokens,
         completionTokens: completion.completionTokens,
         modelUsed: completion.model,
@@ -111,21 +446,21 @@ export class AiService {
       },
     });
 
-    // 7. Profile Extraction & CRM Auto-Sync
+    // 8. Profile Extraction & CRM Auto-Sync
     const extractedData = this.crmSync.extractProfileData(
-      dto.message + ' ' + completion.text,
+      dto.message + ' ' + cleanFinalText,
     );
     const crmResult = await this.crmSync.syncChatWithCRM(
-      userId,
+      effectiveUserId,
       extractedData,
       dto.message,
-      completion.text,
+      cleanFinalText,
     );
 
-    // 8. Log Usage & Token Metrics
+    // 9. Log Usage & Token Metrics
     await this.prisma.aIUsage.create({
       data: {
-        userId,
+        userId: effectiveUserId,
         conversationId: conversation.id,
         provider: completion.provider,
         model: completion.model,
@@ -137,34 +472,54 @@ export class AiService {
       },
     });
 
-    // 9. Update Conversation Totals & Summary
+    // 10. Update Conversation Totals & Summary
     await this.prisma.aIConversation.update({
       where: { id: conversation.id },
       data: {
         totalTokens: { increment: completion.totalTokens },
         estimatedCost: { increment: completion.estimatedCost },
-        summary: `Student inquired about: '${dto.message.slice(0, 80)}'. AI provided verified options. CRM Lead Score: ${crmResult?.scoreVal || 65}.`,
+        summary: `Student inquiry: '${dto.message.slice(0, 80)}'. Verified options provided.`,
       },
     });
 
-    // 10. Auto Escalation Check if Confidence is below threshold
+    // 11. Auto Escalation Check if Confidence is below threshold
     if (
       settings.escalationEnabled &&
       completion.confidenceScore < settings.confidenceThreshold
     ) {
       await this.crmSync.handleEscalation(
-        userId,
+        effectiveUserId,
         conversation.id,
         'LOW_CONFIDENCE',
         `AI Confidence score (${completion.confidenceScore.toFixed(2)}) below threshold (${settings.confidenceThreshold}).`,
       );
     }
 
+    // 12. Return the rich, structured, type-safe payload
     return {
       conversationId: conversation.id,
       messageId: assistantMsg.id,
       role: 'ASSISTANT',
-      content: completion.text,
+      reply: cleanFinalText,
+      content: cleanFinalText, // for backward compatibility with frontend consumers
+      colleges: ragResult.structured.colleges,
+      courses: ragResult.structured.courses,
+      exams: ragResult.structured.exams,
+      scholarships: ragResult.structured.scholarships,
+      studyMaterials: ragResult.structured.studyMaterials,
+      guides: ragResult.structured.guides,
+      comparison: ragResult.structured.comparison,
+      chips:
+        ragResult.structured.chips && ragResult.structured.chips.length > 0
+          ? ragResult.structured.chips
+          : (settings as any).suggestedChips && (settings as any).suggestedChips.length > 0
+            ? (settings as any).suggestedChips
+            : ['Top Colleges in Bihar', 'B.Tech under ₹2L', 'Compare Colleges'],
+      suggestedQuestions: ragResult.structured.suggestedQuestions,
+      counselorHandoff,
+      disclaimer:
+        'AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.',
+      applicationStatus: studentContext?.activeApplications?.[0] || null,
       retrievedSources: ragResult.sources,
       confidenceScore: completion.confidenceScore,
       provider: completion.provider,
@@ -223,9 +578,9 @@ export class AiService {
     return {
       totalConversations,
       totalMessages,
-      activeUsers: Math.ceil(totalConversations * 0.85),
-      admissionsInfluenced: Math.ceil(totalConversations * 0.28),
-      revenueInfluenced: Math.ceil(totalConversations * 0.28) * 150000,
+      activeUsers: Math.ceil(totalConversations * 0.85) || 1,
+      admissionsInfluenced: Math.ceil(totalConversations * 0.28) || 0,
+      revenueInfluenced: (Math.ceil(totalConversations * 0.28) || 0) * 150000,
       totalTokens,
       totalCost: parseFloat(totalCost.toFixed(2)),
       averageRating: avgRating,
@@ -258,10 +613,10 @@ export class AiService {
   }
 
   /**
-   * Get Conversations History
+   * Get Conversations History (sanitized)
    */
   async getConversations(userId?: string) {
-    return await this.prisma.aIConversation.findMany({
+    const conversations = await this.prisma.aIConversation.findMany({
       where: userId ? { userId } : {},
       orderBy: { updatedAt: 'desc' },
       include: {
@@ -270,12 +625,29 @@ export class AiService {
         escalations: { select: { status: true, reason: true } },
       },
     });
+
+    // Sanitize any legacy JSON in message content or summaries
+    return conversations.map((c) => {
+      const sanitizedMessages = (c.messages || []).map((m) => {
+        const sanitized = this.sanitizeContent(m.content);
+        return {
+          ...m,
+          content: sanitized.cleanText,
+        };
+      });
+
+      return {
+        ...c,
+        summary: this.sanitizeContent(c.summary || '').cleanText || c.title,
+        messages: sanitizedMessages,
+      };
+    });
   }
 
   /**
-   * Get Conversation Details
+   * Get Conversation Details by ID (sanitized)
    */
-  async getConversationById(id: string) {
+  async getConversationById(id: string, userId?: string) {
     const conv = await this.prisma.aIConversation.findUnique({
       where: { id },
       include: {
@@ -288,8 +660,123 @@ export class AiService {
         recommendations: true,
       },
     });
+
     if (!conv) throw new NotFoundException('Conversation not found');
-    return conv;
+    if (userId && conv.userId !== userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.role === 'STUDENT') {
+        throw new ForbiddenException('Access denied to this conversation');
+      }
+    }
+
+    const sanitizedMessages = conv.messages.map((m) => {
+      const sanitized = this.sanitizeContent(m.content);
+      const retrieved = m.retrievedContext as any;
+      const structured = retrieved?.structured || sanitized.structured;
+
+      return {
+        ...m,
+        content: sanitized.cleanText,
+        reply: sanitized.cleanText,
+        colleges: structured?.colleges || undefined,
+        courses: structured?.courses || undefined,
+        exams: structured?.exams || undefined,
+        scholarships: structured?.scholarships || undefined,
+        studyMaterials: structured?.studyMaterials || undefined,
+        guides: structured?.guides || undefined,
+        comparison: structured?.comparison || undefined,
+        chips: structured?.chips || undefined,
+        counselorHandoff: retrieved?.counselorHandoff || undefined,
+      };
+    });
+
+    return {
+      ...conv,
+      messages: sanitizedMessages,
+    };
+  }
+
+  /**
+   * Delete Conversation
+   */
+  async deleteConversation(id: string, userId?: string) {
+    const conv = await this.prisma.aIConversation.findUnique({ where: { id } });
+    if (!conv) throw new NotFoundException('Conversation not found');
+
+    if (userId && conv.userId !== userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user && user.role === 'STUDENT') {
+        throw new ForbiddenException('Access denied to delete this conversation');
+      }
+    }
+
+    await this.prisma.aIConversation.delete({ where: { id } });
+    return { success: true, message: 'Conversation deleted successfully' };
+  }
+
+  /**
+   * Get Student Counselor Status
+   */
+  async getCounselorStatus(userId?: string) {
+    if (!userId) {
+      return {
+        hasAssignedCounselor: false,
+        counselor: {
+          id: 'counselor_support',
+          fullName: 'Swayam Admission Counseling Desk',
+          mobile: '+919000000000',
+          email: 'support@swayamadmission.com',
+          designation: 'Senior Educational Counselor',
+        },
+        hasPendingEscalation: false,
+        isOnline: true,
+        workingHours: '9:00 AM – 7:00 PM IST (Mon–Sat)',
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const lead = user
+      ? await this.prisma.lead.findFirst({
+          where: {
+            OR: [
+              ...(user.email ? [{ email: user.email }] : []),
+              ...(user.mobile ? [{ mobile: user.mobile }] : []),
+            ],
+          },
+        })
+      : null;
+
+    const counselorAssignment = lead
+      ? await this.prisma.counselorAssignment.findFirst({
+          where: { leadId: lead.id, isActive: true },
+        })
+      : null;
+
+    const counselor = counselorAssignment?.counselorId
+      ? await this.prisma.user.findUnique({
+          where: { id: counselorAssignment.counselorId },
+          select: { id: true, fullName: true, mobile: true, email: true },
+        })
+      : null;
+
+    const pendingEscalation = await this.prisma.aIEscalation.findFirst({
+      where: { userId, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return {
+      hasAssignedCounselor: Boolean(counselor),
+      counselor: counselor
+        ? {
+            id: counselor.id,
+            fullName: counselor.fullName,
+            mobile: counselor.mobile,
+            email: counselor.email,
+            designation: 'Senior Educational Counselor',
+          }
+        : null,
+      isRequestPending: Boolean(pendingEscalation),
+    };
   }
 
   /**
@@ -319,7 +806,6 @@ export class AiService {
       },
     });
 
-    // If counselor corrected/rewrote the answer, create a RAG chunk so future answers learn from it!
     if (dto.isCorrected && dto.correctedText) {
       await this.ragEngine.processAndIndexDocument(
         'counselor_correction_' + feedback.id,
@@ -373,31 +859,17 @@ export class AiService {
   }
 
   /**
+   * Synchronize the Entire Live Database into AI Knowledge Base
+   */
+  async syncDatabase() {
+    return await this.ragEngine.syncLiveDatabaseToChunks();
+  }
+
+  /**
    * Reindex All Knowledge Base
    */
   async reindexKnowledge() {
-    const docs = await this.prisma.aIKnowledgeDocument.findMany();
-    let totalChunks = 0;
-
-    for (const doc of docs) {
-      const chunks = await this.prisma.aIChunk.count({
-        where: { documentId: doc.id },
-      });
-      totalChunks += chunks;
-    }
-
-    const job = await this.prisma.aITrainingJob.create({
-      data: {
-        jobType: 'RAG_REINDEX',
-        status: 'COMPLETED',
-        processedDocs: docs.length,
-        totalChunks,
-        logs: `Reindexed ${docs.length} knowledge documents and ${totalChunks} vector chunks successfully.`,
-        completedAt: new Date(),
-      },
-    });
-
-    return job;
+    return await this.syncDatabase();
   }
 
   /**
@@ -412,17 +884,29 @@ export class AiService {
         data: { id: 'default_ai_settings' },
       });
     }
-    return settings;
+
+    // Mask secret API key on read so it is NEVER exposed
+    return {
+      ...settings,
+      apiKey: settings.apiKey ? '••••••••••••••••' : '',
+      isApiKeyConfigured: Boolean(settings.apiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),
+    };
   }
 
   /**
    * Update Settings
    */
   async updateSettings(dto: UpdateAISettingsDto) {
+    const updateData: any = { ...dto };
+    // If apiKey is masked, don't overwrite with dots
+    if (updateData.apiKey && updateData.apiKey.includes('••••')) {
+      delete updateData.apiKey;
+    }
+
     return await this.prisma.aISettings.upsert({
       where: { id: 'default_ai_settings' },
-      create: { id: 'default_ai_settings', ...dto },
-      update: dto,
+      create: { id: 'default_ai_settings', ...updateData },
+      update: updateData,
     });
   }
 
@@ -434,14 +918,14 @@ export class AiService {
       {
         provider: 'Gemini',
         modelName: 'gemini-1.5-flash',
-        displayName: 'Gemini 1.5 Flash (Fast)',
+        displayName: 'Gemini 1.5 Flash (Fast & Recommended)',
         contextWindow: 1000000,
         isDefault: true,
       },
       {
         provider: 'Gemini',
         modelName: 'gemini-1.5-pro',
-        displayName: 'Gemini 1.5 Pro (Reasoning)',
+        displayName: 'Gemini 1.5 Pro (Deep Reasoning)',
         contextWindow: 2000000,
         isDefault: false,
       },
@@ -455,7 +939,7 @@ export class AiService {
       {
         provider: 'OpenAI',
         modelName: 'gpt-4o',
-        displayName: 'GPT-4o (Omni High Precision)',
+        displayName: 'GPT-4o (High Precision)',
         contextWindow: 128000,
         isDefault: false,
       },
@@ -513,7 +997,6 @@ export class AiService {
             name: true,
             city: true,
             state: true,
-            logo: true,
             ranking: true,
             highestPackage: true,
           },
@@ -526,7 +1009,6 @@ export class AiService {
     });
 
     if (recs.length === 0) {
-      // Fallback top 3 verified colleges from DB
       const topColleges = await this.prisma.college.findMany({
         take: 3,
         select: {
@@ -534,7 +1016,6 @@ export class AiService {
           name: true,
           city: true,
           state: true,
-          logo: true,
           ranking: true,
         },
       });

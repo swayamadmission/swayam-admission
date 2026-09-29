@@ -213,7 +213,7 @@ export default function LogInteractionModal({
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A7B5B]">
               CRM Interaction & Follow-Up
             </span>
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#4A7B5B]">
               Log Activity for {targetDisplayName}
             </h3>
           </div>
@@ -243,7 +243,7 @@ export default function LogInteractionModal({
                 className={`pb-3 px-3 flex items-center gap-1.5 text-xs font-bold transition-all border-b-2 ${
                   isActive
                     ? "border-[#4A7B5B] text-[#4A7B5B]"
-                    : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                    : "border-transparent text-[#64748B] hover:text-[#4A7B5B]"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -259,7 +259,7 @@ export default function LogInteractionModal({
           {activeTab === "call" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-2">
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-2">
                   Call Outcome *
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -270,7 +270,7 @@ export default function LogInteractionModal({
                       onClick={() => setCallOutcome(o.value)}
                       className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition-all ${
                         callOutcome === o.value
-                          ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#0F172A]"
+                          ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#4A7B5B]"
                           : "border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#475569]"
                       }`}
                     >
@@ -282,7 +282,7 @@ export default function LogInteractionModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Direction</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Direction</label>
                   <select
                     value={callDirection}
                     onChange={(e) => setCallDirection(e.target.value)}
@@ -293,7 +293,7 @@ export default function LogInteractionModal({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Duration (Approx. mins)</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Duration (Approx. mins)</label>
                   <input
                     type="number"
                     min="1"
@@ -306,7 +306,7 @@ export default function LogInteractionModal({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Counseling Discussion Notes</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Counseling Discussion Notes</label>
                 <textarea
                   value={callNotes}
                   onChange={(e) => setCallNotes(e.target.value)}
@@ -318,7 +318,7 @@ export default function LogInteractionModal({
 
               {/* Schedule Next Follow-up Checkbox */}
               <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#0F172A]">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#4A7B5B]">
                   <input
                     type="checkbox"
                     checked={scheduleNextFollowUp}
@@ -346,7 +346,7 @@ export default function LogInteractionModal({
           {activeTab === "whatsapp" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Direction</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Direction</label>
                 <select
                   value={waDirection}
                   onChange={(e) => setWaDirection(e.target.value)}
@@ -357,7 +357,7 @@ export default function LogInteractionModal({
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">WhatsApp Message Summary / Details *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">WhatsApp Message Summary / Details *</label>
                 <textarea
                   value={waNotes}
                   onChange={(e) => setWaNotes(e.target.value)}
@@ -373,7 +373,7 @@ export default function LogInteractionModal({
           {activeTab === "meeting" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Meeting Title *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Meeting Title *</label>
                 <input
                   value={meetingTitle}
                   onChange={(e) => setMeetingTitle(e.target.value)}
@@ -383,7 +383,7 @@ export default function LogInteractionModal({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Meeting Mode</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Meeting Mode</label>
                   <select
                     value={meetingMode}
                     onChange={(e) => setMeetingMode(e.target.value)}
@@ -395,7 +395,7 @@ export default function LogInteractionModal({
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Duration (Mins)</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Duration (Mins)</label>
                   <input
                     type="number"
                     value={meetingDuration}
@@ -405,7 +405,7 @@ export default function LogInteractionModal({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Outcome & Next Steps</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Outcome & Next Steps</label>
                 <textarea
                   value={meetingNotes}
                   onChange={(e) => setMeetingNotes(e.target.value)}
@@ -421,7 +421,7 @@ export default function LogInteractionModal({
           {activeTab === "note" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Note Title (Optional)</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Note Title (Optional)</label>
                 <input
                   value={noteTitle}
                   onChange={(e) => setNoteTitle(e.target.value)}
@@ -430,7 +430,7 @@ export default function LogInteractionModal({
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Note Content *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Note Content *</label>
                 <textarea
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
@@ -440,14 +440,14 @@ export default function LogInteractionModal({
                 />
               </div>
               <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                <label className="text-xs font-bold text-[#0F172A] block mb-2">Privacy & Visibility</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-2">Privacy & Visibility</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setNoteVisibility("INTERNAL")}
                     className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all ${
                       noteVisibility === "INTERNAL"
-                        ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#0F172A]"
+                        ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#4A7B5B]"
                         : "border-[#E2E8F0] bg-white text-[#64748B]"
                     }`}
                   >
@@ -461,7 +461,7 @@ export default function LogInteractionModal({
                     onClick={() => setNoteVisibility("STUDENT_VISIBLE")}
                     className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all ${
                       noteVisibility === "STUDENT_VISIBLE"
-                        ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#0F172A]"
+                        ? "border-[#4A7B5B] bg-[#E8F3EC] text-[#4A7B5B]"
                         : "border-[#E2E8F0] bg-white text-[#64748B]"
                     }`}
                   >
@@ -479,7 +479,7 @@ export default function LogInteractionModal({
           {activeTab === "task" && (
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Task Title *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Task Title *</label>
                 <input
                   value={taskTitle}
                   onChange={(e) => setTaskTitle(e.target.value)}
@@ -489,7 +489,7 @@ export default function LogInteractionModal({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Due Date & Time *</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Due Date & Time *</label>
                   <input
                     type="datetime-local"
                     value={taskDueDate}
@@ -498,7 +498,7 @@ export default function LogInteractionModal({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Priority</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Priority</label>
                   <select
                     value={taskPriority}
                     onChange={(e) => setTaskPriority(e.target.value)}
@@ -512,7 +512,7 @@ export default function LogInteractionModal({
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Task Description / Instructions</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Task Description / Instructions</label>
                 <textarea
                   value={taskDesc}
                   onChange={(e) => setTaskDesc(e.target.value)}

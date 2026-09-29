@@ -21,12 +21,16 @@ import CompareCollegesPage from "./components/CompareCollegesPage";
 import { CollegeRankingsPage } from "./components/CollegeRankingsPage";
 import ReferralDashboard from "./components/ReferralDashboard";
 
+import StudyMaterialsPage from "./components/StudyMaterialsPage";
+import { SearchResultsPage } from "./components/SearchResultsPage";
+
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: Root,
     children: [
       { index: true, Component: HomePage },
+      { path: "search", Component: SearchResultsPage },
       { path: "courses", Component: CoursesPage },
       { path: "colleges", Component: CollegesPage },
       { path: "colleges/compare", Component: CompareCollegesPage },
@@ -38,6 +42,7 @@ export const router = createBrowserRouter([
       { path: "states/:slug", Component: StateDetailPage },
       { path: "scholarships", Component: ScholarshipsPage },
       { path: "scholarships/:slug", Component: ScholarshipDetailPage },
+      { path: "study-materials", Component: StudyMaterialsPage },
       { path: "ai-counselor", Component: AICounselorPage },
       { path: "apply-now", Component: ApplyNowPage },
       { path: "dashboard", Component: StudentDashboard },

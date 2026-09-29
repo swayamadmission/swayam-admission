@@ -4,7 +4,7 @@ import {
   Search, ArrowRight, Star, MapPin, Building2, Users, Award, Bot, Phone,
   MessageCircle, Upload, FileText, ChevronDown, ChevronUp, CheckCircle2,
   GraduationCap, TrendingUp, Cpu, Scale, Stethoscope, Hotel, Wrench, BookOpen,
-  Play, Sparkles, Clock, TrendingUp as TrendingIcon
+  Play, Sparkles, Clock, TrendingUp as TrendingIcon, Trophy, ShieldCheck
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useAuth } from "./Navbar";
@@ -15,7 +15,9 @@ import { recommendationApi } from "../../api/recommendation.api";
 import { searchApi } from "../../api/search.api";
 import { blogsApi } from "../../api/blogs.api";
 import { faqsApi } from "../../api/faqs.api";
-import { useDebounce } from "../../hooks/useDebounce";
+import { reviewsRankingApi } from "../../api/reviews-ranking.api";
+import { formatIndianDate } from "../../utils/date.utils";
+import { LiquidGlassSearchBar } from "./LiquidGlassSearchBar";
 
 const COURSES = [
   { icon: Cpu, label: "B.Tech", color: "#3B82F6", bg: "#EFF6FF" },
@@ -73,13 +75,10 @@ const BLOGS = [
 ];
 
 export default function HomePage() {
-  const [search, setSearch] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
   const [openFaq, setOpenFaq] = useState<number|null>(null);
   const { openAuth } = useAuth();
   const { isLoggedIn } = useAuthContext();
   const navigate = useNavigate();
-  const debouncedSearch = useDebounce(search, 300);
 
   const { data: collegesRes, isLoading: isLoadingColleges } = useQuery({
     queryKey: ["featuredColleges"],
@@ -92,17 +91,6 @@ export default function HomePage() {
     enabled: isLoggedIn,
   });
 
-  const { data: suggestionsRes } = useQuery({
-    queryKey: ["searchSuggestions", debouncedSearch],
-    queryFn: () => searchApi.getSuggestions(debouncedSearch),
-    enabled: debouncedSearch.length > 2,
-  });
-
-  const { data: trendingRes } = useQuery({
-    queryKey: ["searchTrending"],
-    queryFn: () => searchApi.getTrending(),
-  });
-
   const { data: homeBlogsRes } = useQuery({
     queryKey: ["homeBlogs"],
     queryFn: () => blogsApi.findPublic({ limit: 3 }),
@@ -113,28 +101,38 @@ export default function HomePage() {
     queryFn: () => faqsApi.findPublic({ limit: 5 }),
   });
 
-  const handleSearchSubmit = () => {
-    if (search.trim()) {
-      setShowDropdown(false);
-      navigate(`/colleges?q=${search}`);
-    }
-  };
+  const { data: homePublishedRankingRes } = useQuery({
+    queryKey: ["homePublishedRankings"],
+    queryFn: () => reviewsRankingApi.getPublicRankings({ limit: 4 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: homePublishedReportRes } = useQuery({
+    queryKey: ["homePublishedReport"],
+    queryFn: () => reviewsRankingApi.getPublicAnnualReport(new Date().getFullYear()),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const publishedEdition = homePublishedRankingRes?.data?.edition;
+  const publishedResults = homePublishedRankingRes?.data?.results || [];
+  const publishedReport = homePublishedReportRes?.data;
 
   const colleges = collegesRes?.data?.data || [];
   const recommendedColleges = recsRes?.data?.recommendedColleges || [];
   const displayColleges = isLoggedIn && recommendedColleges.length > 0 ? recommendedColleges : colleges;
   const isPersonalized = isLoggedIn && recommendedColleges.length > 0;
-  
-  const suggestions = suggestionsRes?.data || [];
-  const trending = trendingRes?.data || [];
 
   return (
     <div style={{ backgroundColor: "#F8FAFC" }}>
 
       {/* ── HERO ── */}
-      <section className="bg-white relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none" style={{ background:"radial-gradient(ellipse 80% 50% at 50% -5%, rgba(74,123,91,0.08) 0%, transparent 70%)" }} />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20">
+      <section className="bg-white relative z-20">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ background:"radial-gradient(ellipse 80% 50% at 50% -5%, rgba(74,123,91,0.08) 0%, transparent 70%)" }}>
+          {/* Decorative Floating Elements contained in background layer */}
+          <div className="absolute top-10 left-10 w-24 h-24 bg-[#4A7B5B]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite]" />
+          <div className="absolute bottom-10 right-10 w-32 h-32 bg-[#F0AE1A]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite_1s]" />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-20 relative z-10">
 
           {/* Split Layout: Video Left | Content Right */}
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -199,19 +197,15 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-
-              {/* Decorative Floating Elements */}
-              <div className="absolute -top-4 -left-4 w-24 h-24 bg-[#4A7B5B]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite]" />
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-[#F0AE1A]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite_1s]" />
             </div>
 
             {/* RIGHT SIDE - EXISTING CONTENT */}
-            <div className="order-1 lg:order-2 text-center lg:text-left animate-[fadeIn_0.8s_ease-out_0.2s_both] relative z-20">
+            <div className="order-1 lg:order-2 text-center lg:text-left animate-[fadeIn_0.8s_ease-out_0.2s_both] relative z-30">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#E8F3EC] rounded-full mb-6">
                 <Bot size={13} className="text-[#4A7B5B]" />
                 <span style={{ fontSize:"12px", fontWeight:600, color:"#4A7B5B" }}>AI-Powered Admission Guidance — Free for Students</span>
               </div>
-              <h1 style={{ fontSize:"clamp(28px,5vw,52px)", fontWeight:800, lineHeight:1.15, color:"#0F172A" }} className="mb-5">
+              <h1 style={{ fontSize:"clamp(28px,5vw,52px)", fontWeight:800, lineHeight:1.15, color:"#4A7B5B" }} className="mb-5">
                 Find Your Dream College{" "}
                 <span style={{ color:"#4A7B5B" }}>with Smart AI</span>{" "}
                 Guidance
@@ -220,55 +214,11 @@ export default function HomePage() {
                 500+ verified colleges · AI counseling · Scholarship guidance — all at zero cost for students across India.
               </p>
               
-              {/* Search with Autocomplete */}
-              <div className="relative max-w-xl lg:mx-0 mx-auto mb-7">
-                <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-2xl shadow-lg p-2 hover:shadow-xl transition-shadow relative z-20">
-                  <Search size={17} className="text-gray-400 ml-2 shrink-0" />
-                  <input
-                    type="text" placeholder="Search colleges, courses or cities..."
-                    value={search} 
-                    onChange={e => { setSearch(e.target.value); setShowDropdown(true); }}
-                    onFocus={() => setShowDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
-                    onKeyDown={e => e.key === "Enter" && handleSearchSubmit()}
-                    className="flex-1 bg-transparent border-none outline-none text-sm text-gray-700 placeholder:text-gray-400 py-2"
-                  />
-                  <button onClick={handleSearchSubmit} className="px-4 py-2.5 bg-[#4A7B5B] text-white rounded-xl text-sm shrink-0 hover:bg-[#3d6b4d] transition-colors font-semibold">
-                    Search
-                  </button>
-                </div>
-                
-                {/* Search Dropdown */}
-                {showDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-30">
-                    {search.length > 2 ? (
-                      <div className="p-2">
-                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Suggestions</div>
-                        {suggestions.length > 0 ? suggestions.map((s: any) => (
-                          <Link key={s.id} to={`/colleges/${s.id}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg">
-                            <Building2 size={16} className="text-gray-400" />
-                            <div className="text-sm font-medium text-gray-700">{s.name}</div>
-                            <div className="text-xs text-gray-400 ml-auto">{s.city}</div>
-                          </Link>
-                        )) : (
-                          <div className="px-3 py-3 text-sm text-gray-500">No matches found.</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-2">
-                        <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                          <TrendingIcon size={12}/> Trending Searches
-                        </div>
-                        {trending.map((t: any, i: number) => (
-                          <button key={i} onClick={() => { setSearch(t.query); setShowDropdown(false); navigate(`/colleges?q=${t.query}`); }} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg text-left">
-                            <Search size={14} className="text-gray-300" />
-                            <div className="text-sm font-medium text-gray-700">{t.query}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+              {/* Liquid Glass Smart Search Bar */}
+              <div className="max-w-xl lg:mx-0 mx-auto mb-7 relative z-40">
+                <LiquidGlassSearchBar
+                  placeholder="Search colleges, courses, study materials, guides, exams..."
+                />
               </div>
 
               {/* CTAs */}
@@ -284,7 +234,7 @@ export default function HomePage() {
               <div className="flex items-center lg:justify-start justify-center gap-10 flex-wrap relative z-10">
                 {[{n:"50,000+",l:"Students Helped"},{n:"500+",l:"Verified Colleges"},{n:"95%",l:"Satisfaction Rate"}].map(s=>(
                   <div key={s.l} className="text-center lg:text-left">
-                    <div style={{fontSize:"22px",fontWeight:800,color:"#0F172A"}}>{s.n}</div>
+                    <div style={{fontSize:"22px",fontWeight:800,color:"#4A7B5B"}}>{s.n}</div>
                     <div style={{fontSize:"11px",color:"#94a3b8"}}>{s.l}</div>
                   </div>
                 ))}
@@ -296,7 +246,7 @@ export default function HomePage() {
       </section>
 
       {/* ── TRUST BAR ── */}
-      <section className="border-y border-gray-100 bg-white">
+      <section className="border-y border-gray-100 bg-white relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-7">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {[
@@ -310,7 +260,7 @@ export default function HomePage() {
                   <Icon size={18} className="text-[#4A7B5B]"/>
                 </div>
                 <div>
-                  <div style={{fontSize:"13px",fontWeight:700,color:"#0F172A"}}>{label}</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"#4A7B5B"}}>{label}</div>
                   <div style={{fontSize:"11px",color:"#94a3b8"}}>{sub}</div>
                 </div>
               </div>
@@ -369,7 +319,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-1">Explore</div>
-              <h2 style={{fontWeight:700,color:"#0F172A"}}>Popular Courses</h2>
+              <h2 style={{fontWeight:700,color:"#4A7B5B"}}>Popular Courses</h2>
             </div>
             <Link to="/courses" className="flex items-center gap-1 text-sm text-[#4A7B5B] hover:underline"><span>View All</span><ArrowRight size={13}/></Link>
           </div>
@@ -392,7 +342,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-1">Browse by Location</div>
-              <h2 style={{fontWeight:700,color:"#0F172A"}}>Top States</h2>
+              <h2 style={{fontWeight:700,color:"#4A7B5B"}}>Top States</h2>
             </div>
             <Link to="/colleges" className="flex items-center gap-1 text-sm text-[#4A7B5B] hover:underline"><span>All States</span><ArrowRight size={13}/></Link>
           </div>
@@ -400,7 +350,7 @@ export default function HomePage() {
             {STATES.map(s=>(
               <Link key={s.name} to={`/colleges?state=${s.name}`} className="flex flex-col items-center gap-2 p-5 bg-white rounded-2xl border border-gray-100 hover:shadow-md hover:border-[#4A7B5B]/20 transition-all text-center group">
                 <div className="text-3xl mb-1">{s.emoji}</div>
-                <div style={{fontSize:"13px",fontWeight:700,color:"#0F172A"}}>{s.name}</div>
+                <div style={{fontSize:"13px",fontWeight:700,color:"#4A7B5B"}}>{s.name}</div>
                 <div style={{fontSize:"11px",color:"#94a3b8"}}>{s.colleges}</div>
               </Link>
             ))}
@@ -416,7 +366,7 @@ export default function HomePage() {
               <div style={{fontSize:"12px",fontWeight:600,color:isPersonalized ? "#F0AE1A" : "#4A7B5B"}} className="mb-1">
                 {isPersonalized ? "✨ Curated For You" : "Top Picks"}
               </div>
-              <h2 style={{fontWeight:700,color:"#0F172A"}}>
+              <h2 style={{fontWeight:700,color:"#4A7B5B"}}>
                 {isPersonalized ? "Recommended Colleges" : "Featured Colleges"}
               </h2>
             </div>
@@ -437,7 +387,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="group-hover:text-[#4A7B5B] transition-colors mb-1 truncate" style={{fontSize:"15px",fontWeight:700,color:"#0F172A"}}>{c.name}</h3>
+                  <h3 className="group-hover:text-[#4A7B5B] transition-colors mb-1 truncate" style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{c.name}</h3>
                   <div className="flex items-center gap-1 text-gray-400 mb-2">
                     <MapPin size={11}/><span style={{fontSize:"11px"}}>{c.city}, {c.state}</span>
                   </div>
@@ -469,7 +419,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-2">Simple Process</div>
-            <h2 style={{fontWeight:700,color:"#0F172A"}}>How It Works</h2>
+            <h2 style={{fontWeight:700,color:"#4A7B5B"}}>How It Works</h2>
             <p style={{fontSize:"14px",color:"#94a3b8"}} className="mt-2">Get your dream college admission in just 4 simple steps</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -478,7 +428,7 @@ export default function HomePage() {
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{backgroundColor:step.color+"15"}}>
                   <span style={{fontSize:"22px",fontWeight:800,color:step.color}}>{step.step}</span>
                 </div>
-                <h3 className="mb-2" style={{fontSize:"16px",fontWeight:700,color:"#0F172A"}}>{step.title}</h3>
+                <h3 className="mb-2" style={{fontSize:"16px",fontWeight:700,color:"#4A7B5B"}}>{step.title}</h3>
                 <p style={{fontSize:"13px",color:"#94a3b8",lineHeight:1.6}}>{step.desc}</p>
               </div>
             ))}
@@ -491,7 +441,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-2">Student Stories</div>
-            <h2 style={{fontWeight:700,color:"#0F172A"}}>Success Stories</h2>
+            <h2 style={{fontWeight:700,color:"#4A7B5B"}}>Success Stories</h2>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
             {TESTIMONIALS.map(t=>(
@@ -503,7 +453,7 @@ export default function HomePage() {
                 <div className="flex items-center gap-3">
                   <ImageWithFallback src={t.img} alt={t.name} className="w-11 h-11 rounded-full object-cover border-2 border-[#E8F3EC]"/>
                   <div>
-                    <div style={{fontSize:"13px",fontWeight:700,color:"#0F172A"}}>{t.name}</div>
+                    <div style={{fontSize:"13px",fontWeight:700,color:"#4A7B5B"}}>{t.name}</div>
                     <div style={{fontSize:"11px",color:"#94a3b8"}}>{t.course}</div>
                     <span className="px-2 py-0.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-full" style={{fontSize:"9px",fontWeight:600}}>{t.state}</span>
                   </div>
@@ -520,7 +470,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-1">Free Resources</div>
-              <h2 style={{fontWeight:700,color:"#0F172A"}}>Study Materials</h2>
+              <h2 style={{fontWeight:700,color:"#4A7B5B"}}>Study Materials</h2>
             </div>
             <Link to="/blogs" className="flex items-center gap-1 text-sm text-[#4A7B5B] hover:underline"><span>View All</span><ArrowRight size={13}/></Link>
           </div>
@@ -531,7 +481,7 @@ export default function HomePage() {
                   <m.icon size={22} style={{color:m.color}}/>
                 </div>
                 <div className="text-center">
-                  <div style={{fontSize:"13px",fontWeight:700,color:"#0F172A"}}>{m.label}</div>
+                  <div style={{fontSize:"13px",fontWeight:700,color:"#4A7B5B"}}>{m.label}</div>
                   <div style={{fontSize:"11px",color:"#94a3b8"}}>{m.sub}</div>
                 </div>
                 <div className="flex items-center gap-1.5 text-[#4A7B5B]" style={{fontSize:"11px",fontWeight:600}}>
@@ -549,7 +499,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-7">
             <div>
               <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-1">Latest Articles</div>
-              <h2 style={{fontWeight:700,color:"#0F172A"}}>From Our Blog</h2>
+              <h2 style={{fontWeight:700,color:"#4A7B5B"}}>From Our Blog</h2>
             </div>
             <Link to="/blogs" className="flex items-center gap-1 text-sm text-[#4A7B5B] hover:underline"><span>All Blogs</span><ArrowRight size={13}/></Link>
           </div>
@@ -577,10 +527,10 @@ export default function HomePage() {
                         {b.category || "General"}
                       </span>
                       <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                        {b.publishedAt ? new Date(b.publishedAt).toLocaleDateString() : b.date || "Recent"} · {b.readingTime || b.read || 5} min read
+                        {b.publishedAt ? formatIndianDate(b.publishedAt) : b.date || "Recent"} · {b.readingTime || b.read || 5} min read
                       </span>
                     </div>
-                    <h3 className="group-hover:text-[#4A7B5B] transition-colors leading-snug line-clamp-2" style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }}>
+                    <h3 className="group-hover:text-[#4A7B5B] transition-colors leading-snug line-clamp-2" style={{ fontSize: "14px", fontWeight: 600, color: "#4A7B5B" }}>
                       {b.title}
                     </h3>
                   </div>
@@ -591,12 +541,151 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── SWAYAM ADMISSION RANKINGS & RESEARCH INTELLIGENCE ── */}
+      {(publishedEdition || publishedReport) && (
+        <section className="py-14 px-4 sm:px-6 bg-[#F8FAFC] border-t border-b border-gray-100">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-3">
+              <div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }} className="mb-1 flex items-center gap-1.5">
+                  <Award size={14} /> Evidence-Based Multi-Dimensional Intelligence
+                </div>
+                <h2 style={{ fontWeight: 800, color: "#4A7B5B" }}>Swayam Admission Rankings & Research</h2>
+                <p style={{ fontSize: "13px", color: "#64748b" }} className="mt-1">
+                  Empirical 9-pillar college rankings, verified student voice, and published annual research reports.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/rankings"
+                  className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d664b] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Trophy size={13} /> View Official Rankings
+                </Link>
+                <Link
+                  to="/blogs?category=Research%20%26%20Rankings"
+                  className="px-4 py-2 bg-white border border-gray-200 hover:border-[#4A7B5B]/50 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                >
+                  <BookOpen size={13} /> Research Hub
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-12 gap-6">
+              {/* Left Column: Published Annual Research Report */}
+              <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span className="px-2.5 py-1 bg-[#E8F3EC] text-[#4A7B5B] rounded-full text-[11px] font-bold flex items-center gap-1">
+                      <ShieldCheck size={12} /> Official Research Report {publishedReport?.rankingYear || publishedEdition?.year || new Date().getFullYear()}
+                    </span>
+                    <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                      Published: {formatIndianDate(publishedReport?.publishedAt || publishedEdition?.publishedAt || new Date())}
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#0F172A" }} className="mb-2 leading-snug">
+                    {publishedReport?.title || `Swayam Admission National College Ranking & Research Report ${publishedEdition?.year || new Date().getFullYear()}`}
+                  </h3>
+
+                  <p style={{ fontSize: "13px", color: "#475569", lineHeight: 1.65 }} className="mb-5 line-clamp-3">
+                    {publishedReport?.executiveSummary ||
+                      "Synthesizing 9 balanced performance pillars across academic stability, verified student satisfaction, audited career outcomes, campus infrastructure, and real transit accessibility."}
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2.5 p-3.5 bg-[#F8FAFC] rounded-xl border border-slate-100 text-xs mb-4">
+                    <div className="text-center">
+                      <span className="text-[11px] text-slate-400 block font-medium">Institutions</span>
+                      <span className="font-extrabold text-[#4A7B5B] text-sm">{publishedResults.length > 0 ? `${publishedResults.length}+ Ranked` : '100+ Evaluated'}</span>
+                    </div>
+                    <div className="text-center border-x border-slate-200/60">
+                      <span className="text-[11px] text-slate-400 block font-medium">Official Pillars</span>
+                      <span className="font-extrabold text-[#0F172A] text-sm">9 Pillars (100%)</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-[11px] text-slate-400 block font-medium">Confidence</span>
+                      <span className="font-extrabold text-emerald-600 text-sm">Bayesian Verified</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <div className="text-[11px] text-slate-400">
+                    Swayam Admission National Research Council
+                  </div>
+                  <Link
+                    to={`/blog/swayam-annual-college-ranking-research-report-${publishedReport?.rankingYear || publishedEdition?.year || new Date().getFullYear()}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4A7B5B] hover:underline"
+                  >
+                    Read Full Report <ArrowRight size={13} />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right Column: Top Ranked Colleges Preview */}
+              <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }} className="flex items-center gap-1.5">
+                      <Trophy size={14} className="text-[#F0AE1A]" /> Top Ranked Colleges
+                    </h4>
+                    <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                      {publishedEdition?.title || `Official Snapshot ${publishedEdition?.year || new Date().getFullYear()}`}
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-slate-100">
+                    {publishedResults.slice(0, 4).map((r: any, idx: number) => (
+                      <div key={r.id || idx} className="py-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                          <span className="w-6 h-6 rounded-lg bg-[#E8F3EC] text-[#4A7B5B] font-black text-xs flex items-center justify-center shrink-0">
+                            #{r.rank || idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-slate-800 truncate">
+                              {r.college?.name || "Premier College"}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {r.college?.city}, {r.college?.state}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-black text-[#4A7B5B] text-xs">
+                            {r.score?.toFixed(1) || "88.0"} / 100
+                          </span>
+                          <span className="block text-[9px] text-slate-400">Composite</span>
+                        </div>
+                      </div>
+                    ))}
+                    {publishedResults.length === 0 && (
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        Official ranked leaderboard will be published by the governance council.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100">
+                  <Link
+                    to="/rankings"
+                    className="w-full py-2 bg-[#F8FAFC] hover:bg-[#E8F3EC] text-[#4A7B5B] text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors border border-slate-200/60"
+                  >
+                    Explore Complete Rankings & Pillars <ArrowRight size={12} />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── FAQ ── */}
       <section className="py-14 px-4 sm:px-6 bg-white">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10">
             <div style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}} className="mb-2">Got Questions?</div>
-            <h2 style={{fontWeight:700,color:"#0F172A"}}>Frequently Asked Questions</h2>
+            <h2 style={{fontWeight:700,color:"#4A7B5B"}}>Frequently Asked Questions</h2>
           </div>
           <div className="space-y-3">
             {(homeFaqsRes?.data?.data && homeFaqsRes.data.data.length > 0
@@ -605,7 +694,7 @@ export default function HomePage() {
             ).map((f: any, i: number) => (
               <div key={f.slug || i} className="bg-[#F8FAFC] rounded-2xl border border-gray-100 overflow-hidden">
                 <button onClick={() => setOpenFaq(openFaq === i ? null : i)} className="w-full flex items-center justify-between p-5 text-left">
-                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#0F172A" }} className="pr-4">{f.q}</span>
+                  <span style={{ fontSize: "14px", fontWeight: 600, color: "#4A7B5B" }} className="pr-4">{f.q}</span>
                   {openFaq === i ? <ChevronUp size={17} className="text-[#4A7B5B] shrink-0" /> : <ChevronDown size={17} className="text-gray-400 shrink-0" />}
                 </button>
                 {openFaq === i && (

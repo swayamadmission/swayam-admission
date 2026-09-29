@@ -29,12 +29,40 @@ export interface StudyMaterial {
   viewCount: number;
   featured: boolean;
   premium: boolean;
+  price?: number;
+  previewFileUrl?: string;
+  previewFileName?: string;
+  previewFileSize?: string;
+  educationLevel?: string;
+  academicSession?: string;
+  specialization?: string;
+  notes?: string;
+  hasCredentials?: boolean;
+  authorName?: string;
+  authorRole?: string;
+  providerName?: string;
+  credentialsUrl?: string;
+  credentialsNotes?: string;
+  seoKeywords?: string[];
   tags?: string[];
   status: string;
   seoTitle?: string;
   seoDescription?: string;
+  publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export function resolveThumbnailUrl(thumbnail?: string | null): string | null {
+  if (!thumbnail || !thumbnail.trim()) return null;
+  const trimmed = thumbnail.trim();
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:")) {
+    return trimmed;
+  }
+  const apiBase = (import.meta as any).env?.VITE_API_URL || "http://localhost:3000";
+  const cleanBase = apiBase.replace(/\/v1\/?$/, "").replace(/\/+$/, "");
+  const path = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return `${cleanBase}${path}`;
 }
 
 export interface StudyMaterialStats {
@@ -99,6 +127,21 @@ export type CreateStudyMaterialPayload = {
   pages?: number;
   featured?: boolean;
   premium?: boolean;
+  price?: number;
+  previewFileUrl?: string;
+  previewFileName?: string;
+  previewFileSize?: string;
+  educationLevel?: string;
+  academicSession?: string;
+  specialization?: string;
+  notes?: string;
+  hasCredentials?: boolean;
+  authorName?: string;
+  authorRole?: string;
+  providerName?: string;
+  credentialsUrl?: string;
+  credentialsNotes?: string;
+  seoKeywords?: string[] | string;
   tags?: string[];
   status?: string;
   seoTitle?: string;
@@ -191,6 +234,51 @@ export const materialsApi = {
   // History
   getHistory: () =>
     api.get<{ data: StudyMaterial[]; total: number }>("/study-materials/history"),
+
+  // Upload file
+  uploadFile: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<{
+      fileUrl: string;
+      fileName: string;
+      fileSize?: string;
+      fileExtension: string;
+    }>("/study-materials/upload", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  // Upload preview file
+  uploadPreviewFile: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<{
+      fileUrl: string;
+      fileName: string;
+      fileSize?: string;
+      fileExtension?: string;
+      previewFileUrl: string;
+      previewFileName: string;
+      previewFileSize?: string;
+      previewFileExtension: string;
+    }>("/study-materials/upload-preview", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  // Upload thumbnail
+  uploadThumbnail: (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post<{
+      fileUrl: string;
+      thumbnailUrl: string;
+      fileName: string;
+    }>("/study-materials/upload-thumbnail", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 
   // Export
   export: (params?: StudyMaterialQueryParams) =>

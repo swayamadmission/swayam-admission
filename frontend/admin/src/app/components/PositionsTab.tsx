@@ -374,7 +374,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
             placeholder="Search by position code, title, or company email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#0F172A] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B]"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm text-[#4A7B5B] placeholder-slate-400 focus:outline-none focus:border-[#4A7B5B]"
           />
         </div>
 
@@ -382,7 +382,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#0F172A] focus:outline-none"
+            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#4A7B5B] focus:outline-none"
           >
             <option value="ALL">All Departments</option>
             {departments.map((d) => (
@@ -395,7 +395,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
           <select
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#0F172A] focus:outline-none"
+            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#4A7B5B] focus:outline-none"
           >
             <option value="ALL">All Regions</option>
             {states.map((s) => (
@@ -408,7 +408,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#0F172A] focus:outline-none"
+            className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#4A7B5B] focus:outline-none"
           >
             <option value="ALL">All Statuses</option>
             <option value="ACTIVE">Active Posts</option>
@@ -448,7 +448,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
       {/* Positions Table */}
       <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-[#0F172A]">
+          <table className="w-full text-left text-sm text-[#4A7B5B]">
             <thead className="bg-slate-50/80 text-xs uppercase font-semibold tracking-wider border-b border-[#F1F5F9] text-[#64748B]">
               <tr>
                 <th className="px-6 py-4">Position / Seat</th>
@@ -490,7 +490,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                             <Building className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-bold text-[#0F172A]">{pos.title}</div>
+                            <div className="font-bold text-[#4A7B5B]">{pos.title}</div>
                             <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                               {pos.code}
                             </span>
@@ -521,7 +521,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="font-medium text-[#0F172A]">
+                        <div className="font-medium text-[#4A7B5B]">
                           {pos.department?.name || 'Central'}
                         </div>
                         <div className="text-[11px] text-[#64748B]">
@@ -530,7 +530,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="font-medium text-[#0F172A]">
+                        <div className="font-medium text-[#4A7B5B]">
                           {pos.state?.name || 'All India'}
                         </div>
                         <div className="text-[11px] text-[#64748B]">
@@ -545,7 +545,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                           </span>
                         ) : (
                           <div>
-                            <div className="font-semibold text-[#0F172A] flex items-center gap-1.5">
+                            <div className="font-semibold text-[#4A7B5B] flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-emerald-500" />
                               {holder.fullName}
                             </div>
@@ -633,7 +633,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                   <Building className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-[#0F172A]">
+                  <h2 className="text-xl font-bold text-[#4A7B5B]">
                     {positionDetail.title}
                   </h2>
                   <div className="flex items-center gap-2 text-xs text-[#64748B] mt-0.5">
@@ -647,7 +647,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
               </div>
               <button
                 onClick={() => setSelectedPositionId(null)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#0F172A] hover:bg-gray-100"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-[#4A7B5B] hover:bg-gray-100"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -691,7 +691,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                 <div className="bg-white p-4 rounded-xl border border-emerald-100 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-base font-bold text-[#0F172A]">
+                      <div className="text-base font-bold text-[#4A7B5B]">
                         {positionDetail.currentHolder.user.fullName}
                       </div>
                       <div className="text-xs text-[#64748B]">
@@ -706,7 +706,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                   <div className="grid grid-cols-2 gap-2 text-xs text-[#64748B] pt-2 border-t border-slate-100">
                     <div>
                       <span>Occupying Since: </span>
-                      <strong className="text-[#0F172A]">
+                      <strong className="text-[#4A7B5B]">
                         {new Date(positionDetail.currentHolder.joinedAt).toLocaleDateString()}
                       </strong>
                     </div>
@@ -779,7 +779,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                           }`}
                         />
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm text-[#0F172A]">
+                          <span className="font-bold text-sm text-[#4A7B5B]">
                             {idx + 1}. {as.user?.fullName} ({as.user?.personalEmail})
                           </span>
                           <Badge
@@ -797,17 +797,17 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                         <div className="grid grid-cols-2 gap-2 text-[#64748B] text-[11px]">
                           <div>
                             <span>Period: </span>
-                            <strong className="text-[#0F172A]">
+                            <strong className="text-[#4A7B5B]">
                               {new Date(as.joinedAt).toLocaleDateString()}
                             </strong>{' '}
                             to{' '}
-                            <strong className="text-[#0F172A]">
+                            <strong className="text-[#4A7B5B]">
                               {as.endedAt ? new Date(as.endedAt).toLocaleDateString() : 'Present'}
                             </strong>
                           </div>
                           <div>
                             <span>Reason: </span>
-                            <strong className="text-[#0F172A]">{as.changeReason}</strong>
+                            <strong className="text-[#4A7B5B]">{as.changeReason}</strong>
                           </div>
                           <div>
                             <span>Mailbox Handover: </span>
@@ -823,7 +823,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                           </div>
                           <div>
                             <span>Approved By: </span>
-                            <strong className="text-[#0F172A]">
+                            <strong className="text-[#4A7B5B]">
                               {as.approvedBy?.fullName || 'System'}
                             </strong>
                           </div>
@@ -852,7 +852,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#4A7B5B]">
               {editingPosition ? 'Edit Position' : 'Create Organizational Position / Seat'}
             </h3>
 
@@ -979,7 +979,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
       {isAssignModalOpen && targetPosition && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#4A7B5B]">
               Assign Employee to {targetPosition.code}
             </h3>
             <p className="text-xs text-[#64748B]">
@@ -1081,7 +1081,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
       {securityModalOpen && securityTargetUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-amber-200 space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#4A7B5B]">
               Admin Staff Password Reset
             </h3>
             <p className="text-xs text-[#64748B]">
@@ -1095,7 +1095,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                   <span>{resetSuccessData.message}</span>
                 </div>
                 <div className="p-3 bg-white border border-emerald-200 rounded-lg flex items-center justify-between">
-                  <span className="font-mono text-sm font-bold text-[#0F172A]">
+                  <span className="font-mono text-sm font-bold text-[#4A7B5B]">
                     {resetSuccessData.temporaryPassword}
                   </span>
                   <Button

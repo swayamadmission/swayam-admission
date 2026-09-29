@@ -146,6 +146,8 @@ export class TemplateEngineService {
   // Authoritative list of supported template placeholders
   public static readonly ALLOWED_VARIABLES = [
     'studentName',
+    'officialStudentId',
+    'studentId',
     'applicationNumber',
     'collegeName',
     'courseName',
@@ -162,11 +164,15 @@ export class TemplateEngineService {
     'rejectionReason',
     'supportEmail',
     'currentYear',
+    'requestId',
+    'deletionDate',
+    'documentCount',
   ];
 
   // Default sample mock data for live previews
   public static readonly SAMPLE_MOCK_DATA: Record<string, string> = {
     studentName: 'Rahul Kumar',
+    officialStudentId: 'SWY-STU-1DDCF9EE',
     applicationNumber: 'SA-2026-000842',
     collegeName: 'Guru Kashi University (GKU)',
     courseName: 'B.Tech',
@@ -183,21 +189,90 @@ export class TemplateEngineService {
     rejectionReason: 'Document verification incomplete',
     supportEmail: 'admissions@swayamadmission.in',
     currentYear: '2026',
+    requestId: 'DR-123456',
+    deletionDate: '14/11/2026',
+    documentCount: '3',
   };
 
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Replace {{variableName}} in string safely.
+   * Replace {{variableName}} in string safely with fallback resolution so no literal {{...}} leak to UI.
    */
-  render(templateText: string | null | undefined, context: Record<string, any>): string {
+  render(templateText: string | null | undefined, context: Record<string, any> = {}): string {
     if (!templateText) return '';
-    return templateText.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, varName) => {
-      if (context[varName] !== undefined && context[varName] !== null) {
-        return String(context[varName]);
-      }
-      return match; // preserve if missing or leave placeholder
-    });
+    return templateText
+      .replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_match, varName) => {
+        if (context[varName] !== undefined && context[varName] !== null && context[varName] !== '') {
+          return String(context[varName]);
+        }
+        // Authoritative graceful fallbacks for production template safety
+        switch (varName) {
+          case 'studentName':
+            return context.fullName || context.name || 'Student';
+          case 'officialStudentId':
+          case 'studentId':
+            return context.officialId || context.registrationNumber || '';
+          case 'applicationNumber':
+          case 'applicationId':
+            return context.appId || context.applicationNumber || 'your application';
+          case 'collegeName':
+            return context.college || 'your selected college';
+          case 'courseName':
+            return context.course || 'your course';
+          case 'branchName':
+            return context.branch || '';
+          case 'amount':
+            return context.feeAmount ? `₹${context.feeAmount}` : '';
+          case 'dueDate':
+            return 'the due date';
+          case 'reportingDate':
+            return 'the scheduled date';
+          case 'deletionDate':
+            return context.scheduledDeletionDate || 'the scheduled date';
+          case 'requestId':
+            return context.reqId || '';
+          case 'documentCount':
+            return 'selected';
+          case 'currentYear':
+            return '2026';
+          default:
+            return ''; // Unknown placeholders are safely removed rather than exposed
+        }
+      })
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([.,!?])/g, '$1')
+      .trim();
+  }
+
+  /**
+   * Interpolates an existing notification record ensuring no raw placeholders reach the client
+   */
+  interpolateNotification(notif: any, userContext?: any): any {
+    if (!notif) return notif;
+    const ctx = {
+      studentName: userContext?.fullName || notif.user?.fullName || 'Student',
+      officialStudentId: userContext?.studentId || '',
+      applicationNumber: notif.relatedApplicationId || notif.metadata?.applicationNumber || 'your application',
+      collegeName: notif.metadata?.collegeName || 'your selected college',
+      courseName: notif.metadata?.courseName || 'your course',
+      branchName: notif.metadata?.branchName || '',
+      requestId: notif.metadata?.requestId || '',
+      deletionDate: notif.metadata?.deletionDate || '',
+      documentCount: notif.metadata?.documentCount || 'selected',
+      amount: notif.metadata?.amount || '',
+      dueDate: notif.metadata?.dueDate || '',
+      rejectionReason: notif.metadata?.rejectionReason || '',
+      ...(notif.metadata || {}),
+      ...(userContext || {}),
+    };
+
+    return {
+      ...notif,
+      title: this.render(notif.title, ctx),
+      message: this.render(notif.message, ctx),
+      shortMessage: notif.shortMessage ? this.render(notif.shortMessage, ctx) : undefined,
+    };
   }
 
   /**
@@ -426,7 +501,7 @@ export class TemplateEngineService {
         subject: 'Application Received — {{applicationNumber}}',
         inAppTitle: 'Application Submitted',
         inAppMessage: 'Your application {{applicationNumber}} for {{courseName}} at {{collegeName}} has been successfully submitted.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Hello {{studentName}},</h2><p>Your application <strong>{{applicationNumber}}</strong> for <strong>{{courseName}}</strong> ({{branchName}}) at <strong>{{collegeName}}</strong> has been received and is under review.</p><p>We will notify you once your review is updated.</p><br/><p>Best regards,<br/><strong>Swayam Admission Team</strong></p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Hello {{studentName}},</h2><p>Your application <strong>{{applicationNumber}}</strong> for <strong>{{courseName}}</strong> ({{branchName}}) at <strong>{{collegeName}}</strong> has been received and is under review.</p><p>We will notify you once your review is updated.</p><br/><p>Best regards,<br/><strong>Swayam Admission Team</strong></p></div>',
         emailText: 'Hello {{studentName}}, your application {{applicationNumber}} for {{courseName}} at {{collegeName}} has been received.',
         smsBody: 'Swayam Admission: Hello {{studentName}}, application {{applicationNumber}} for {{courseName}} at {{collegeName}} is received.',
         whatsAppTemplateName: 'application_submitted_v1',
@@ -440,7 +515,7 @@ export class TemplateEngineService {
         subject: 'Congratulations! Admission Approved for {{courseName}}',
         inAppTitle: 'Admission Approved 🎉',
         inAppMessage: 'Congratulations {{studentName}}! Your admission application {{applicationNumber}} for {{courseName}} at {{collegeName}} has been APPROVED.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Congratulations {{studentName}}!</h2><p>Your admission for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong> has been <span style="color:#4A7B5B;font-weight:bold;">APPROVED</span>.</p><p>Please proceed to complete the payment confirmation to reserve your seat.</p><br/><p>Best regards,<br/><strong>Swayam Admission Team</strong></p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Congratulations {{studentName}}!</h2><p>Your admission for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong> has been <span style="color:#4A7B5B;font-weight:bold;">APPROVED</span>.</p><p>Please proceed to complete the payment confirmation to reserve your seat.</p><br/><p>Best regards,<br/><strong>Swayam Admission Team</strong></p></div>',
         emailText: 'Congratulations {{studentName}}! Your admission for {{courseName}} at {{collegeName}} has been APPROVED. Please complete the seat payment.',
         smsBody: 'Congratulations {{studentName}}! Your admission at {{collegeName}} for {{courseName}} is APPROVED. Visit portal to confirm seat.',
         whatsAppTemplateName: 'admission_approved_v1',
@@ -454,7 +529,7 @@ export class TemplateEngineService {
         subject: 'Application Status Update — {{applicationNumber}}',
         inAppTitle: 'Application Update',
         inAppMessage: 'Your application {{applicationNumber}} for {{courseName}} at {{collegeName}} could not be approved.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Dear {{studentName}},</h2><p>We regret to inform you that your application {{applicationNumber}} for {{courseName}} at {{collegeName}} was not approved.</p><p>Reason: {{rejectionReason}}</p><p>Please contact your counselor {{counselorName}} for alternative options.</p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Dear {{studentName}},</h2><p>We regret to inform you that your application {{applicationNumber}} for {{courseName}} at {{collegeName}} was not approved.</p><p>Reason: {{rejectionReason}}</p><p>Please contact your counselor {{counselorName}} for alternative options.</p></div>',
         emailText: 'Dear {{studentName}}, your application {{applicationNumber}} for {{courseName}} at {{collegeName}} was not approved. Reason: {{rejectionReason}}',
       },
       {
@@ -465,7 +540,7 @@ export class TemplateEngineService {
         subject: 'Seat Reservation Payment Required — {{amount}}',
         inAppTitle: 'Fee Payment Pending',
         inAppMessage: 'Payment request of {{amount}} has been generated for {{courseName}} at {{collegeName}}. Due date: {{dueDate}}.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Payment Due</h2><p>Dear {{studentName}}, a payment request of <strong>{{amount}}</strong> is due on <strong>{{dueDate}}</strong> for {{courseName}} at {{collegeName}}.</p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Payment Due</h2><p>Dear {{studentName}}, a payment request of <strong>{{amount}}</strong> is due on <strong>{{dueDate}}</strong> for {{courseName}} at {{collegeName}}.</p></div>',
         emailText: 'Dear {{studentName}}, payment request of {{amount}} is due on {{dueDate}} for {{courseName}} at {{collegeName}}.',
         smsBody: 'Swayam Admission: Fee payment of {{amount}} is pending for {{courseName}} at {{collegeName}}. Due: {{dueDate}}.',
       },
@@ -477,7 +552,7 @@ export class TemplateEngineService {
         subject: 'Payment Receipt Confirmed — {{amount}}',
         inAppTitle: 'Payment Successful ✅',
         inAppMessage: 'Payment of {{amount}} for application {{applicationNumber}} received and verified successfully.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Payment Confirmed</h2><p>Thank you {{studentName}}. Your payment of <strong>{{amount}}</strong> for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong> is verified.</p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Payment Confirmed</h2><p>Thank you {{studentName}}. Your payment of <strong>{{amount}}</strong> for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong> is verified.</p></div>',
         emailText: 'Thank you {{studentName}}. Payment of {{amount}} for {{courseName}} at {{collegeName}} is verified.',
         smsBody: 'Swayam Admission: Payment of {{amount}} for application {{applicationNumber}} is confirmed. Thank you!',
         whatsAppTemplateName: 'payment_confirmed_v1',
@@ -491,7 +566,7 @@ export class TemplateEngineService {
         subject: 'Admissions Open for {{academicSession}} at {{collegeName}}',
         inAppTitle: 'Admissions Open: {{courseName}}',
         inAppMessage: 'Admissions for {{courseName}} ({{branchName}}) are now open at top verified institutions including {{collegeName}}.',
-        emailHtml: '<div style="font-family:sans-serif;color:#0F172A;"><h2>Admissions Open for {{academicSession}}</h2><p>Dear {{studentName}}, applications are now open for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong>.</p><p><a href="{{loginUrl}}" style="background:#4A7B5B;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">Apply Now</a></p></div>',
+        emailHtml: '<div style="font-family:sans-serif;color:#4A7B5B;"><h2>Admissions Open for {{academicSession}}</h2><p>Dear {{studentName}}, applications are now open for <strong>{{courseName}}</strong> at <strong>{{collegeName}}</strong>.</p><p><a href="{{loginUrl}}" style="background:#4A7B5B;color:#fff;padding:10px 20px;text-decoration:none;border-radius:6px;">Apply Now</a></p></div>',
         emailText: 'Admissions open for {{academicSession}} in {{courseName}} at {{collegeName}}. Apply online today.',
         smsBody: 'Admissions open for {{courseName}} at {{collegeName}} for {{academicSession}}. Apply now at Swayam Admission.',
         whatsAppTemplateName: 'promo_admissions_open',

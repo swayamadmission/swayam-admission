@@ -13,8 +13,47 @@ export class ExamService {
     });
   }
 
-  async findAll() {
-    return this.prisma.exam.findMany();
+  async findAll(query?: {
+    stateId?: string;
+    state?: string;
+    status?: string;
+    category?: string;
+  }) {
+    const where: any = {};
+    if (query?.stateId) {
+      where.OR = [
+        { stateId: query.stateId },
+        ...(query.state
+          ? [
+              {
+                state: {
+                  name: { equals: query.state, mode: 'insensitive' },
+                },
+              },
+            ]
+          : []),
+      ];
+    } else if (query?.state) {
+      where.state = {
+        name: { equals: query.state, mode: 'insensitive' },
+      };
+    }
+
+    if (query?.status) {
+      where.status = query.status;
+    }
+
+    if (query?.category && query.category !== 'All') {
+      where.category = query.category;
+    }
+
+    return this.prisma.exam.findMany({
+      where,
+      include: {
+        state: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findOne(id: string) {

@@ -5,6 +5,16 @@ export interface StateItem {
   name: string;
   code: string;
   type?: string;
+  status?: string;
+  heroImage?: string;
+  description?: string;
+  region?: string;
+  popularCourses?: string[];
+  collegesCount?: number;
+  districtsCount?: number;
+  examsCount?: number;
+  scholarshipsCount?: number;
+  updatesCount?: number;
 }
 
 export interface DistrictItem {
@@ -12,6 +22,27 @@ export interface DistrictItem {
   name: string;
   code?: string;
   stateId: string;
+  collegesCount?: number;
+}
+
+export interface StateDetailResponse {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  status?: string;
+  region?: string;
+  heroImage?: string;
+  description?: string;
+  popularCourses?: string[];
+  districts: DistrictItem[];
+  collegesCount: number;
+  governmentColleges?: number;
+  privateColleges?: number;
+  scholarshipsCount?: number;
+  examsCount?: number;
+  districtsCount: number;
+  updatesCount?: number;
 }
 
 export interface PincodeValidationResult {
@@ -24,6 +55,16 @@ export interface PincodeValidationResult {
 export const geographyApi = {
   getStates: async (): Promise<StateItem[]> => {
     const res = await api.get<StateItem[]>("/geography/states");
+    return res.data;
+  },
+
+  getStateDetail: async (slugOrId: string): Promise<StateDetailResponse> => {
+    const res = await api.get<StateDetailResponse>(`/geography/states/detail/${slugOrId}`);
+    return res.data;
+  },
+
+  getStateUpdates: async (slugOrId: string) => {
+    const res = await api.get<any[]>(`/geography/states/${slugOrId}/updates`);
     return res.data;
   },
 
@@ -53,3 +94,4 @@ export const geographyApi = {
     return res.data;
   },
 };
+

@@ -111,10 +111,10 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
         </button>
 
         <div className="hidden sm:block">
-          <h1 className="text-[#0F172A] leading-tight text-lg font-semibold">{pageInfo.title}</h1>
+          <h1 className="text-[#4A7B5B] leading-tight text-lg font-semibold">{pageInfo.title}</h1>
           <p className="text-[#94A3B8] text-xs mt-0">{pageInfo.subtitle}</p>
         </div>
-        <div className="sm:hidden font-medium text-[#0F172A] text-sm">{pageInfo.title}</div>
+        <div className="sm:hidden font-medium text-[#4A7B5B] text-sm">{pageInfo.title}</div>
       </div>
 
       {/* Center: Search */}
@@ -132,7 +132,7 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
               if (e.key === "Escape") setIsSearchOpen(false);
             }}
             placeholder="Search leads, students, colleges, courses..."
-            className="w-full h-9 pl-9 pr-8 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-sm text-[#0F172A] placeholder-[#94A3B8] focus:outline-none focus:border-[#4A7B5B] focus:bg-white transition-all shadow-xs"
+            className="w-full h-9 pl-9 pr-8 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] text-sm text-[#4A7B5B] placeholder-[#94A3B8] focus:outline-none focus:border-[#4A7B5B] focus:bg-white transition-all shadow-xs"
           />
           {searchQuery && (
             <button
@@ -346,9 +346,9 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
           >
             <Bell className="w-4.5 h-4.5 text-[#475569]" style={{ width: "18px", height: "18px" }} />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] text-white font-bold"
-                style={{ background: "#F0AE1A" }}>
-                {unreadCount}
+              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center text-[9px] text-white font-bold shadow-xs"
+                style={{ background: "#4A7B5B" }}>
+                {unreadCount > 20 ? "20+" : unreadCount}
               </span>
             )}
           </button>
@@ -358,35 +358,37 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
               className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-xl border border-[#F1F5F9] z-50 overflow-hidden"
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9]">
-                <span className="font-medium text-[#0F172A] text-sm">Notifications</span>
-                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#FEF3C7", color: "#D97706" }}>
-                  {unreadCount} new
+                <span className="font-medium text-[#4A7B5B] text-sm">Notifications</span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: "#E8F3EC", color: "#4A7B5B" }}>
+                  {unreadCount > 20 ? "20+" : unreadCount} new
                 </span>
               </div>
-              <div className="max-h-72 overflow-y-auto">
+              <div className="max-h-72 overflow-y-auto divide-y divide-[#F8FAFC]">
                 {recentNotifications.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-gray-400">No unread notifications</div>
+                  <div className="py-8 text-center text-xs text-gray-400">
+                    No new notifications
+                  </div>
                 ) : (
                   recentNotifications.map((notif: any) => (
                     <div
                       key={notif.id}
-                      onClick={() => onPageChange("notifications")}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-[#F8FAFC] cursor-pointer border-b border-[#F1F5F9] last:border-0"
+                      onClick={() => {
+                        if (notif.actionUrl) onPageChange(notif.actionUrl.replace(/^\//, ""));
+                        setShowNotifications(false);
+                      }}
+                      className="px-4 py-3 hover:bg-[#F8FAFC] transition-colors flex items-start gap-3 cursor-pointer"
                     >
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                        style={{ background: `#3B82F620` }}
-                      >
-                        <div className="w-2 h-2 rounded-full" style={{ background: "#3B82F6" }} />
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5" style={{ background: "#E8F3EC" }}>
+                        <div className="w-2 h-2 rounded-full" style={{ background: "#4A7B5B" }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#0F172A] leading-snug">{notif.title}</p>
+                        <p className="text-sm font-semibold text-[#4A7B5B] leading-snug">{notif.title}</p>
                         <p className="text-xs text-[#64748B] truncate mt-0.5">{notif.shortMessage || notif.message}</p>
                         <p className="text-[10px] text-[#94A3B8] mt-1">
                           {notif.createdAt ? new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
                         </p>
                       </div>
-                      {!notif.isRead && <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-blue-600" />}
+                      {!notif.isRead && <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 bg-[#4A7B5B]" />}
                     </div>
                   ))
                 )}
@@ -423,7 +425,7 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
               {user.name.charAt(0)}
             </div>
             <div className="hidden lg:block text-left">
-              <div className="text-[#0F172A] text-xs font-medium leading-tight">{user.name.split(" ")[0]}</div>
+              <div className="text-[#4A7B5B] text-xs font-medium leading-tight">{user.name.split(" ")[0]}</div>
               <div className="text-[#94A3B8] text-[10px] leading-tight">{user.role}</div>
             </div>
             <ChevronDown className="w-3 h-3 text-[#94A3B8] hidden lg:block" />
@@ -432,7 +434,7 @@ export default function Header({ currentPage, user, onLogout, onMenuOpen, onPage
           {showProfile && (
             <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-xl border border-[#F1F5F9] z-50 overflow-hidden py-1">
               <div className="px-4 py-3 border-b border-[#F1F5F9]">
-                <div className="font-medium text-[#0F172A] text-sm">{user.name}</div>
+                <div className="font-medium text-[#4A7B5B] text-sm">{user.name}</div>
                 <div className="text-xs text-[#94A3B8]">{user.email}</div>
                 <div className="mt-1">
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#E8F3EC", color: "#4A7B5B" }}>

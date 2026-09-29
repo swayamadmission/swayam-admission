@@ -293,7 +293,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
 
             <div className="space-y-1">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold text-[#0F172A]">{student.fullName}</h1>
+                <h1 className="text-2xl font-bold text-[#4A7B5B]">{student.fullName}</h1>
                 <span
                   className="text-xs px-2.5 py-1 rounded-full font-medium"
                   style={{
@@ -393,25 +393,25 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
 
           <button
             onClick={() => setIsEditModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Edit className="w-3.5 h-3.5 text-[#4A7B5B]" /> Edit Profile
           </button>
           <button
             onClick={() => setIsCounselorModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <UserCheck className="w-3.5 h-3.5 text-[#4A7B5B]" /> Assign Counselor
           </button>
           <button
             onClick={() => setIsDocModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Upload className="w-3.5 h-3.5 text-[#4A7B5B]" /> Upload Document
           </button>
           <button
             onClick={() => setIsNotificationModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Bell className="w-3.5 h-3.5 text-[#4A7B5B]" /> Send Notification
           </button>
@@ -419,7 +419,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {/* Quick Direct Links */}
           <a
             href={`tel:${student.mobile}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Phone className="w-3.5 h-3.5 text-[#0EA5E9]" /> Call
           </a>
@@ -427,32 +427,32 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
             href={`https://wa.me/${student.mobile?.replace(/\D/g, "")}`}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <MessageSquare className="w-3.5 h-3.5 text-[#10B981]" /> WhatsApp
           </a>
           <a
             href={`mailto:${student.email}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Mail className="w-3.5 h-3.5 text-[#F0AE1A]" /> Email
           </a>
 
           <button
             onClick={() => window.print()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Printer className="w-3.5 h-3.5 text-[#64748B]" /> Print Profile
           </button>
           <button
             onClick={() => exportPdfMutation.mutate()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Download className="w-3.5 h-3.5 text-[#64748B]" /> Export PDF
           </button>
           <button
             onClick={() => setActiveTab("activity")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#0F172A] hover:bg-[#F8FAFC] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-medium text-[#4A7B5B] hover:bg-[#F8FAFC] transition-colors"
           >
             <Activity className="w-3.5 h-3.5 text-[#8B5CF6]" /> View Activity
           </button>
@@ -487,7 +487,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                 </div>
                 <span
                   className="text-[11px] font-medium leading-tight"
-                  style={{ color: isCurrent ? "#4A7B5B" : isPassed ? "#0F172A" : "#94A3B8" }}
+                  style={{ color: isCurrent ? "#4A7B5B" : isPassed ? "#4A7B5B" : "#94A3B8" }}
                 >
                   {stage}
                 </span>
@@ -620,19 +620,19 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-3">
-                  <h3 className="text-sm font-semibold text-[#0F172A]">Admission Summary</h3>
+                  <h3 className="text-sm font-semibold text-[#4A7B5B]">Admission Summary</h3>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between py-1.5 border-b border-[#F8FAFC]">
                       <span className="text-[#94A3B8]">Full Name</span>
-                      <span className="font-semibold text-[#0F172A]">{student.fullName}</span>
+                      <span className="font-semibold text-[#4A7B5B]">{student.fullName}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-[#F8FAFC]">
                       <span className="text-[#94A3B8]">Email</span>
-                      <span className="font-semibold text-[#0F172A]">{student.email}</span>
+                      <span className="font-semibold text-[#4A7B5B]">{student.email}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-[#F8FAFC]">
                       <span className="text-[#94A3B8]">Mobile</span>
-                      <span className="font-semibold text-[#0F172A]">{student.mobile}</span>
+                      <span className="font-semibold text-[#4A7B5B]">{student.mobile}</span>
                     </div>
                     <div className="flex justify-between py-1.5 border-b border-[#F8FAFC]">
                       <span className="text-[#94A3B8]">Admission Status</span>
@@ -640,13 +640,13 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                     </div>
                     <div className="flex justify-between py-1.5">
                       <span className="text-[#94A3B8]">Assigned Counselor</span>
-                      <span className="font-semibold text-[#0F172A]">{assignedCounselor?.fullName || "None"}</span>
+                      <span className="font-semibold text-[#4A7B5B]">{assignedCounselor?.fullName || "None"}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-3">
-                  <h3 className="text-sm font-semibold text-[#0F172A]">Recent Remarks & Status</h3>
+                  <h3 className="text-sm font-semibold text-[#4A7B5B]">Recent Remarks & Status</h3>
                   <p className="text-xs text-[#64748B] leading-relaxed">
                     {overviewRes?.data?.data?.remarks || "Student account is synchronized with PostgreSQL backend and active in admission cycle."}
                   </p>
@@ -660,7 +660,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
               {/* Latest Applications Preview */}
               <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-3">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-sm font-semibold text-[#0F172A]">Latest Applications</h3>
+                  <h3 className="text-sm font-semibold text-[#4A7B5B]">Latest Applications</h3>
                   <button onClick={() => setActiveTab("applications")} className="text-xs text-[#4A7B5B] hover:underline">View All ({applications.length})</button>
                 </div>
                 {applications.length === 0 ? (
@@ -670,7 +670,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                     {applications.slice(0, 3).map((app: any) => (
                       <div key={app.id} className="flex items-center justify-between p-3 rounded-xl bg-[#F8FAFC]">
                         <div>
-                          <div className="text-xs font-semibold text-[#0F172A]">{app.course?.name || "Course"}</div>
+                          <div className="text-xs font-semibold text-[#4A7B5B]">{app.course?.name || "Course"}</div>
                           <div className="text-[11px] text-[#94A3B8]">{app.college?.name || "College"}</div>
                         </div>
                         <span className="text-xs px-2.5 py-1 rounded-full bg-[#E8F3EC] text-[#4A7B5B] font-semibold">
@@ -688,7 +688,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {activeTab === "personal" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-6">
               <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-4">
-                <h3 className="text-base font-bold text-[#0F172A]">Personal Details</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Personal Details</h3>
                 <button onClick={() => setIsEditModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#E2E8F0] text-xs font-semibold text-[#4A7B5B]">
                   <Edit className="w-3.5 h-3.5" /> Edit Personal Info
                 </button>
@@ -718,7 +718,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                 ].map((item) => (
                   <div key={item.label} className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[11px] text-[#94A3B8] font-medium">{item.label}</div>
-                    <div className="text-xs font-semibold text-[#0F172A] mt-0.5">{item.val}</div>
+                    <div className="text-xs font-semibold text-[#4A7B5B] mt-0.5">{item.val}</div>
                   </div>
                 ))}
               </div>
@@ -731,7 +731,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
               {/* 10th & 12th Marks */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-3">
-                  <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[#4A7B5B] flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-[#4A7B5B]" /> 10th Standard (SSLC / Matric)
                   </h4>
                   <div className="space-y-2 text-xs">
@@ -743,7 +743,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                 </div>
 
                 <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-3">
-                  <h4 className="text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-[#4A7B5B] flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-[#0EA5E9]" /> 12th Standard (HSC / Intermediate)
                   </h4>
                   <div className="space-y-2 text-xs">
@@ -757,19 +757,19 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
 
               {/* Higher Education */}
               <div className="bg-white rounded-2xl border border-[#F1F5F9] p-5 shadow-sm space-y-4">
-                <h4 className="text-sm font-bold text-[#0F172A]">Graduation & Higher Qualification</h4>
+                <h4 className="text-sm font-bold text-[#4A7B5B]">Graduation & Higher Qualification</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">Graduation Course</div>
-                    <div className="font-semibold text-[#0F172A] mt-0.5">{profile.graduationCourse || "—"}</div>
+                    <div className="font-semibold text-[#4A7B5B] mt-0.5">{profile.graduationCourse || "—"}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">College / Institute</div>
-                    <div className="font-semibold text-[#0F172A] mt-0.5">{profile.graduationCollege || "—"}</div>
+                    <div className="font-semibold text-[#4A7B5B] mt-0.5">{profile.graduationCollege || "—"}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">University</div>
-                    <div className="font-semibold text-[#0F172A] mt-0.5">{profile.graduationUniversity || profile.university || "—"}</div>
+                    <div className="font-semibold text-[#4A7B5B] mt-0.5">{profile.graduationUniversity || profile.university || "—"}</div>
                   </div>
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">Percentage / CGPA</div>
@@ -777,11 +777,11 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                   </div>
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">Gap Years</div>
-                    <div className="font-semibold text-[#0F172A] mt-0.5">{profile.gapYears || 0} years</div>
+                    <div className="font-semibold text-[#4A7B5B] mt-0.5">{profile.gapYears || 0} years</div>
                   </div>
                   <div className="p-3 rounded-xl bg-[#F8FAFC]">
                     <div className="text-[#94A3B8]">Active Backlogs</div>
-                    <div className="font-semibold text-[#0F172A] mt-0.5">{profile.backlogs || 0}</div>
+                    <div className="font-semibold text-[#4A7B5B] mt-0.5">{profile.backlogs || 0}</div>
                   </div>
                 </div>
               </div>
@@ -792,7 +792,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {activeTab === "applications" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden shadow-sm">
               <div className="p-4 border-b border-[#F1F5F9] flex justify-between items-center">
-                <h3 className="text-sm font-bold text-[#0F172A]">Complete Application History</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Complete Application History</h3>
                 <span className="text-xs text-[#94A3B8]">Total: {applications.length}</span>
               </div>
               <div className="overflow-x-auto">
@@ -815,7 +815,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                       applications.map((app: any) => (
                         <tr key={app.id} className="hover:bg-[#F8FAFC]">
                           <td className="p-3.5 font-semibold text-[#4A7B5B]">{app.applicationId || app.id.slice(0, 8)}</td>
-                          <td className="p-3.5 font-medium text-[#0F172A]">{app.college?.name || "—"}</td>
+                          <td className="p-3.5 font-medium text-[#4A7B5B]">{app.college?.name || "—"}</td>
                           <td className="p-3.5 text-[#64748B]">{app.course?.name || "—"}</td>
                           <td className="p-3.5">
                             <span className="px-2 py-0.5 rounded-full bg-[#E8F3EC] text-[#4A7B5B] font-semibold">
@@ -870,7 +870,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
               })()}
 
               <div className="flex justify-between items-center">
-                <h3 className="text-sm font-bold text-[#0F172A]">Document Verification & Audit Vault</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Document Verification & Audit Vault</h3>
                 <button onClick={() => setIsDocModalOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#4A7B5B] text-white text-xs font-semibold hover:bg-[#3d674c]">
                   <Upload className="w-3.5 h-3.5" /> Upload Document
                 </button>
@@ -890,7 +890,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                             <FileText className="w-5 h-5" />
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-[#0F172A]">{doc.title || doc.fileName}</div>
+                            <div className="text-xs font-bold text-[#4A7B5B]">{doc.title || doc.fileName}</div>
                             <div className="text-[11px] text-[#94A3B8]">{doc.type} • v{doc.version || 1}</div>
                           </div>
                         </div>
@@ -937,7 +937,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {/* TAB 6: PAYMENTS */}
           {activeTab === "payments" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden shadow-sm space-y-4 p-5">
-              <h3 className="text-sm font-bold text-[#0F172A]">Financial Records & Invoices</h3>
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Financial Records & Invoices</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-[#FAFAFA] border-b border-[#F1F5F9] text-[#94A3B8] font-semibold uppercase">
@@ -956,7 +956,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                     ) : (
                       payments.map((p: any) => (
                         <tr key={p.id}>
-                          <td className="p-3 font-semibold text-[#0F172A]">{p.transactionId || p.id.slice(0, 8)}</td>
+                          <td className="p-3 font-semibold text-[#4A7B5B]">{p.transactionId || p.id.slice(0, 8)}</td>
                           <td className="p-3 font-bold text-[#4A7B5B]">₹{(p.amount || 0).toLocaleString()}</td>
                           <td className="p-3 text-[#64748B]">{p.gateway || "Manual"}</td>
                           <td className="p-3 text-[#64748B]">{p.paymentType || "REGISTRATION"}</td>
@@ -979,7 +979,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {activeTab === "counselor" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-6">
               <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-4">
-                <h3 className="text-sm font-bold text-[#0F172A]">Assigned Counselor Details</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Assigned Counselor Details</h3>
                 <button onClick={() => setIsCounselorModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#4A7B5B] text-white text-xs font-semibold">
                   Transfer / Assign Counselor
                 </button>
@@ -991,7 +991,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                     {assignedCounselor.fullName?.charAt(0) || "C"}
                   </div>
                   <div className="space-y-1 text-xs">
-                    <h4 className="text-sm font-bold text-[#0F172A]">{assignedCounselor.fullName}</h4>
+                    <h4 className="text-sm font-bold text-[#4A7B5B]">{assignedCounselor.fullName}</h4>
                     <p className="text-[#64748B]">{assignedCounselor.email}</p>
                     <p className="text-[#64748B]">{assignedCounselor.mobile}</p>
                     <div className="text-[11px] text-[#94A3B8] pt-1">Performance Notes: High responsiveness & active follow-ups</div>
@@ -1018,7 +1018,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {activeTab === "communication" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-5">
               <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-3">
-                <h3 className="text-sm font-bold text-[#0F172A]">Communication Logs</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Communication Logs</h3>
                 <button onClick={() => setIsNotificationModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#4A7B5B] text-white text-xs font-semibold">
                   Send Outbound Message
                 </button>
@@ -1030,7 +1030,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                 ) : (
                   communications.map((c: any) => (
                     <div key={c.id} className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] space-y-1 text-xs">
-                      <div className="flex justify-between font-semibold text-[#0F172A]">
+                      <div className="flex justify-between font-semibold text-[#4A7B5B]">
                         <span>{c.channel} ({c.type})</span>
                         <span className="text-[#94A3B8] text-[11px]">{new Date(c.createdAt).toLocaleString()}</span>
                       </div>
@@ -1046,7 +1046,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {/* TAB 10: ACTIVITY LOGS */}
           {activeTab === "activity" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A]">Audit Module & System Actions</h3>
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Audit Module & System Actions</h3>
               <div className="space-y-2">
                 {activityLogs.length === 0 ? (
                   <div className="text-xs text-[#94A3B8] py-4 text-center">No system activity logged.</div>
@@ -1054,7 +1054,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                   activityLogs.map((log: any) => (
                     <div key={log.id} className="flex justify-between items-center p-3 rounded-xl bg-[#F8FAFC] text-xs">
                       <div>
-                        <div className="font-semibold text-[#0F172A]">{log.action}</div>
+                        <div className="font-semibold text-[#4A7B5B]">{log.action}</div>
                         <div className="text-[11px] text-[#94A3B8]">{log.description || "Executed by system"}</div>
                       </div>
                       <div className="text-right text-[11px] text-[#94A3B8]">
@@ -1071,7 +1071,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {activeTab === "notes" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-4">
               <div className="flex justify-between items-center border-b border-[#F1F5F9] pb-3">
-                <h3 className="text-sm font-bold text-[#0F172A]">Private & Counselor Notes</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Private & Counselor Notes</h3>
                 <button onClick={() => setIsNoteModalOpen(true)} className="px-3 py-1.5 rounded-lg bg-[#4A7B5B] text-white text-xs font-semibold">
                   + Add Note
                 </button>
@@ -1084,7 +1084,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                   notes.map((n: any) => (
                     <div key={n.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#F1F5F9] space-y-2 text-xs">
                       <div className="flex justify-between items-center">
-                        <span className="font-bold text-[#0F172A]">{n.title || "Note"}</span>
+                        <span className="font-bold text-[#4A7B5B]">{n.title || "Note"}</span>
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E8F3EC] text-[#4A7B5B] font-semibold">
                           {n.noteType}
                         </span>
@@ -1103,7 +1103,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {/* TAB 12: SUPPORT */}
           {activeTab === "support" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A]">Support Tickets & Issues</h3>
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Support Tickets & Issues</h3>
               <div className="space-y-3 text-xs">
                 {supportTickets.length === 0 ? (
                   <div className="text-[#94A3B8] text-center py-6">No support tickets found for this student.</div>
@@ -1111,7 +1111,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
                   supportTickets.map((t: any) => (
                     <div key={t.id} className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] flex justify-between items-center">
                       <div>
-                        <div className="font-semibold text-[#0F172A]">{t.subject}</div>
+                        <div className="font-semibold text-[#4A7B5B]">{t.subject}</div>
                         <div className="text-[11px] text-[#94A3B8]">{t.category} • Priority: {t.priority}</div>
                       </div>
                       <span className="px-2 py-0.5 rounded-full bg-[#E0F2FE] text-[#0284C7] font-semibold">
@@ -1127,7 +1127,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
           {/* TAB 13: ANALYTICS */}
           {activeTab === "analytics" && (
             <div className="bg-white rounded-2xl border border-[#F1F5F9] p-6 shadow-sm space-y-5">
-              <h3 className="text-sm font-bold text-[#0F172A]">Student Conversion & AI Analytics</h3>
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Student Conversion & AI Analytics</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 rounded-2xl bg-[#F0FDF4] border border-[#A7F3D0]">
                   <div className="text-xs text-[#047857]">Admission Chance</div>
@@ -1159,11 +1159,11 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-[#F8FAFC]">
                 <span className="text-[#94A3B8]">Current Stage</span>
-                <span className="font-semibold text-[#0F172A]">{student.currentStage}</span>
+                <span className="font-semibold text-[#4A7B5B]">{student.currentStage}</span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-[#F8FAFC]">
                 <span className="text-[#94A3B8]">Counselor</span>
-                <span className="font-semibold text-[#0F172A]">{assignedCounselor?.fullName || "Unassigned"}</span>
+                <span className="font-semibold text-[#4A7B5B]">{assignedCounselor?.fullName || "Unassigned"}</span>
               </div>
               <div className="flex justify-between items-center py-1.5 border-b border-[#F8FAFC]">
                 <span className="text-[#94A3B8]">Risk Level</span>
@@ -1181,7 +1181,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
               </div>
               <div className="flex justify-between items-center py-1.5">
                 <span className="text-[#94A3B8]">Applications</span>
-                <span className="font-semibold text-[#0F172A]">{applications.length}</span>
+                <span className="font-semibold text-[#4A7B5B]">{applications.length}</span>
               </div>
             </div>
 
@@ -1202,7 +1202,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
       {isCounselorModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">Assign or Transfer Counselor</h3>
+            <h3 className="text-base font-bold text-[#4A7B5B]">Assign or Transfer Counselor</h3>
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-[#64748B] mb-1">Select Counselor</label>
@@ -1247,7 +1247,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
       {isNotificationModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">Send Student Notification</h3>
+            <h3 className="text-base font-bold text-[#4A7B5B]">Send Student Notification</h3>
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-[#64748B] mb-1">Channel</label>
@@ -1299,7 +1299,7 @@ export default function Student360Profile({ studentId, onBack }: Student360Profi
       {isNoteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">Add Student Note</h3>
+            <h3 className="text-base font-bold text-[#4A7B5B]">Add Student Note</h3>
             <div className="space-y-3 text-xs">
               <div>
                 <label className="block font-medium text-[#64748B] mb-1">Note Type</label>

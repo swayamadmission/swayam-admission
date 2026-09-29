@@ -17,7 +17,7 @@ import ErrorBoundary from "./ErrorBoundary";
 
 const BRAND_COLORS = {
   primary: "#4A7B5B",
-  dark: "#0F172A",
+  dark: "#4A7B5B",
   lightGreen: "#E8F3EC",
   gold: "#F0AE1A",
   background: "#F8FAFC",
@@ -217,7 +217,7 @@ export default function AnalyticsPage() {
                 </span>
                 <span className="text-xs text-[#94A3B8] font-medium">Session: {selectedSession}</span>
               </div>
-              <h1 className="text-2xl font-black text-[#0F172A] mt-1 tracking-tight">
+              <h1 className="text-2xl font-black text-[#4A7B5B] mt-1 tracking-tight">
                 Authoritative Management MIS Dashboard
               </h1>
               <p className="text-xs text-[#64748B]">
@@ -232,7 +232,7 @@ export default function AnalyticsPage() {
                   refetchOverview();
                   toast.success("Analytics refreshed with latest database records");
                 }}
-                className="h-10 px-4 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#0F172A] bg-white hover:bg-[#F8FAFC] flex items-center gap-2 transition-all"
+                className="h-10 px-4 rounded-xl border border-[#E2E8F0] text-xs font-bold text-[#4A7B5B] bg-white hover:bg-[#F8FAFC] flex items-center gap-2 transition-all"
               >
                 <RefreshCw className="w-4 h-4 text-[#4A7B5B]" /> Refresh Data
               </button>
@@ -254,7 +254,7 @@ export default function AnalyticsPage() {
               <select
                 value={period}
                 onChange={(e) => setPeriod(e.target.value as any)}
-                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-xs font-medium text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-xs font-medium text-[#4A7B5B] bg-[#F8FAFC] focus:outline-none focus:border-[#4A7B5B]"
               >
                 <option value="today">Today</option>
                 <option value="yesterday">Yesterday</option>
@@ -298,7 +298,7 @@ export default function AnalyticsPage() {
               <select
                 value={selectedSession}
                 onChange={(e) => setSelectedSession(e.target.value)}
-                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-xs font-medium text-[#0F172A] bg-[#F8FAFC] focus:outline-none focus:border-[#4A7B5B]"
+                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-xs font-medium text-[#4A7B5B] bg-[#F8FAFC] focus:outline-none focus:border-[#4A7B5B]"
               >
                 <option value="2025-26">2025-26</option>
                 <option value="2026-27">2026-27 (Current)</option>
@@ -355,7 +355,7 @@ export default function AnalyticsPage() {
                   className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold border-b-2 transition-all whitespace-nowrap ${
                     active
                       ? "border-[#4A7B5B] text-[#4A7B5B]"
-                      : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                      : "border-transparent text-[#64748B] hover:text-[#4A7B5B]"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -384,7 +384,7 @@ export default function AnalyticsPage() {
                     <Users className="w-4 h-4 text-[#4A7B5B]" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-[#0F172A]">{Number(overview.totalLeads || 0).toLocaleString()}</div>
+                <div className="text-2xl font-black text-[#4A7B5B]">{Number(overview.totalLeads || 0).toLocaleString()}</div>
                 <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#F1F5F9]">
                   <span className="text-[#4A7B5B] font-bold">+{overview.newLeadsInPeriod || 0} in period</span>
                   <span className="text-[#64748B]">{overview.activeLeads || 0} active</span>
@@ -402,7 +402,7 @@ export default function AnalyticsPage() {
                     <FileText className="w-4 h-4 text-[#0EA5E9]" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-[#0F172A]">{Number(overview.totalApplications || 0).toLocaleString()}</div>
+                <div className="text-2xl font-black text-[#4A7B5B]">{Number(overview.totalApplications || 0).toLocaleString()}</div>
                 <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#F1F5F9]">
                   <span className="text-[#0EA5E9] font-bold">Lead → App: {overview.leadToAppRate || 0}%</span>
                   <span className="text-[#64748B]">{overview.submittedApplications || 0} in period</span>
@@ -420,7 +420,7 @@ export default function AnalyticsPage() {
                     <Award className="w-4 h-4 text-[#8B5CF6]" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-[#0F172A]">{Number(overview.admissionsApproved || 0).toLocaleString()}</div>
+                <div className="text-2xl font-black text-[#4A7B5B]">{Number(overview.admissionsApproved || 0).toLocaleString()}</div>
                 <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#F1F5F9]">
                   <span className="text-[#8B5CF6] font-bold">{overview.uniqueAdmittedStudents || 0} unique students</span>
                   <span className="text-[#64748B]">App → Adm: {overview.appToAdmissionRate || 0}%</span>
@@ -438,7 +438,7 @@ export default function AnalyticsPage() {
                     <IndianRupee className="w-4 h-4 text-[#D97706]" />
                   </div>
                 </div>
-                <div className="text-2xl font-black text-[#0F172A]">
+                <div className="text-2xl font-black text-[#4A7B5B]">
                   ₹{Number(overview.verifiedRevenue || 0).toLocaleString()}
                 </div>
                 <div className="flex items-center justify-between text-[11px] pt-2 border-t border-[#F1F5F9]">
@@ -486,7 +486,7 @@ export default function AnalyticsPage() {
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                  <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                     Operational Intake & Conversion Volume
                   </h3>
                   <p className="text-xs text-[#64748B]">Daily intake of Leads, Applications, and Admissions</p>
@@ -536,7 +536,7 @@ export default function AnalyticsPage() {
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-black text-[#0F172A]">Authoritative Multi-Stage Conversion Funnel</h3>
+                  <h3 className="text-base font-black text-[#4A7B5B]">Authoritative Multi-Stage Conversion Funnel</h3>
                   <p className="text-xs text-[#64748B]">
                     Calculated with strict separation between Unique Student count and Total Application count.
                   </p>
@@ -563,7 +563,7 @@ export default function AnalyticsPage() {
                         {stage.step}
                       </div>
                       <div>
-                        <h4 className="text-xs font-bold text-[#0F172A]">{stage.name}</h4>
+                        <h4 className="text-xs font-bold text-[#4A7B5B]">{stage.name}</h4>
                         <span className="text-[11px] text-[#64748B]">
                           {stage.uniquePeople} Unique Students ({stage.count} total records)
                         </span>
@@ -572,7 +572,7 @@ export default function AnalyticsPage() {
 
                     <div className="flex items-center gap-6">
                       <div className="text-right">
-                        <div className="text-sm font-extrabold text-[#0F172A]">{stage.count.toLocaleString()}</div>
+                        <div className="text-sm font-extrabold text-[#4A7B5B]">{stage.count.toLocaleString()}</div>
                         <span className="text-[10px] text-[#64748B]">Stage Volume</span>
                       </div>
 
@@ -603,14 +603,14 @@ export default function AnalyticsPage() {
             {/* Senior Counselor Team Rollups (if available) */}
             {seniorTeams.length > 0 && (
               <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Senior Counselor Team Rollups
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {seniorTeams.map((t: any) => (
                     <div key={t.teamId} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-[#0F172A]">{t.teamName}</h4>
+                        <h4 className="text-xs font-bold text-[#4A7B5B]">{t.teamName}</h4>
                         <span className="text-[10px] bg-[#E8F3EC] text-[#4A7B5B] px-2 py-0.5 rounded-full font-bold">
                           {t.teamSize} Counselors
                         </span>
@@ -632,7 +632,7 @@ export default function AnalyticsPage() {
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                  <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                     Counselor Performance, Workload & Follow-up SLAs
                   </h3>
                   <p className="text-xs text-[#64748B]">
@@ -660,7 +660,7 @@ export default function AnalyticsPage() {
                     {counselorsData.map((c: any) => (
                       <tr key={c.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC]">
                         <td className="p-3">
-                          <div className="font-bold text-[#0F172A]">{c.name}</div>
+                          <div className="font-bold text-[#4A7B5B]">{c.name}</div>
                           <span className="text-[10px] text-[#64748B]">{c.email}</span>
                         </td>
                         <td className="p-3 text-[#64748B]">{c.specialization}</td>
@@ -698,7 +698,7 @@ export default function AnalyticsPage() {
         {activeTab === "colleges" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                 College Demand & Admission Performance
               </h3>
               <div className="overflow-x-auto">
@@ -718,14 +718,14 @@ export default function AnalyticsPage() {
                     {collegesData.map((col: any) => (
                       <tr key={col.id} className="border-b border-[#F1F5F9] hover:bg-[#F8FAFC]">
                         <td className="p-3">
-                          <div className="font-bold text-[#0F172A]">{col.name}</div>
+                          <div className="font-bold text-[#4A7B5B]">{col.name}</div>
                           <span className="text-[10px] text-[#94A3B8]">#{col.code}</span>
                         </td>
                         <td className="p-3 text-[#64748B]">{col.location}</td>
                         <td className="p-3 text-center font-semibold">{col.totalApplications}</td>
                         <td className="p-3 text-center font-semibold text-[#8B5CF6]">{col.approvedAdmissions}</td>
                         <td className="p-3 text-center font-bold text-[#4A7B5B]">{col.enrolledStudents}</td>
-                        <td className="p-3 text-right font-bold text-[#0F172A]">
+                        <td className="p-3 text-right font-bold text-[#4A7B5B]">
                           ₹{Number(col.totalRevenue || 0).toLocaleString()}
                         </td>
                         <td className="p-3 text-center font-bold text-[#4A7B5B]">{col.conversionRate}%</td>
@@ -738,14 +738,14 @@ export default function AnalyticsPage() {
 
             {/* Course Popularity */}
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                 Course Catalog Demand & Admissions
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {coursesData.map((crs: any) => (
                   <div key={crs.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-[#0F172A]">{crs.name}</h4>
+                      <h4 className="text-xs font-bold text-[#4A7B5B]">{crs.name}</h4>
                       <span className="text-[10px] bg-[#E8F3EC] text-[#4A7B5B] px-2 py-0.5 rounded-full font-bold">
                         {crs.level || "DEGREE"}
                       </span>
@@ -772,7 +772,7 @@ export default function AnalyticsPage() {
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                  <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                     {geoData.drilldownType === "DISTRICT" ? `District Breakdown: ${geoData.selectedState}` : "State-wise Geographic Distribution"}
                   </h3>
                   <p className="text-xs text-[#64748B]">Click any state to drill down into district-level performance</p>
@@ -791,7 +791,7 @@ export default function AnalyticsPage() {
                 {geoData.drilldownType === "DISTRICT"
                   ? geoData.districts?.map((d: any) => (
                       <div key={d.district} className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                        <span className="text-xs font-bold text-[#0F172A]">{d.district}</span>
+                        <span className="text-xs font-bold text-[#4A7B5B]">{d.district}</span>
                         <div className="text-sm font-black text-[#4A7B5B]">{d.leads} Leads</div>
                       </div>
                     ))
@@ -802,7 +802,7 @@ export default function AnalyticsPage() {
                         className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#4A7B5B] cursor-pointer transition-all space-y-1"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#0F172A]">{s.state}</span>
+                          <span className="text-xs font-bold text-[#4A7B5B]">{s.state}</span>
                           <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
                         </div>
                         <div className="text-sm font-black text-[#4A7B5B]">{s.leads} Leads</div>
@@ -821,7 +821,7 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-sm space-y-1">
                 <span className="text-xs text-[#64748B] font-semibold">Gross Collected</span>
-                <div className="text-2xl font-black text-[#0F172A]">
+                <div className="text-2xl font-black text-[#4A7B5B]">
                   ₹{Number(financeData.grossCollection || 0).toLocaleString()}
                 </div>
                 <span className="text-[10px] text-[#4A7B5B] font-bold">{financeData.transactionsCount || 0} Successful Transactions</span>
@@ -844,13 +844,13 @@ export default function AnalyticsPage() {
 
             {/* Payment Method Breakdown */}
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-              <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+              <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                 Payment Channel Distribution
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {financeData.methods?.map((m: any) => (
                   <div key={m.method} className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                    <span className="text-xs font-bold text-[#0F172A]">{m.method}</span>
+                    <span className="text-xs font-bold text-[#4A7B5B]">{m.method}</span>
                     <div className="text-sm font-black text-[#4A7B5B]">₹{Number(m.amount).toLocaleString()}</div>
                     <span className="text-[10px] text-[#64748B]">{m.count} payments</span>
                   </div>
@@ -867,11 +867,11 @@ export default function AnalyticsPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-3">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Application Review Turnaround SLA
                 </h3>
                 <div className="flex items-center justify-between">
-                  <div className="text-3xl font-black text-[#0F172A]">
+                  <div className="text-3xl font-black text-[#4A7B5B]">
                     {slaData.slaMetrics?.averageApplicationReviewHours || 24.5} hrs
                   </div>
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#E8F3EC] text-[#4A7B5B]">
@@ -882,11 +882,11 @@ export default function AnalyticsPage() {
               </div>
 
               <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-3">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Payment Verification Latency SLA
                 </h3>
                 <div className="flex items-center justify-between">
-                  <div className="text-3xl font-black text-[#0F172A]">
+                  <div className="text-3xl font-black text-[#4A7B5B]">
                     {slaData.slaMetrics?.averagePaymentVerificationHours || 3.8} hrs
                   </div>
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#E8F3EC] text-[#4A7B5B]">
@@ -905,14 +905,14 @@ export default function AnalyticsPage() {
         {activeTab === "reports" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-              <h3 className="text-base font-black text-[#0F172A]">Custom MIS Report Generator & CSV Exporter</h3>
+              <h3 className="text-base font-black text-[#4A7B5B]">Custom MIS Report Generator & CSV Exporter</h3>
               <p className="text-xs text-[#64748B]">
                 Export authoritative reports with automated PII masking and audit logging.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                 <div>
-                  <label className="block text-xs font-bold text-[#0F172A] mb-1">Select Report Entity</label>
+                  <label className="block text-xs font-bold text-[#4A7B5B] mb-1">Select Report Entity</label>
                   <select
                     value={exportReportType}
                     onChange={(e) => setExportReportType(e.target.value)}
@@ -940,7 +940,7 @@ export default function AnalyticsPage() {
 
               {/* Save Report Configuration */}
               <div className="pt-4 border-t border-[#F1F5F9] space-y-3">
-                <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Save Filter Preset as Management Report
                 </h4>
                 <div className="flex flex-col md:flex-row gap-3">
@@ -969,7 +969,7 @@ export default function AnalyticsPage() {
             {/* Saved Reports List */}
             {savedReports.length > 0 && (
               <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
-                <h3 className="text-sm font-bold text-[#0F172A] uppercase tracking-wider">
+                <h3 className="text-sm font-bold text-[#4A7B5B] uppercase tracking-wider">
                   Saved Management Report Configurations
                 </h3>
                 <div className="space-y-2">
@@ -979,7 +979,7 @@ export default function AnalyticsPage() {
                       className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between"
                     >
                       <div>
-                        <div className="font-bold text-xs text-[#0F172A]">{r.title}</div>
+                        <div className="font-bold text-xs text-[#4A7B5B]">{r.title}</div>
                         <span className="text-[10px] text-[#64748B]">{r.description || `Type: ${r.reportType}`}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1012,12 +1012,12 @@ export default function AnalyticsPage() {
               {/* Header */}
               <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-black text-[#0F172A]">{drilldownTitle}</h3>
+                  <h3 className="text-base font-black text-[#4A7B5B]">{drilldownTitle}</h3>
                   <span className="text-xs text-[#64748B]">Showing underlying authoritative database records</span>
                 </div>
                 <button
                   onClick={() => setDrilldownMetric(null)}
-                  className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] hover:text-[#0F172A]"
+                  className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] hover:text-[#4A7B5B]"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1035,7 +1035,7 @@ export default function AnalyticsPage() {
                   drilldownRecords.map((rec: any) => (
                     <div key={rec.id} className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#0F172A]">
+                        <span className="text-xs font-bold text-[#4A7B5B]">
                           {rec.fullName || rec.student?.fullName || rec.title || rec.applicationNumber}
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F3EC] text-[#4A7B5B]">

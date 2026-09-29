@@ -36,6 +36,10 @@ export class ScholarshipQueryDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
   status?: string;
 
   @IsOptional()

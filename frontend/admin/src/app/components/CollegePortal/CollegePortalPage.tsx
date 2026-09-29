@@ -17,6 +17,7 @@ import { CollegeApplicationQueue } from "./CollegeApplicationQueue";
 import { CollegeStaffManager } from "./CollegeStaffManager";
 import { CollegeDocumentsManager } from "./CollegeDocumentsManager";
 import { CollegeReportingEnrollment } from "./CollegeReportingEnrollment";
+import { PartnerProfileManager } from "./PartnerProfileManager";
 
 export const CollegePortalPage: React.FC = () => {
   const [colleges, setColleges] = useState<College[]>([]);
@@ -71,6 +72,7 @@ export const CollegePortalPage: React.FC = () => {
 
   const tabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "profile", label: "College Profile", icon: Building2 },
     { id: "offerings", label: "Programs & Seat Matrix", icon: Layers },
     { id: "applications", label: "Admission Queue", icon: FileText },
     { id: "reporting", label: "Reporting & Enrollment", icon: Award },
@@ -90,12 +92,12 @@ export const CollegePortalPage: React.FC = () => {
             <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider block">
               Active College Organization
             </span>
-            <div className="font-bold text-[#0F172A] text-base flex items-center gap-2">
+            <div className="font-bold text-[#4A7B5B] text-base flex items-center gap-2">
               {colleges.length > 1 ? (
                 <select
                   value={selectedCollegeId}
                   onChange={(e) => setSelectedCollegeId(e.target.value)}
-                  className="bg-transparent font-bold text-[#0F172A] focus:outline-none cursor-pointer border-b border-dashed border-[#4A7B5B] py-0.5"
+                  className="bg-transparent font-bold text-[#4A7B5B] focus:outline-none cursor-pointer border-b border-dashed border-[#4A7B5B] py-0.5"
                 >
                   {colleges.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -122,7 +124,7 @@ export const CollegePortalPage: React.FC = () => {
                 className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 whitespace-nowrap ${
                   isActive
                     ? "bg-white text-[#4A7B5B] shadow-sm border border-[#E2E8F0]"
-                    : "text-[#64748B] hover:text-[#0F172A]"
+                    : "text-[#64748B] hover:text-[#4A7B5B]"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -141,6 +143,10 @@ export const CollegePortalPage: React.FC = () => {
             loading={loading}
             onNavigateTab={(tab) => setActiveTab(tab)}
           />
+        )}
+
+        {activeTab === "profile" && selectedCollegeId && (
+          <PartnerProfileManager collegeId={selectedCollegeId} />
         )}
 
         {activeTab === "offerings" && selectedCollegeId && (

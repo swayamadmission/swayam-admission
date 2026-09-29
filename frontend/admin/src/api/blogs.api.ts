@@ -7,6 +7,9 @@ export interface BlogQueryParams {
   q?: string;
   category?: string;
   status?: string;
+  guideType?: string;
+  educationLevel?: string;
+  stream?: string;
   featured?: boolean;
   tag?: string;
   authorId?: string;
@@ -59,6 +62,38 @@ export interface BlogDto {
   governmentScheme?: string;
   career?: string;
   readingTime?: number;
+
+  // ERP Career & Admission Guides Fields
+  guideType?: "CAREER" | "ADMISSION" | "GENERAL";
+  educationLevel?: string;
+  stream?: string;
+  specialization?: string;
+  careerPath?: string;
+  skills?: string[];
+  eligibility?: string;
+  entranceExams?: string[];
+  salaryRange?: string;
+  averageSalary?: string;
+  growthRate?: string;
+  higherStudyOptions?: string[];
+  jobRoles?: string[];
+  govPrivatePaths?: string;
+  admissionProcess?: string;
+  applicationProcess?: string;
+  requiredDocuments?: string[];
+  admissionStages?: { stageName: string; description?: string; timeline?: string }[];
+  feesInfo?: string;
+  counsellingInfo?: string;
+  scholarshipInfo?: string;
+  stateSchemesInfo?: string;
+  importantTimelines?: string;
+  prepGuidance?: string;
+  relatedCourseIds?: string[];
+  relatedCollegeIds?: string[];
+  relatedExamIds?: string[];
+  relatedScholarshipIds?: string[];
+  stateId?: string;
+  districtId?: string;
 }
 
 export const blogsApi = {
@@ -71,11 +106,20 @@ export const blogsApi = {
   findById: (id: string) =>
     api.get(`/blogs/${id}`),
 
+  getPreview: (id: string) =>
+    api.get(`/blogs/${id}/preview`),
+
   create: (data: BlogDto) =>
     api.post("/blogs", data),
 
   update: (id: string, data: Partial<BlogDto>) =>
     api.patch(`/blogs/${id}`, data),
+
+  publish: (id: string) =>
+    api.patch(`/blogs/${id}`, { status: "PUBLISHED" }),
+
+  unpublish: (id: string) =>
+    api.patch(`/blogs/${id}`, { status: "UNPUBLISHED" }),
 
   delete: (id: string) =>
     api.delete(`/blogs/${id}`),
@@ -95,3 +139,4 @@ export const blogsApi = {
   exportCsv: (params?: BlogQueryParams) =>
     api.get("/blogs/export", { params, responseType: "blob" }),
 };
+

@@ -219,6 +219,14 @@ export const DOCUMENT_MASTER: DocumentMasterConfig[] = [
 ];
 
 import { SystemConfigurationService } from '../settings/system-configuration.service';
+import { DocumentVaultStorageService } from './document-vault-storage.service';
+import { DocumentWatermarkService } from './document-watermark.service';
+import { DocumentAuditService, AuditQueryFilters } from './document-audit.service';
+import {
+  DocumentRetentionService,
+  CreateDeletionRequestDto,
+  ReviewDeletionDto,
+} from './document-retention.service';
 
 @Injectable()
 export class DocumentsService {
@@ -229,6 +237,10 @@ export class DocumentsService {
     private notifications: NotificationsService,
     private dataScopeService: DataScopeService,
     private configService: SystemConfigurationService,
+    private vaultStorage: DocumentVaultStorageService,
+    private watermarkService: DocumentWatermarkService,
+    private auditService: DocumentAuditService,
+    private retentionService: DocumentRetentionService,
   ) {}
 
   /**
@@ -288,12 +300,16 @@ export class DocumentsService {
       throw new BadRequestException('Only PDF, JPG, JPEG, and PNG files are allowed.');
     }
 
-    const fileHash = file.buffer ? this.calculateHash(file.buffer) : undefined;
+    // Store in Private Protected Vault
+    const vaultResult = await this.vaultStorage.storeDocument(
+      file.buffer,
+      userId,
+      file.originalname,
+    );
+    const fileUrl = vaultResult.storageKey;
+    const fileHash = vaultResult.checksum;
     const fileExtension =
       file.originalname.split('.').pop()?.toLowerCase() || '';
-
-    // Storage path
-    const fileUrl = await this.storage.uploadFile(file, `documents/${userId}`);
 
     // OCR & AI extraction
     const ocrData = this.mockOcrExtraction(
@@ -360,21 +376,32 @@ export class DocumentsService {
       data: {
         documentId: doc.id,
         status: DocumentStatus.UPLOADED,
-        remarks: 'Document uploaded',
+        remarks: 'Document uploaded to secure vault',
         actionBy: userId,
       },
     });
 
-    // Create Audit Log
-    await this.audit.logAction({
-      userId,
-      action: 'UPLOAD_DOCUMENT',
-      entity: 'Document',
-      entityId: doc.id,
-      newValue: { type: doc.type, fileName: doc.fileName },
+    // Create Immutable Audit Log
+    await this.auditService.logAccess({
+      documentId: doc.id,
+      studentId: userId,
+      applicationId: dto.applicationId,
+      actorUserId: userId,
+      actorRole: 'STUDENT',
+      action: 'UPLOAD',
+      result: 'SUCCESS',
       ipAddress,
       userAgent,
+      metadata: {
+        type: doc.type,
+        fileName: doc.fileName,
+        fileSize: doc.fileSize,
+        checksum: fileHash,
+      },
     });
+
+    // Mask internal fileUrl for API response
+    (doc as any).fileUrl = `/v1/documents/${doc.id}/preview`;
 
     return doc;
   }
@@ -398,7 +425,7 @@ export class DocumentsService {
     });
 
     for (const doc of documents) {
-      doc.fileUrl = await this.storage.getSignedUrl(doc.fileUrl);
+      doc.fileUrl = `/v1/documents/${doc.id}/preview`;
     }
     return documents;
   }
@@ -433,7 +460,7 @@ export class DocumentsService {
     });
 
     for (const doc of documents) {
-      doc.fileUrl = await this.storage.getSignedUrl(doc.fileUrl);
+      doc.fileUrl = `/v1/documents/${doc.id}/preview`;
     }
     return documents;
   }
@@ -535,7 +562,7 @@ export class DocumentsService {
 
     const enrichedDocs = await Promise.all(
       documents.map(async (doc: any) => {
-        const fileUrl = await this.storage.getSignedUrl(doc.fileUrl);
+        const fileUrl = `/v1/documents/${doc.id}/preview`;
         const uploadedTime = new Date(doc.uploadedAt).getTime();
         const slaDeadline = new Date(
           uploadedTime + slaVerificationHours * 3600 * 1000,
@@ -586,6 +613,8 @@ export class DocumentsService {
             fullName: true,
             email: true,
             mobile: true,
+            studentId: true,
+            employeeId: true,
             profile: true,
           },
         },
@@ -613,9 +642,20 @@ export class DocumentsService {
     if (currentUserId) {
       const ctx = await this.dataScopeService.resolveDataScope(currentUserId);
       this.dataScopeService.enforceDocumentScope(ctx, document);
+
+      await this.auditService.logAccess({
+        documentId: document.id,
+        studentId: document.userId,
+        applicationId: document.applicationId,
+        actorUserId: currentUserId,
+        actorRole: ctx.userRole || 'STAFF',
+        staffId: currentUserId,
+        action: 'VIEW',
+        result: 'SUCCESS',
+      });
     }
 
-    document.fileUrl = await this.storage.getSignedUrl(document.fileUrl);
+    document.fileUrl = `/v1/documents/${document.id}/preview`;
     return document;
   }
 
@@ -888,115 +928,6 @@ export class DocumentsService {
     return { processed: results.length, results };
   }
 
-  /**
-   * Soft Delete Document
-   */
-  async deleteDocument(
-    id: string,
-    userId: string,
-    userRole: string,
-    ipAddress?: string,
-    userAgent?: string,
-  ) {
-    const document = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-      include: { user: { include: { profile: true } } },
-    });
-
-    if (!document) {
-      throw new NotFoundException('Document not found');
-    }
-
-    if (userId) {
-      const ctx = await this.dataScopeService.resolveDataScope(userId);
-      this.dataScopeService.enforceDocumentScope(ctx, document);
-    }
-
-    if (userRole === 'STUDENT' && document.userId !== userId) {
-      throw new ForbiddenException('You can only delete your own documents');
-    }
-
-    if (userRole === 'STUDENT' && document.status === DocumentStatus.VERIFIED) {
-      throw new BadRequestException('Cannot delete verified documents');
-    }
-
-    const updated = await this.prisma.document.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-
-    await this.audit.logAction({
-      userId,
-      action: 'DELETE_DOCUMENT',
-      entity: 'Document',
-      entityId: id,
-      oldValue: { deletedAt: null },
-      newValue: { deletedAt: updated.deletedAt },
-      ipAddress,
-      userAgent,
-    });
-
-    return { message: 'Document deleted successfully' };
-  }
-
-  /**
-   * Preview Document signed URL + counter increment
-   */
-  async previewDocument(id: string, currentUserId?: string) {
-    const doc = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-      include: { user: { include: { profile: true } } },
-    });
-    if (!doc) throw new NotFoundException('Document not found');
-
-    if (currentUserId) {
-      const ctx = await this.dataScopeService.resolveDataScope(currentUserId);
-      this.dataScopeService.enforceDocumentScope(ctx, doc);
-    }
-
-    await this.prisma.document.update({
-      where: { id },
-      data: {
-        previewCount: { increment: 1 },
-        lastViewed: new Date(),
-      },
-    });
-
-    const signedUrl = await this.storage.getSignedUrl(doc.fileUrl);
-    return {
-      id: doc.id,
-      fileName: doc.fileName,
-      mimeType: doc.mimeType,
-      signedUrl,
-    };
-  }
-
-  /**
-   * Download Document signed URL + counter increment
-   */
-  async downloadDocument(id: string, currentUserId?: string) {
-    const doc = await this.prisma.document.findFirst({
-      where: { id, deletedAt: null },
-      include: { user: { include: { profile: true } } },
-    });
-    if (!doc) throw new NotFoundException('Document not found');
-
-    if (currentUserId) {
-      const ctx = await this.dataScopeService.resolveDataScope(currentUserId);
-      this.dataScopeService.enforceDocumentScope(ctx, doc);
-    }
-
-    await this.prisma.document.update({
-      where: { id },
-      data: {
-        downloadCount: { increment: 1 },
-        lastViewed: new Date(),
-      },
-    });
-
-    const signedUrl = await this.storage.getSignedUrl(doc.fileUrl);
-    return { id: doc.id, fileName: doc.fileName, downloadUrl: signedUrl };
-  }
 
   /**
    * Configure Document Requirement
@@ -1315,7 +1246,12 @@ export class DocumentsService {
     }
 
     const fileExtension = file.originalname.split('.').pop()?.toLowerCase() || '';
-    const newFileUrl = await this.storage.uploadFile(file, `documents/${userId}`);
+    const vaultResult = await this.vaultStorage.storeDocument(
+      file.buffer,
+      userId,
+      file.originalname,
+    );
+    const newFileUrl = vaultResult.storageKey;
     const ocrData = this.mockOcrExtraction(file.filename || file.originalname, file.originalname);
     const aiData = this.mockAiAnalysis();
 
@@ -1348,17 +1284,25 @@ export class DocumentsService {
       },
     });
 
-    await this.audit.logAction({
-      userId,
-      action: 'REPLACE_DOCUMENT',
-      entity: 'Document',
-      entityId: id,
-      oldValue: { version: existing.version, fileName: existing.fileName },
-      newValue: { version: newVersion, fileName: updated.fileName },
+    await this.auditService.logAccess({
+      documentId: id,
+      studentId: userId,
+      applicationId: existing.applicationId,
+      actorUserId: userId,
+      actorRole: 'STUDENT',
+      action: 'REPLACE',
+      result: 'SUCCESS',
       ipAddress,
       userAgent,
+      metadata: {
+        version: newVersion,
+        fileName: updated.fileName,
+        fileSize: file.size,
+        checksum: vaultResult.checksum,
+      },
     });
 
+    (updated as any).fileUrl = `/v1/documents/${updated.id}/preview`;
     return updated;
   }
 
@@ -1507,6 +1451,465 @@ export class DocumentsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+  }
+
+  /**
+   * Secure Preview of Document
+   * Enforces object-level authorization, server-side watermarking for staff, and audit logging.
+   */
+  async previewDocument(
+    id: string,
+    currentUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+    if (!currentUserId) {
+      throw new ForbiddenException('Authentication required to preview document.');
+    }
+
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        user: { select: { id: true, studentId: true, employeeId: true, role: true, state: true } },
+        application: { select: { id: true, collegeId: true, courseId: true, counselorId: true } },
+      },
+    });
+
+    if (!document) {
+      await this.auditService.logAccess({
+        documentId: id,
+        actorUserId: currentUserId,
+        actorRole: 'UNKNOWN',
+        action: 'PREVIEW',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: 'Document not found or deleted',
+      });
+      throw new NotFoundException('Document not available.');
+    }
+
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+    if (!currentUser || !currentUser.isActive) {
+      await this.auditService.logAccess({
+        documentId: id,
+        studentId: document.userId,
+        actorUserId: currentUserId,
+        actorRole: currentUser?.role || 'UNKNOWN',
+        action: 'ACCESS_DENIED',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: 'User account disabled or not found',
+      });
+      throw new ForbiddenException('Access denied.');
+    }
+
+    const isStudent = currentUser.role === 'STUDENT' && document.userId === currentUserId;
+    const isStaff = !isStudent;
+
+    // Enforce Object-Level Authorization
+    try {
+      if (currentUser.role === 'STUDENT') {
+        if (document.userId !== currentUserId) {
+          throw new ForbiddenException("You are not authorized to view another student's document.");
+        }
+      } else {
+        const ctx = await this.dataScopeService.resolveDataScope(currentUserId);
+        this.dataScopeService.enforceDocumentScope(ctx, document);
+      }
+    } catch (authError: any) {
+      await this.auditService.logAccess({
+        documentId: id,
+        studentId: document.userId,
+        applicationId: document.applicationId,
+        actorUserId: currentUserId,
+        actorRole: currentUser.role,
+        staffId: currentUser.employeeId || (`SWY-STF-${(currentUser.id || '').slice(-6).toUpperCase()}`),
+        action: 'ACCESS_DENIED',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: authError.message || 'Data scope check failed',
+      });
+      throw new ForbiddenException('Access denied to requested document.');
+    }
+
+    // Retrieve binary from secure private vault
+    const rawBuffer = await this.vaultStorage.getDocumentBuffer(document.fileUrl);
+
+    // Dynamic Server-Side Watermark for Staff (Fail-closed)
+    let finalBuffer = rawBuffer;
+    const staffId = currentUser.employeeId || (`SWY-STF-${(currentUser.id || '').slice(-6).toUpperCase()}`);
+
+    if (isStaff) {
+      const wm = await this.watermarkService.watermarkDocument(
+        rawBuffer,
+        document.mimeType || 'application/pdf',
+        {
+          staffId,
+          applicationId: document.applicationId || undefined,
+        },
+      );
+      finalBuffer = wm.buffer;
+    }
+
+    // Record Success Audit
+    await this.auditService.logAccess({
+      documentId: id,
+      studentId: document.userId,
+      applicationId: document.applicationId,
+      actorUserId: currentUserId,
+      actorRole: currentUser.role,
+      staffId: isStaff ? staffId : null,
+      action: 'PREVIEW',
+      result: 'SUCCESS',
+      ipAddress,
+      userAgent,
+      metadata: {
+        isWatermarked: isStaff,
+        docType: document.type,
+      },
+    });
+
+    return {
+      buffer: finalBuffer,
+      mimeType: document.mimeType || 'application/pdf',
+      fileName: document.fileName || `document_${document.id}.pdf`,
+    };
+  }
+
+  /**
+   * Secure Download of Document
+   * Enforces object-level authorization, server-side watermarking for staff, and audit logging.
+   */
+  async downloadDocument(
+    id: string,
+    currentUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+    if (!currentUserId) {
+      throw new ForbiddenException('Authentication required to download document.');
+    }
+
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        user: { select: { id: true, studentId: true, employeeId: true, role: true, state: true } },
+        application: { select: { id: true, collegeId: true, courseId: true, counselorId: true } },
+      },
+    });
+
+    if (!document) {
+      await this.auditService.logAccess({
+        documentId: id,
+        actorUserId: currentUserId,
+        actorRole: 'UNKNOWN',
+        action: 'DOWNLOAD',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: 'Document not found or deleted',
+      });
+      throw new NotFoundException('Document not available.');
+    }
+
+    const currentUser = await this.prisma.user.findUnique({
+      where: { id: currentUserId },
+    });
+    if (!currentUser || !currentUser.isActive) {
+      await this.auditService.logAccess({
+        documentId: id,
+        studentId: document.userId,
+        actorUserId: currentUserId,
+        actorRole: currentUser?.role || 'UNKNOWN',
+        action: 'ACCESS_DENIED',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: 'User account disabled or not found',
+      });
+      throw new ForbiddenException('Access denied.');
+    }
+
+    const isStudent = currentUser.role === 'STUDENT' && document.userId === currentUserId;
+    const isStaff = !isStudent;
+
+    // Enforce Object-Level Authorization
+    try {
+      if (currentUser.role === 'STUDENT') {
+        if (document.userId !== currentUserId) {
+          throw new ForbiddenException("You are not authorized to download another student's document.");
+        }
+      } else {
+        const ctx = await this.dataScopeService.resolveDataScope(currentUserId);
+        this.dataScopeService.enforceDocumentScope(ctx, document);
+      }
+    } catch (authError: any) {
+      await this.auditService.logAccess({
+        documentId: id,
+        studentId: document.userId,
+        applicationId: document.applicationId,
+        actorUserId: currentUserId,
+        actorRole: currentUser.role,
+        staffId: currentUser.employeeId || (`SWY-STF-${(currentUser.id || '').slice(-6).toUpperCase()}`),
+        action: 'ACCESS_DENIED',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: authError.message || 'Data scope check failed',
+      });
+      throw new ForbiddenException('Access denied to requested document.');
+    }
+
+    // Retrieve binary from secure private vault
+    const rawBuffer = await this.vaultStorage.getDocumentBuffer(document.fileUrl);
+
+    let finalBuffer = rawBuffer;
+    const staffId = currentUser.employeeId || (`SWY-STF-${(currentUser.id || '').slice(-6).toUpperCase()}`);
+
+    if (isStaff) {
+      const wm = await this.watermarkService.watermarkDocument(
+        rawBuffer,
+        document.mimeType || 'application/pdf',
+        {
+          staffId,
+          applicationId: document.applicationId || undefined,
+        },
+      );
+      finalBuffer = wm.buffer;
+    }
+
+    // Record Success Download Audit
+    await this.auditService.logAccess({
+      documentId: id,
+      studentId: document.userId,
+      applicationId: document.applicationId,
+      actorUserId: currentUserId,
+      actorRole: currentUser.role,
+      staffId: isStaff ? staffId : null,
+      action: 'DOWNLOAD',
+      result: 'SUCCESS',
+      ipAddress,
+      userAgent,
+      metadata: {
+        isWatermarked: isStaff,
+        docType: document.type,
+      },
+    });
+
+    const ext = document.extension || document.fileName.split('.').pop() || 'pdf';
+    const nowStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const safeFilename = isStaff
+      ? `SWAYAM_ADMISSION_CONFIDENTIAL_DOC_${nowStr}.${ext}`
+      : `SWAYAM_DOC_${document.type}_${nowStr}.${ext}`;
+
+    return {
+      buffer: finalBuffer,
+      mimeType: document.mimeType || 'application/pdf',
+      fileName: safeFilename,
+    };
+  }
+
+  /**
+   * Delete Document
+   * Server-side authorization: Students cannot directly delete (must use Deletion Request).
+   * Admins can delete only if no active retention hold exists.
+   */
+  async deleteDocument(
+    id: string,
+    actorUserId: string,
+    actorRole: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const document = await this.prisma.document.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!document) {
+      throw new NotFoundException('Document not found or already deleted.');
+    }
+
+    if (actorRole === 'STUDENT') {
+      throw new BadRequestException(
+        'Direct document deletion is disabled. Please submit a Document Deletion Request.',
+      );
+    }
+
+    // Check for active retention holds
+    const isHoldActive = await this.retentionService.hasActiveRetentionHold(
+      document.id,
+      document.applicationId,
+      document.userId,
+    );
+    if (isHoldActive) {
+      await this.auditService.logAccess({
+        documentId: id,
+        studentId: document.userId,
+        applicationId: document.applicationId,
+        actorUserId,
+        actorRole,
+        action: 'DELETION_SKIPPED_HOLD',
+        result: 'DENIED',
+        ipAddress,
+        userAgent,
+        reason: 'Retention hold blocked deletion attempt.',
+      });
+      throw new BadRequestException(
+        'Cannot delete document: An active legal or administrative retention hold is placed on this document.',
+      );
+    }
+
+    // Physically delete file from storage vault
+    if (document.fileUrl) {
+      await this.vaultStorage.deleteDocument(document.fileUrl);
+    }
+
+    // Update document record in DB
+    await this.prisma.document.update({
+      where: { id },
+      data: {
+        status: DocumentStatus.DELETED,
+        deletedAt: new Date(),
+        deletedReason: 'Administrative manual deletion',
+        fileUrl: '',
+      },
+    });
+
+    // Record audit event
+    await this.auditService.logAccess({
+      documentId: id,
+      studentId: document.userId,
+      applicationId: document.applicationId,
+      actorUserId,
+      actorRole,
+      action: 'DELETE_EXECUTED',
+      result: 'SUCCESS',
+      ipAddress,
+      userAgent,
+      reason: 'Administrative manual deletion',
+    });
+
+    return { success: true, message: 'Document permanently deleted.' };
+  }
+
+  /**
+   * Submit Deletion Request (Student 45-day workflow)
+   */
+  async submitDeletionRequest(
+    userId: string,
+    dto: CreateDeletionRequestDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.retentionService.submitDeletionRequest(userId, dto, ipAddress, userAgent);
+  }
+
+  /**
+   * Get Student's own deletion requests
+   */
+  async getMyDeletionRequests(userId: string) {
+    return this.retentionService.getMyDeletionRequests(userId);
+  }
+
+  /**
+   * Student cancels deletion request
+   */
+  async cancelDeletionRequest(
+    requestId: string,
+    userId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.retentionService.cancelDeletionRequest(requestId, userId, ipAddress, userAgent);
+  }
+
+  /**
+   * Admin lists deletion requests
+   */
+  async getAdminDeletionRequests(query: {
+    status?: string;
+    studentId?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.retentionService.getAdminDeletionRequests(query);
+  }
+
+  /**
+   * Admin reviews deletion request
+   */
+  async reviewDeletionRequest(
+    requestId: string,
+    reviewerId: string,
+    dto: ReviewDeletionDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.retentionService.reviewDeletionRequest(
+      requestId,
+      reviewerId,
+      dto,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Admin queries document access audit logs
+   */
+  async getAuditLogs(query: AuditQueryFilters) {
+    return this.auditService.getAuditLogs(query);
+  }
+
+  /**
+   * Manually trigger automatic retention cleanup job
+   */
+  async triggerRetentionCleanup() {
+    return this.retentionService.executeScheduledDeletions();
+  }
+
+  /**
+   * Set 90-day post-admission auto-retention for confirmed admissions
+   */
+  async setPostAdmissionRetention(applicationId: string, confirmedAt?: Date) {
+    return this.retentionService.setPostAdmissionRetention(applicationId, confirmedAt);
+  }
+
+  /**
+   * Admin manually resends deletion confirmation notification
+   */
+  async resendDeletionNotification(
+    requestId: string,
+    reviewerId: string,
+    channels?: string[],
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    return this.retentionService.resendDeletionNotification(
+      requestId,
+      reviewerId,
+      channels,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Admin queries notification delivery logs
+   */
+  async getNotificationDeliveryLogs(query: {
+    studentId?: string;
+    requestId?: string;
+    channel?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.retentionService.getNotificationDeliveryLogs(query);
   }
 }
 

@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Search, Plus, MapPin, Star, Users, MoreHorizontal, LayoutGrid, Table2, Edit, Download } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Search, Plus, MapPin, Star, Users, MoreHorizontal, LayoutGrid, Table2, Edit, Download, Upload, CheckCircle2, Clock } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi, CollegeQueryParams, College } from "../../api/colleges.api";
+import { organizationApi, StateItem } from "../../api/organization.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import CollegeFormModal from "./CollegeFormModal";
 import CollegeDetailDrawer from "./CollegeDetailDrawer";
+import BulkCollegeUploadModal from "./BulkCollegeUploadModal";
 
 const TYPE_COLORS: Record<string, { bg: string, text: string }> = {
   GOVERNMENT: { bg: "#DBEAFE", text: "#2563EB" },
@@ -18,18 +20,28 @@ export default function CollegesPage() {
   const debouncedSearch = useDebounce(search, 500);
   const [view, setView] = useState<"grid" | "table">("grid");
   const [selectedType, setSelectedType] = useState("All");
+  const [selectedState, setSelectedState] = useState("All");
   
   // Modals state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isBulkOpen, setIsBulkOpen] = useState(false);
   const [selectedCollege, setSelectedCollege] = useState<College | null>(null);
 
+  const queryClient = useQueryClient();
   const types = ["All", "GOVERNMENT", "PRIVATE", "DEEMED", "AUTONOMOUS"];
+
+  const { data: statesRes } = useQuery({
+    queryKey: ["geography_states"],
+    queryFn: () => organizationApi.getStates(),
+  });
+  const statesList: StateItem[] = Array.isArray(statesRes) ? statesRes : (statesRes as any)?.data || [];
 
   const queryParams: CollegeQueryParams = { limit: 20 };
   if (debouncedSearch) queryParams.q = debouncedSearch;
   if (selectedType !== "All") queryParams.ownership = selectedType === "GOVERNMENT" ? "GOVERNMENT" : (selectedType === "PRIVATE" ? "PRIVATE" : undefined);
   if (selectedType === "DEEMED" || selectedType === "AUTONOMOUS") queryParams.type = selectedType;
+  if (selectedState !== "All") queryParams.state = selectedState;
 
   const { data: statsRes } = useQuery({
     queryKey: ["admin_dashboard_metrics"],
@@ -40,6 +52,21 @@ export default function CollegesPage() {
     queryKey: ["admin_colleges", queryParams],
     queryFn: () => collegesApi.findAll(queryParams),
   });
+
+  const togglePublishMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "PUBLISHED" | "DRAFT" }) =>
+      collegesApi.setPublishStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_colleges"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_dashboard_metrics"] });
+    },
+  });
+
+  const handleTogglePublish = (college: College, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextStatus = college.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
+    togglePublishMutation.mutate({ id: college.id, status: nextStatus });
+  };
 
   const COLLEGES = collegesRes?.data?.data || [];
   const totalColleges = collegesRes?.data?.total || 0;
@@ -109,8 +136,8 @@ export default function CollegesPage() {
           { label: "Total Students", value: stats?.totalStudentsEnrolled || 0, sub: "Enrolled" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl p-4 border border-[#F1F5F9]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-            <div className="text-2xl font-semibold text-[#0F172A]">{s.value}</div>
-            <div className="text-xs text-[#0F172A] font-medium mt-0.5">{s.label}</div>
+            <div className="text-2xl font-semibold text-[#4A7B5B]">{s.value}</div>
+            <div className="text-xs text-[#4A7B5B] font-medium mt-0.5">{s.label}</div>
             <div className="text-xs text-[#94A3B8]">{s.sub}</div>
           </div>
         ))}
@@ -140,16 +167,34 @@ export default function CollegesPage() {
               </button>
             ))}
           </div>
+          <select
+            value={selectedState}
+            onChange={(e) => setSelectedState(e.target.value)}
+            className="h-9 px-3 rounded-xl border border-[#E2E8F0] bg-white text-xs font-medium text-[#475569] focus:outline-none focus:border-[#4A7B5B]"
+          >
+            <option value="All">All States</option>
+            {statesList.map((st) => (
+              <option key={st.id} value={st.name}>
+                {st.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
+          <button 
+            onClick={() => setIsBulkOpen(true)}
+            className="h-9 px-3.5 rounded-xl border border-[#4A7B5B]/30 bg-[#E8F3EC] text-[#4A7B5B] text-sm font-semibold flex items-center gap-1.5 hover:bg-[#d8ebd2] transition-colors shadow-xs"
+          >
+            <Upload className="w-4 h-4" /> Bulk Upload Colleges
+          </button>
           <button onClick={handleExport} className="h-9 px-3 rounded-xl border border-[#E2E8F0] bg-white text-[#475569] text-sm font-medium flex items-center gap-1.5 hover:bg-[#F8FAFC]">
             <Download className="w-4 h-4" /> Export
           </button>
           <div className="flex items-center bg-[#F1F5F9] rounded-xl p-0.5">
-            <button onClick={() => setView("grid")} className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs" style={{ background: view === "grid" ? "#fff" : "transparent", color: view === "grid" ? "#0F172A" : "#94A3B8" }}>
+            <button onClick={() => setView("grid")} className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs" style={{ background: view === "grid" ? "#fff" : "transparent", color: view === "grid" ? "#4A7B5B" : "#94A3B8" }}>
               <LayoutGrid className="w-3.5 h-3.5" />
             </button>
-            <button onClick={() => setView("table")} className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs" style={{ background: view === "table" ? "#fff" : "transparent", color: view === "table" ? "#0F172A" : "#94A3B8" }}>
+            <button onClick={() => setView("table")} className="flex items-center gap-1 px-2.5 h-7 rounded-lg text-xs" style={{ background: view === "table" ? "#fff" : "transparent", color: view === "table" ? "#4A7B5B" : "#94A3B8" }}>
               <Table2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -187,6 +232,19 @@ export default function CollegesPage() {
                   <div className="absolute inset-0 bg-black/10" />
                   {!college.banner && <span className="text-4xl relative z-10">🏛️</span>}
                   
+                  {/* Status badge */}
+                  <button
+                    onClick={(e) => handleTogglePublish(college, e)}
+                    title="Click to toggle publish status"
+                    className={`absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full font-semibold z-10 shadow-xs transition-transform hover:scale-105 ${
+                      college.status === 'PUBLISHED'
+                        ? 'bg-[#E8F3EC] text-[#4A7B5B] border border-[#A7D7B5]'
+                        : 'bg-white/90 text-gray-700 border border-gray-200'
+                    }`}
+                  >
+                    ● {college.status || 'DRAFT'}
+                  </button>
+
                   {college.featured && (
                     <span className="absolute top-2 right-2 text-xs px-2 py-0.5 rounded-full font-medium z-10" style={{ background: "#FEF3C7", color: "#D97706" }}>
                       ⭐ Featured
@@ -204,7 +262,7 @@ export default function CollegesPage() {
                          </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-[#0F172A] text-sm font-medium leading-tight truncate">{college.name}</h4>
+                        <h4 className="text-[#4A7B5B] text-sm font-medium leading-tight truncate">{college.name}</h4>
                         <div className="flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3 text-[#94A3B8]" />
                           <span className="text-xs text-[#94A3B8] truncate">{college.city}, {college.state}</span>
@@ -245,7 +303,7 @@ export default function CollegesPage() {
                   <div className="flex items-center justify-between pt-3 border-t border-[#F1F5F9]">
                     <div className="flex items-center gap-1">
                       <Star className="w-3 h-3" style={{ color: "#F0AE1A" }} />
-                      <span className="text-xs font-medium text-[#0F172A]">{stats?.averageRating || "4.5"}</span>
+                      <span className="text-xs font-medium text-[#4A7B5B]">{stats?.averageRating || "4.5"}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Users className="w-3 h-3 text-[#94A3B8]" />
@@ -299,7 +357,7 @@ export default function CollegesPage() {
                             <div className="w-8 h-8 rounded border border-[#E2E8F0] bg-gray-50 flex items-center justify-center text-lg">🏛️</div>
                           )}
                           <div>
-                            <div className="text-sm font-medium text-[#0F172A]">{college.name}</div>
+                            <div className="text-sm font-medium text-[#4A7B5B]">{college.name}</div>
                             <div className="text-xs text-[#94A3B8]">{college.university || 'No university'}</div>
                           </div>
                         </div>
@@ -312,9 +370,17 @@ export default function CollegesPage() {
                         {college._count?.applications || 0}
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${college.status === 'PUBLISHED' ? 'bg-[#E8F3EC] text-[#4A7B5B]' : 'bg-[#F1F5F9] text-[#64748B]'}`}>
-                          {college.status}
-                        </span>
+                        <button
+                          onClick={(e) => handleTogglePublish(college, e)}
+                          title="Click to toggle publish status"
+                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium transition-all cursor-pointer ${
+                            college.status === 'PUBLISHED'
+                              ? 'bg-[#E8F3EC] text-[#4A7B5B] hover:bg-amber-100 hover:text-amber-800'
+                              : 'bg-[#F1F5F9] text-[#64748B] hover:bg-[#E8F3EC] hover:text-[#4A7B5B]'
+                          }`}
+                        >
+                          ● {college.status || 'DRAFT'}
+                        </button>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex gap-2">
@@ -343,6 +409,15 @@ export default function CollegesPage() {
         onClose={() => setIsDetailOpen(false)}
         college={selectedCollege}
         onEdit={openEdit}
+      />
+
+      <BulkCollegeUploadModal
+        isOpen={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["admin_colleges"] });
+          queryClient.invalidateQueries({ queryKey: ["admin_dashboard_metrics"] });
+        }}
       />
       
     </div>

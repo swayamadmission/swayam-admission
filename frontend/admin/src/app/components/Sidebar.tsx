@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, UserCheck, GraduationCap, Building2, BookOpen,
   FileText, FolderOpen, Trophy, Library, Rss, Brain, Bell, BarChart3,
   Megaphone, CreditCard, Settings, Shield, Activity, ChevronLeft, ChevronRight,
-  X, LogOut, ChevronDown, Star, HelpCircle, Award, CheckCircle2, Gift, Tag
+  X, LogOut, ChevronDown, Star, HelpCircle, Award, CheckCircle2, Gift, Tag, MapPin
 } from "lucide-react";
 import saLogo from "../../assets/SA_logo-removebg-preview.png";
 
@@ -11,7 +11,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 
 export type Page =
   | "dashboard" | "leads" | "tasks" | "students" | "counselors" | "staff-onboarding" | "colleges" | "college-portal" | "courses"
-  | "applications" | "reporting" | "review-moderation" | "college-rankings" | "documents" | "exams" | "scholarships" | "materials"
+  | "applications" | "reporting" | "review-moderation" | "college-rankings" | "documents" | "states" | "exams" | "scholarships" | "materials"
   | "blogs" | "faqs" | "ai" | "notifications" | "analytics" | "marketing" | "payments" | "referrals" | "coupons" | "fee-catalog"
   | "settings" | "rbac" | "organization" | "logs" | "support" | "help-support" | "profile";
 
@@ -39,6 +39,7 @@ const itemPermissions: Record<string, string> = {
   colleges: "college.view",
   "college-portal": "college.view",
   courses: "course.view",
+  states: "organization.view",
   exams: "exam.view",
   scholarships: "scholarship.view",
   materials: "material.view",
@@ -59,7 +60,19 @@ const itemPermissions: Record<string, string> = {
   profile: "dashboard.view",
 };
 
-const navGroups = [
+interface NavItem {
+  id: Page;
+  label: string;
+  icon: any;
+  badge?: string;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
 
   {
     label: "Overview",
@@ -70,13 +83,13 @@ const navGroups = [
   {
     label: "CRM & Staff",
     items: [
-      { id: "leads" as Page, label: "Leads", icon: Users, badge: "38" },
+      { id: "leads" as Page, label: "Leads", icon: Users },
       { id: "tasks" as Page, label: "Tasks & Follow-ups", icon: CheckCircle2 },
       { id: "students" as Page, label: "Students", icon: GraduationCap },
       { id: "referrals" as Page, label: "Student Referrals & Rewards", icon: Gift },
       { id: "counselors" as Page, label: "Counselors", icon: UserCheck },
       { id: "staff-onboarding" as Page, label: "Staff Onboarding & KYC", icon: Shield },
-      { id: "applications" as Page, label: "Applications", icon: FileText, badge: "12" },
+      { id: "applications" as Page, label: "Applications", icon: FileText },
       { id: "reporting" as Page, label: "Reporting & Enrollment", icon: Award },
       { id: "review-moderation" as Page, label: "Reviews & Moderation", icon: Shield },
     ]
@@ -88,6 +101,7 @@ const navGroups = [
       { id: "college-rankings" as Page, label: "College Rankings Engine", icon: Trophy },
       { id: "colleges" as Page, label: "Colleges Directory", icon: Building2 },
       { id: "courses" as Page, label: "Course Catalog", icon: BookOpen },
+      { id: "states" as Page, label: "State Management", icon: MapPin },
       { id: "exams" as Page, label: "Exams", icon: Trophy },
       { id: "scholarships" as Page, label: "Scholarships", icon: Star },
       { id: "materials" as Page, label: "Study Materials", icon: Library },
@@ -96,7 +110,7 @@ const navGroups = [
   {
     label: "Content",
     items: [
-      { id: "blogs" as Page, label: "Blogs & SEO", icon: Rss },
+      { id: "blogs" as Page, label: "Career & Admission Guides / CMS", icon: Rss },
       { id: "faqs" as Page, label: "FAQs", icon: FileText },
       { id: "documents" as Page, label: "Documents", icon: FolderOpen },
     ]
@@ -112,7 +126,7 @@ const navGroups = [
   {
     label: "Operations",
     items: [
-      { id: "notifications" as Page, label: "Notifications", icon: Bell, badge: "5" },
+      { id: "notifications" as Page, label: "Notifications", icon: Bell },
       { id: "payments" as Page, label: "Payments", icon: CreditCard },
       { id: "fee-catalog" as Page, label: "Fee Catalog", icon: CreditCard },
       { id: "coupons" as Page, label: "Coupons & Discounts", icon: Tag },
@@ -170,7 +184,7 @@ export default function Sidebar({ currentPage, onPageChange, user, onLogout, mob
               <img src={saLogo} alt="SA" className="w-6 h-6 object-contain" />
             </div>
             <div>
-              <div className="text-[#0F172A] font-semibold text-sm leading-tight">Swayam</div>
+              <div className="text-[#4A7B5B] font-semibold text-sm leading-tight">Swayam</div>
               <div className="text-[#94A3B8] text-xs leading-tight">Admission CRM</div>
             </div>
           </div>
@@ -288,7 +302,7 @@ export default function Sidebar({ currentPage, onPageChange, user, onLogout, mob
               {user.name.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[#0F172A] text-sm font-medium truncate">{user.name}</div>
+              <div className="text-[#4A7B5B] text-sm font-medium truncate">{user.name}</div>
               <div className="text-[#94A3B8] text-xs truncate">{user.role}</div>
             </div>
             <button

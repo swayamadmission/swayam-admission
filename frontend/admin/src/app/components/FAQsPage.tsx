@@ -145,7 +145,7 @@ export default function FAQsPage() {
               setEditingFaq(null);
               setIsFormOpen(true);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
+            className="bg-[#4A7B5B] text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 hover:bg-[#3d694d] transition-colors shadow-sm"
           >
             <Plus size={16} /> Add FAQ
           </button>

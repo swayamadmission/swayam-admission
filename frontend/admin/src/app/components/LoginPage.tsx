@@ -367,7 +367,7 @@ export default function LoginPage({
             <div className="w-10 h-10 rounded-xl overflow-hidden border border-green-200">
               <img src={saLogo} alt="SA" className="w-full h-full object-contain" />
             </div>
-            <div className="font-semibold text-[#0F172A]">Swayam Admission</div>
+            <div className="font-semibold text-[#4A7B5B]">Swayam Admission</div>
           </div>
 
           {/* === LOGIN SCREEN === */}
@@ -410,7 +410,7 @@ export default function LoginPage({
               </div>
 
               <div className="mb-6">
-                <h2 className="text-[#0F172A] text-2xl font-bold mb-1">
+                <h2 className="text-[#4A7B5B] text-2xl font-bold mb-1">
                   {loginMode === "admin" ? "Admin & System Portal" : "Enterprise Staff Portal"}
                 </h2>
                 <p className="text-[#64748B] text-xs">
@@ -428,7 +428,7 @@ export default function LoginPage({
                   </div>
                 )}
                 <div>
-                  <Label className="text-[#0F172A] text-sm mb-1.5 block">
+                  <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
                     {loginMode === "admin" ? "Admin Email or Username" : "Company Email, Personal Email or Mobile"}
                   </Label>
                   <div className="relative">
@@ -450,7 +450,7 @@ export default function LoginPage({
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <Label className="text-[#0F172A] text-sm">Password</Label>
+                    <Label className="text-[#4A7B5B] text-sm">Password</Label>
                     <button
                       onClick={() => setScreen("forgot")}
                       className="text-[#4A7B5B] text-xs hover:underline"
@@ -539,13 +539,13 @@ export default function LoginPage({
             <div>
               <button
                 onClick={() => setScreen("login")}
-                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-4 hover:text-[#0F172A] transition-colors"
+                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-4 hover:text-[#4A7B5B] transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" /> Back to login
               </button>
 
               <div className="mb-5">
-                <h2 className="text-[#0F172A] text-xl font-bold mb-1">
+                <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
                   Staff Candidate Onboarding & KYC
                 </h2>
                 <p className="text-[#64748B] text-xs">
@@ -564,7 +564,7 @@ export default function LoginPage({
                 {/* Full Name & Mobile */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block">
                       Full Name *
                     </Label>
                     <div className="relative">
@@ -580,7 +580,7 @@ export default function LoginPage({
                     </div>
                   </div>
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block">
                       Personal Mobile *
                     </Label>
                     <div className="relative">
@@ -602,7 +602,7 @@ export default function LoginPage({
 
                 {/* Personal Email */}
                 <div>
-                  <Label className="text-[#0F172A] text-xs mb-1 block">
+                  <Label className="text-[#4A7B5B] text-xs mb-1 block">
                     Personal Email Address *
                   </Label>
                   <div className="relative">
@@ -627,7 +627,7 @@ export default function LoginPage({
                 {/* Password & Confirm */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block">
                       Password *
                     </Label>
                     <div className="relative">
@@ -644,7 +644,7 @@ export default function LoginPage({
                     </div>
                   </div>
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block">
                       Confirm *
                     </Label>
                     <div className="relative">
@@ -668,7 +668,7 @@ export default function LoginPage({
                 {/* Dynamic Role Dropdown */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <Label className="text-[#0F172A] text-xs font-medium">
+                    <Label className="text-[#4A7B5B] text-xs font-medium">
                       Applying Role *
                     </Label>
                     {rolesError && (
@@ -685,7 +685,7 @@ export default function LoginPage({
                     <Shield className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8] z-10" />
                     <select
                       disabled={rolesLoading || allowedRoles.length === 0}
-                      className="w-full h-9 pl-8 pr-4 text-xs border border-[#E2E8F0] rounded-lg bg-white text-[#0F172A] focus:outline-none focus:border-[#4A7B5B] disabled:bg-slate-50 disabled:text-slate-400"
+                      className="w-full h-9 pl-8 pr-4 text-xs border border-[#E2E8F0] rounded-lg bg-white text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B] disabled:bg-slate-50 disabled:text-slate-400"
                       value={registerForm.requestedRoleSlug}
                       onChange={(e) =>
                         setRegisterForm((f) => ({
@@ -715,7 +715,7 @@ export default function LoginPage({
                 {/* State & District Dropdowns */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block font-medium">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block font-medium">
                       State / Territory *
                     </Label>
                     <select
@@ -733,7 +733,7 @@ export default function LoginPage({
                     </select>
                   </div>
                   <div>
-                    <Label className="text-[#0F172A] text-xs mb-1 block font-medium">
+                    <Label className="text-[#4A7B5B] text-xs mb-1 block font-medium">
                       District Territory
                     </Label>
                     <select
@@ -773,7 +773,7 @@ export default function LoginPage({
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <Label className="text-[11px] text-[#0F172A] mb-0.5 block">
+                      <Label className="text-[11px] text-[#4A7B5B] mb-0.5 block">
                         Aadhaar Number
                       </Label>
                       <Input
@@ -790,7 +790,7 @@ export default function LoginPage({
                       />
                     </div>
                     <div>
-                      <Label className="text-[11px] text-[#0F172A] mb-0.5 block">
+                      <Label className="text-[11px] text-[#4A7B5B] mb-0.5 block">
                         PAN Number
                       </Label>
                       <Input
@@ -834,7 +834,7 @@ export default function LoginPage({
             <div className="text-center">
               <button
                 onClick={() => setScreen("login")}
-                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-6 hover:text-[#0F172A] transition-colors"
+                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-6 hover:text-[#4A7B5B] transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" /> Back
               </button>
@@ -846,7 +846,7 @@ export default function LoginPage({
                 <Phone className="w-7 h-7" style={{ color: "#4A7B5B" }} />
               </div>
 
-              <h2 className="text-[#0F172A] text-xl font-bold mb-2">
+              <h2 className="text-[#4A7B5B] text-xl font-bold mb-2">
                 Verify OTP
               </h2>
               <p className="text-[#64748B] text-sm mb-1">
@@ -862,7 +862,7 @@ export default function LoginPage({
                     maxLength={1}
                     value={val}
                     onChange={(e) => handleOtpChange(i, e.target.value)}
-                    className="w-11 h-12 border-2 border-[#E2E8F0] rounded-xl text-center text-lg font-semibold text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+                    className="w-11 h-12 border-2 border-[#E2E8F0] rounded-xl text-center text-lg font-semibold text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
                   />
                 ))}
               </div>
@@ -886,7 +886,7 @@ export default function LoginPage({
               >
                 <CheckCircle2 className="w-9 h-9" style={{ color: "#F0AE1A" }} />
               </div>
-              <h2 className="text-[#0F172A] text-xl font-bold mb-2">
+              <h2 className="text-[#4A7B5B] text-xl font-bold mb-2">
                 KYC Registration Submitted!
               </h2>
               <p className="text-[#64748B] text-sm mb-6 leading-relaxed">
@@ -920,7 +920,7 @@ export default function LoginPage({
                     </div>
                     <span
                       className="text-xs"
-                      style={{ color: item.done ? "#0F172A" : "#94A3B8" }}
+                      style={{ color: item.done ? "#4A7B5B" : "#94A3B8" }}
                     >
                       {item.step}
                     </span>
@@ -930,7 +930,7 @@ export default function LoginPage({
 
               <button
                 onClick={() => setScreen("login")}
-                className="w-full h-11 rounded-xl border border-[#E2E8F0] text-[#0F172A] font-medium hover:bg-[#F8FAFC]"
+                className="w-full h-11 rounded-xl border border-[#E2E8F0] text-[#4A7B5B] font-medium hover:bg-[#F8FAFC]"
               >
                 Return to Login
               </button>
@@ -942,12 +942,12 @@ export default function LoginPage({
             <div>
               <button
                 onClick={() => setScreen("login")}
-                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-6 hover:text-[#0F172A]"
+                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-6 hover:text-[#4A7B5B]"
               >
                 <ChevronLeft className="w-4 h-4" /> Back to login
               </button>
               <div className="mb-6">
-                <h2 className="text-[#0F172A] text-xl font-bold mb-1">
+                <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
                   Password Recovery
                 </h2>
                 <p className="text-[#64748B] text-xs">
@@ -961,7 +961,7 @@ export default function LoginPage({
 
               <div className="space-y-4">
                 <div>
-                  <Label className="text-[#0F172A] text-sm mb-1.5 block">
+                  <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
                     Personal Email Address
                   </Label>
                   <div className="relative">
@@ -993,7 +993,7 @@ export default function LoginPage({
               <KeyRound className="w-6 h-6" />
             </div>
 
-            <h3 className="text-xl font-bold text-center text-[#0F172A] mb-1">
+            <h3 className="text-xl font-bold text-center text-[#4A7B5B] mb-1">
               Establish Your Permanent Password
             </h3>
             <p className="text-xs text-center text-[#64748B] mb-6">
@@ -1013,7 +1013,7 @@ export default function LoginPage({
             ) : (
               <div className="space-y-4">
                 <div>
-                  <Label className="text-xs font-semibold text-[#0F172A] mb-1 block">
+                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
                     Current Temporary Password
                   </Label>
                   <Input
@@ -1030,7 +1030,7 @@ export default function LoginPage({
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#0F172A] mb-1 block">
+                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
                     New Private Password (min 6 characters)
                   </Label>
                   <div className="relative">
@@ -1061,7 +1061,7 @@ export default function LoginPage({
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold text-[#0F172A] mb-1 block">
+                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
                     Confirm New Password
                   </Label>
                   <Input

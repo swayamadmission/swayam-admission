@@ -25,6 +25,14 @@ export class CreateExamDto {
 
   @IsOptional()
   @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
   conductedBy?: string;
 
   @IsOptional()

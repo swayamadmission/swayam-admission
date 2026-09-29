@@ -82,7 +82,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#0F172A]">
+          <h2 className="text-lg font-bold text-[#4A7B5B]">
             Institutional Compliance & Accreditation Vault
           </h2>
           <p className="text-xs text-[#64748B]">
@@ -104,7 +104,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
       ) : documents.length === 0 ? (
         <div className="bg-white border border-[#E2E8F0] rounded-2xl p-12 text-center text-[#64748B] space-y-3">
           <FolderOpen className="w-10 h-10 mx-auto text-[#94A3B8]" />
-          <p className="font-medium text-[#0F172A]">No compliance documents uploaded</p>
+          <p className="font-medium text-[#4A7B5B]">No compliance documents uploaded</p>
           <p className="text-xs">
             Upload AICTE / UGC letters and NAAC accreditation to maintain verified partner status.
           </p>
@@ -126,7 +126,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
               </div>
 
               <div>
-                <h4 className="font-bold text-[#0F172A] text-sm line-clamp-1">
+                <h4 className="font-bold text-[#4A7B5B] text-sm line-clamp-1">
                   {doc.title}
                 </h4>
                 <p className="text-xs text-[#64748B] mt-1 truncate">{doc.fileName}</p>
@@ -164,12 +164,12 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] my-8 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-              <h3 className="font-bold text-[#0F172A] text-lg">
+              <h3 className="font-bold text-[#4A7B5B] text-lg">
                 Upload Compliance Document
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-[#64748B] hover:text-[#0F172A]"
+                className="text-[#64748B] hover:text-[#4A7B5B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -177,7 +177,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
 
             <form onSubmit={handleUpload} className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   Document Category *
                 </label>
                 <select
@@ -197,7 +197,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   Document Title *
                 </label>
                 <input
@@ -212,7 +212,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   File Document URL *
                 </label>
                 <input
@@ -229,7 +229,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                     Valid From
                   </label>
                   <input
@@ -242,7 +242,7 @@ export const CollegeDocumentsManager: React.FC<CollegeDocumentsManagerProps> = (
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                     Valid Until
                   </label>
                   <input

@@ -118,7 +118,8 @@ export default function DocumentDetailDrawer({ documentId, onClose }: DocumentDe
   const status = doc?.status ?? "UPLOADED";
   const docTypeTitle = typeof doc?.type === "string" ? doc.type.replace(/_/g, " ") : "Document Details";
   const historyList = Array.isArray(doc?.history) ? doc.history : [];
-  const fileUrl = doc?.fileUrl ?? "";
+  const fileUrl = doc?.id ? documentsApi.getDocumentUrl(doc.id, "preview") : (doc?.fileUrl ?? "");
+  const downloadUrl = doc?.id ? documentsApi.getDocumentUrl(doc.id, "download") : fileUrl;
   const fileName = doc?.fileName ?? "document";
   const isPdf = (typeof doc?.mimeType === "string" && doc.mimeType.includes("pdf")) || (typeof fileName === "string" && fileName.endsWith(".pdf"));
 
@@ -250,16 +251,29 @@ export default function DocumentDetailDrawer({ documentId, onClose }: DocumentDe
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span>File: {fileName} ({formatFileSize(doc?.fileSize)})</span>
-                  {fileUrl && (
-                    <a
-                      href={fileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 font-semibold hover:underline"
-                    >
-                      Open Full View <ExternalLink size={12} />
-                    </a>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {fileUrl && (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 font-semibold hover:underline"
+                      >
+                        Open Full View <ExternalLink size={12} />
+                      </a>
+                    )}
+                    {downloadUrl && (
+                      <a
+                        href={downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[#4A7B5B] font-semibold hover:underline"
+                        title="Download staff-watermarked copy"
+                      >
+                        <Download size={12} /> Watermarked Download
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-gray-100 rounded-2xl border border-gray-200 min-h-[350px] flex items-center justify-center overflow-hidden relative group">

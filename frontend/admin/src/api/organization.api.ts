@@ -52,8 +52,64 @@ export interface StateItem {
   name: string;
   code: string;
   status: string;
+  heroImage?: string | null;
+  description?: string | null;
+  region?: string | null;
+  popularCourses?: string[];
   districtsCount: number;
-  activeAssignmentsCount: number;
+  collegesCount?: number;
+  examsCount?: number;
+  scholarshipsCount?: number;
+  updatesCount?: number;
+  activeAssignmentsCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface StateDetail {
+  id: string;
+  name: string;
+  code: string;
+  type: string;
+  status: string;
+  heroImage?: string | null;
+  description?: string | null;
+  region?: string | null;
+  popularCourses: string[];
+  slug: string;
+  metrics: {
+    totalColleges: number;
+    governmentColleges: number;
+    privateColleges: number;
+    scholarshipsCount: number;
+    examsCount: number;
+    districtsCount: number;
+    updatesCount: number;
+  };
+  districts: {
+    id: string;
+    name: string;
+    code?: string | null;
+    status: string;
+    collegesCount: number;
+  }[];
+}
+
+export interface StateUpdateItem {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  image?: string | null;
+  publishDate: string;
+  stateId: string;
+  stateName?: string;
+  status: string;
+  type?: string;
+  author?: string;
+  createdAt: string;
+  updatedAt: string;
+  state?: { id: string; name: string; code: string };
 }
 
 export interface DistrictItem {
@@ -62,6 +118,7 @@ export interface DistrictItem {
   code?: string;
   stateId: string;
   status: string;
+  collegesCount?: number;
   assignments?: any[];
 }
 
@@ -219,23 +276,108 @@ export const organizationApi = {
   },
 
   // Geography & Responsibility (Public state/district listings for forms & panels)
-  getStates: async () => {
-    const res = await api.get('/geography/states');
+  getStates: async (params?: { search?: string; status?: string; region?: string }): Promise<StateItem[]> => {
+    const res = await api.get('/organization/geography/states', { params });
     return res.data;
   },
 
-  createState: async (data: { name: string; code: string; status?: string }) => {
+  getStateById: async (idOrSlug: string): Promise<StateDetail> => {
+    const res = await api.get(`/organization/geography/states/${idOrSlug}`);
+    return res.data;
+  },
+
+  createState: async (data: {
+    name: string;
+    code: string;
+    status?: string;
+    heroImage?: string;
+    description?: string;
+    region?: string;
+    popularCourses?: string[];
+  }) => {
     const res = await api.post('/organization/geography/states', data);
     return res.data;
   },
 
-  getDistricts: async (stateId: string) => {
-    const res = await api.get(`/geography/states/${stateId}/districts`);
+  updateState: async (
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      status?: string;
+      heroImage?: string;
+      description?: string;
+      region?: string;
+      popularCourses?: string[];
+    },
+  ) => {
+    const res = await api.patch(`/organization/geography/states/${id}`, data);
+    return res.data;
+  },
+
+  deleteState: async (id: string) => {
+    const res = await api.delete(`/organization/geography/states/${id}`);
+    return res.data;
+  },
+
+  // State Updates
+  getStateUpdates: async (params?: { stateId?: string; state?: string; status?: string }): Promise<StateUpdateItem[]> => {
+    const res = await api.get('/organization/geography/updates', { params });
+    return res.data;
+  },
+
+  createStateUpdate: async (data: {
+    title: string;
+    content: string;
+    stateId: string;
+    image?: string;
+    publishDate?: string;
+    status?: string;
+    type?: string;
+    author?: string;
+  }) => {
+    const res = await api.post('/organization/geography/updates', data);
+    return res.data;
+  },
+
+  updateStateUpdate: async (
+    id: string,
+    data: {
+      title?: string;
+      content?: string;
+      image?: string;
+      publishDate?: string;
+      status?: string;
+      type?: string;
+      author?: string;
+    },
+  ) => {
+    const res = await api.patch(`/organization/geography/updates/${id}`, data);
+    return res.data;
+  },
+
+  deleteStateUpdate: async (id: string) => {
+    const res = await api.delete(`/organization/geography/updates/${id}`);
+    return res.data;
+  },
+
+  getDistricts: async (stateId: string): Promise<DistrictItem[]> => {
+    const res = await api.get(`/organization/geography/districts`, { params: { stateId } });
     return res.data;
   },
 
   createDistrict: async (data: { name: string; stateId: string; code?: string; status?: string }) => {
     const res = await api.post('/organization/geography/districts', data);
+    return res.data;
+  },
+
+  updateDistrict: async (id: string, data: { name?: string; code?: string; status?: string }) => {
+    const res = await api.put(`/organization/geography/districts/${id}`, data);
+    return res.data;
+  },
+
+  deleteDistrict: async (id: string) => {
+    const res = await api.delete(`/organization/geography/districts/${id}`);
     return res.data;
   },
 

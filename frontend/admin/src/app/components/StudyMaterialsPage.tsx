@@ -9,6 +9,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   materialsApi,
+  resolveThumbnailUrl,
   type StudyMaterial,
   type StudyMaterialQueryParams,
   type StudyMaterialStats,
@@ -94,7 +95,7 @@ export default function StudyMaterialsPage() {
     ...(materialType && { materialType }),
     ...(subject && { subject }),
     ...(semester && { semester }),
-    ...(status && { status }),
+    status: status || "ALL",
     ...(featured && { featured: featured === "true" }),
     ...(premium && { premium: premium === "true" }),
   };
@@ -244,10 +245,10 @@ export default function StudyMaterialsPage() {
           >
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="text-2xl font-bold text-[#0F172A]">
+                <div className="text-2xl font-bold text-[#4A7B5B]">
                   {(s.value ?? 0).toLocaleString("en-IN")}
                 </div>
-                <div className="text-xs text-[#0F172A] font-medium mt-0.5">{s.label}</div>
+                <div className="text-xs text-[#4A7B5B] font-medium mt-0.5">{s.label}</div>
                 <div className="text-xs text-[#94A3B8]">{s.sub}</div>
               </div>
               <div
@@ -270,7 +271,7 @@ export default function StudyMaterialsPage() {
           { label: "Uploads This Month", value: stats?.uploadsThisMonth ?? 0 },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl p-3 border border-[#F1F5F9] text-center">
-            <div className="text-sm font-semibold text-[#0F172A]">{(s.value ?? 0).toLocaleString("en-IN")}</div>
+            <div className="text-sm font-semibold text-[#4A7B5B]">{(s.value ?? 0).toLocaleString("en-IN")}</div>
             <div className="text-xs text-[#94A3B8] mt-0.5">{s.label}</div>
           </div>
         ))}
@@ -337,7 +338,7 @@ export default function StudyMaterialsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "table" ? "#fff" : "transparent",
-                color: view === "table" ? "#0F172A" : "#94A3B8",
+                color: view === "table" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <Table2 className="w-3.5 h-3.5" />
@@ -347,7 +348,7 @@ export default function StudyMaterialsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "grid" ? "#fff" : "transparent",
-                color: view === "grid" ? "#0F172A" : "#94A3B8",
+                color: view === "grid" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -490,7 +491,7 @@ export default function StudyMaterialsPage() {
       {!isLoading && materials.length === 0 && (
         <div className="text-center py-20 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm">
           <FileText className="mx-auto h-12 w-12 mb-4" style={{ color: "#CBD5E1" }} />
-          <h3 className="text-lg font-semibold text-[#0F172A] mb-1">No study materials found</h3>
+          <h3 className="text-lg font-semibold text-[#4A7B5B] mb-1">No study materials found</h3>
           <p className="text-[#94A3B8] text-sm mb-4">
             {hasActiveFilters
               ? "Try adjusting your search or filter criteria."
@@ -553,13 +554,24 @@ export default function StudyMaterialsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden border border-slate-200 bg-slate-50"
                             style={{ background: typeC.bg }}
                           >
-                            <FileText className="w-4 h-4" style={{ color: typeC.text }} />
+                            {resolveThumbnailUrl(m.thumbnail) ? (
+                              <img
+                                src={resolveThumbnailUrl(m.thumbnail)!}
+                                alt={m.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <FileText className="w-4 h-4" style={{ color: typeC.text }} />
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-[#0F172A] truncate max-w-[220px]">
+                            <div className="text-sm font-semibold text-[#4A7B5B] truncate max-w-[220px]">
                               {m.title}
                             </div>
                             <div className="flex items-center gap-1.5 text-xs text-[#94A3B8]">
@@ -588,12 +600,12 @@ export default function StudyMaterialsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-semibold">
+                        <span className="text-xs text-[#4A7B5B] font-semibold">
                           {m.downloadCount.toLocaleString("en-IN")}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-medium">
+                        <span className="text-xs text-[#4A7B5B] font-medium">
                           {m.viewCount.toLocaleString("en-IN")}
                         </span>
                       </td>
@@ -699,18 +711,39 @@ export default function StudyMaterialsPage() {
                 className="bg-white rounded-2xl border border-[#F1F5F9] p-4 cursor-pointer hover:shadow-md transition-all group"
                 style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
               >
-                {/* Top bar */}
-                <div className="flex items-start justify-between mb-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: typeC.bg }}
-                  >
-                    <FileText className="w-5 h-5" style={{ color: typeC.text }} />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {m.premium && <Lock className="w-3.5 h-3.5 text-amber-600" />}
+                {/* Thumbnail / Header */}
+                <div className="relative w-full aspect-[16/9] rounded-xl overflow-hidden mb-3 bg-slate-950 border border-slate-200 group flex items-center justify-center">
+                  {resolveThumbnailUrl(m.thumbnail) ? (
+                    <img
+                      src={resolveThumbnailUrl(m.thumbnail)!}
+                      alt={m.title}
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#1a3a2c] to-[#4A7B5B] text-white p-2 text-center">
+                      <FileText className="w-8 h-8 opacity-75 mb-1" />
+                      <span className="text-[10px] font-bold tracking-wider uppercase opacity-80">{m.materialType}</span>
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 flex items-center gap-1">
                     <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      className="text-[10px] px-2 py-0.5 rounded-md font-bold shadow-xs backdrop-blur-xs"
+                      style={{ background: typeC.bg, color: typeC.text }}
+                    >
+                      {m.materialType}
+                    </span>
+                  </div>
+                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                    {m.premium && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-500 text-white shadow-xs flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5" /> ₹{m.price || 0}
+                      </span>
+                    )}
+                    <span
+                      className="text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-xs"
                       style={{ background: st.bg, color: st.text }}
                     >
                       {labelFmt(m.status)}
@@ -719,7 +752,7 @@ export default function StudyMaterialsPage() {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-sm font-bold text-[#0F172A] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
+                <h3 className="text-sm font-bold text-[#4A7B5B] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
                   {m.title}
                 </h3>
                 <p className="text-xs text-[#94A3B8] mb-3 truncate">

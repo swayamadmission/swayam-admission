@@ -16,22 +16,47 @@ export class ScholarshipService {
 
   async findAll(query?: {
     state?: string;
+    stateId?: string;
     incomeLimit?: number;
     category?: string;
+    status?: string;
   }) {
     const where: Prisma.ScholarshipWhereInput = {};
-    if (query?.state) {
-      where.state = query.state;
+    if (query?.stateId) {
+      where.OR = [
+        { stateId: query.stateId },
+        ...(query.state
+          ? [
+              { state: { equals: query.state, mode: 'insensitive' as Prisma.QueryMode } },
+              { states: { has: query.state } },
+            ]
+          : []),
+      ];
+    } else if (query?.state) {
+      where.OR = [
+        { state: { equals: query.state, mode: 'insensitive' as Prisma.QueryMode } },
+        { states: { has: query.state } },
+        { stateRelation: { name: { equals: query.state, mode: 'insensitive' as Prisma.QueryMode } } },
+      ];
     }
     if (query?.incomeLimit) {
       where.incomeLimit = {
-        gte: Number(query.incomeLimit), // Usually scholarships require income <= limit, so if we search for a specific limit... wait, if a student has income X, they can apply if scholarship.incomeLimit >= X.
+        gte: Number(query.incomeLimit),
       };
     }
     if (query?.category) {
       where.category = query.category;
     }
-    return this.prisma.scholarship.findMany({ where });
+    if (query?.status) {
+      where.status = query.status;
+    }
+    return this.prisma.scholarship.findMany({
+      where,
+      include: {
+        stateRelation: { select: { id: true, name: true, code: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async findOne(id: string) {

@@ -91,10 +91,10 @@ export default function ExamsPage() {
           <nav className="flex items-center gap-2 mb-4" style={{ fontSize: "12px", color: "#94a3b8" }}>
             <Link to="/" className="hover:text-[#4A7B5B] transition-colors">Home</Link>
             <ChevronRight size={12} />
-            <span style={{ color: "#0F172A", fontWeight: 600 }}>Exams</span>
+            <span style={{ color: "#4A7B5B", fontWeight: 600 }}>Exams</span>
           </nav>
           <div className="mb-2" style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>Entrance Exams</div>
-          <h1 className="mb-2" style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(24px,4vw,36px)" }}>
+          <h1 className="mb-2" style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(24px,4vw,36px)" }}>
             All Entrance Exams
           </h1>
           <p style={{ fontSize: "14px", color: "#64748b" }}>
@@ -108,7 +108,7 @@ export default function ExamsPage() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Upcoming Registration Deadlines</h2>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#4A7B5B" }}>Upcoming Registration Deadlines</h2>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {upcoming.map(exam => {
@@ -120,7 +120,7 @@ export default function ExamsPage() {
                   <Icon size={16} style={{ color: color }} />
                 </div>
                 <div className="min-w-0">
-                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }} className="truncate">{exam.examName}</div>
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }} className="truncate">{exam.examName}</div>
                   <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: "10px", color: "#EF4444" }}>
                     <Calendar size={9} />
                     <span className="truncate">Reg ends: {exam.applicationEnd ? new Date(exam.applicationEnd).toLocaleDateString() : 'N/A'}</span>
@@ -168,7 +168,7 @@ export default function ExamsPage() {
                     <Icon size={22} style={{ color: color }} />
                   </div>
                   <div>
-                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>{exam.examName}</h3>
+                    <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>{exam.examName}</h3>
                     <p style={{ fontSize: "11px", color: "#94a3b8" }}>{exam.conductedBy || "Varies"}</p>
                   </div>
                 </div>
@@ -191,7 +191,7 @@ export default function ExamsPage() {
                 ].map(({ label, value, Icon }) => (
                   <div key={label} className="bg-[#F8FAFC] rounded-xl p-2.5">
                     <div style={{ fontSize: "9px", color: "#94a3b8", fontWeight: 600 }}>{label.toUpperCase()}</div>
-                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#0F172A" }}>{value}</div>
+                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#4A7B5B" }}>{value}</div>
                   </div>
                 ))}
               </div>

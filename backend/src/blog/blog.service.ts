@@ -9,10 +9,14 @@ import { UpdateBlogDto } from './dto/update-blog.dto';
 import { BlogQueryDto } from './dto/blog-query.dto';
 import { GeoSeoUtility } from './geo-seo.utility';
 import { Prisma } from '@prisma/client';
+import { LiveSyncService } from '../events/live-sync.service';
 
 @Injectable()
 export class BlogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly liveSyncService: LiveSyncService,
+  ) {}
 
   /**
    * Retrieves aggregated dashboard statistics for Blogs & SEO.
@@ -185,11 +189,41 @@ export class BlogService {
         { title: { contains: query.q, mode: 'insensitive' } },
         { content: { contains: query.q, mode: 'insensitive' } },
         { excerpt: { contains: query.q, mode: 'insensitive' } },
+        { career: { contains: query.q, mode: 'insensitive' } },
+        { careerPath: { contains: query.q, mode: 'insensitive' } },
+        { stream: { contains: query.q, mode: 'insensitive' } },
+        { specialization: { contains: query.q, mode: 'insensitive' } },
+        { state: { contains: query.q, mode: 'insensitive' } },
+        { tags: { has: query.q } },
       ];
     }
 
     if (query.category && query.category.toLowerCase() !== 'all') {
       where.category = { equals: query.category, mode: 'insensitive' };
+    }
+
+    if (query.guideType && query.guideType.toLowerCase() !== 'all') {
+      where.guideType = query.guideType;
+    }
+
+    if (query.educationLevel && query.educationLevel.toLowerCase() !== 'all') {
+      where.educationLevel = { equals: query.educationLevel, mode: 'insensitive' };
+    }
+
+    if (query.stream && query.stream.toLowerCase() !== 'all') {
+      where.stream = { equals: query.stream, mode: 'insensitive' };
+    }
+
+    if (query.specialization && query.specialization.toLowerCase() !== 'all') {
+      where.specialization = { contains: query.specialization, mode: 'insensitive' };
+    }
+
+    if (query.state && query.state.toLowerCase() !== 'all') {
+      where.state = { equals: query.state, mode: 'insensitive' };
+    }
+
+    if (query.courseId) {
+      where.courseId = query.courseId;
     }
 
     if (query.featured !== undefined) {
@@ -204,8 +238,10 @@ export class BlogService {
         orderBy: { publishedAt: 'desc' },
         include: {
           author: { select: { id: true, fullName: true } },
-          college: { select: { id: true, name: true, slug: true } },
-          course: { select: { id: true, name: true, slug: true } },
+          college: { select: { id: true, name: true, slug: true, city: true, state: true } },
+          course: { select: { id: true, name: true, slug: true, duration: true, totalFees: true } },
+          exam: { select: { id: true, examName: true, slug: true } },
+          scholarship: { select: { id: true, scholarshipName: true, slug: true } },
         },
       }),
       this.prisma.blog.count({ where }),
@@ -386,6 +422,20 @@ export class BlogService {
     // Log Activity
     await this.logAuditAction('CREATE', 'BLOG', blog.id, null, blog, userId);
 
+    try {
+      this.liveSyncService.publishEvent(
+        blog.status === 'PUBLISHED' ? 'guide.published' : 'guide.created',
+        {
+          guideId: blog.id,
+          title: blog.title,
+          status: blog.status,
+          guideType: blog.guideType,
+        },
+      );
+    } catch {
+      // ignore
+    }
+
     return blog;
   }
 
@@ -490,6 +540,24 @@ export class BlogService {
       userId,
     );
 
+    try {
+      const eventType =
+        updated.status === 'PUBLISHED'
+          ? 'guide.published'
+          : existing.status === 'PUBLISHED' && updated.status !== 'PUBLISHED'
+            ? 'guide.unpublished'
+            : 'guide.updated';
+
+      this.liveSyncService.publishEvent(eventType, {
+        guideId: updated.id,
+        title: updated.title,
+        status: updated.status,
+        guideType: updated.guideType,
+      });
+    } catch {
+      // ignore
+    }
+
     return updated;
   }
 
@@ -516,6 +584,15 @@ export class BlogService {
       userId,
     );
 
+    try {
+      this.liveSyncService.publishEvent('guide.deleted', {
+        guideId: id,
+        title: existing.title,
+      });
+    } catch {
+      // ignore
+    }
+
     return deleted;
   }
 
@@ -535,6 +612,20 @@ export class BlogService {
     });
 
     await this.logAuditAction('RESTORE', 'BLOG', id, null, restored, userId);
+
+    try {
+      this.liveSyncService.publishEvent(
+        restored.status === 'PUBLISHED' ? 'guide.published' : 'guide.created',
+        {
+          guideId: restored.id,
+          title: restored.title,
+          status: restored.status,
+          guideType: restored.guideType,
+        },
+      );
+    } catch {
+      // ignore
+    }
 
     return restored;
   }
@@ -730,8 +821,430 @@ export class BlogService {
           userId: userId || undefined,
         },
       });
-    } catch (e) {
+    } catch {
       // Audit log error non-blocking
     }
+  }
+
+  /**
+   * Resolves related courses, colleges, exams, and scholarships for a guide.
+   */
+  async resolveRelatedEntities(blog: any) {
+    if (!blog) return blog;
+    const [courses, colleges, exams, scholarships] = await Promise.all([
+      Array.isArray(blog.relatedCourseIds) && blog.relatedCourseIds.length > 0
+        ? this.prisma.course.findMany({
+            where: { id: { in: blog.relatedCourseIds } },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              duration: true,
+              totalFees: true,
+              category: true,
+            },
+          })
+        : Promise.resolve([]),
+      Array.isArray(blog.relatedCollegeIds) && blog.relatedCollegeIds.length > 0
+        ? this.prisma.college.findMany({
+            where: { id: { in: blog.relatedCollegeIds } },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              city: true,
+              state: true,
+            },
+          })
+        : Promise.resolve([]),
+      Array.isArray(blog.relatedExamIds) && blog.relatedExamIds.length > 0
+        ? this.prisma.exam.findMany({
+            where: { id: { in: blog.relatedExamIds } },
+            select: { id: true, examName: true, slug: true },
+          })
+        : Promise.resolve([]),
+      Array.isArray(blog.relatedScholarshipIds) &&
+      blog.relatedScholarshipIds.length > 0
+        ? this.prisma.scholarship.findMany({
+            where: { id: { in: blog.relatedScholarshipIds } },
+            select: {
+              id: true,
+              scholarshipName: true,
+              slug: true,
+              amount: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    return {
+      ...blog,
+      resolvedRelatedCourses: courses,
+      resolvedRelatedColleges: colleges,
+      resolvedRelatedExams: exams,
+      resolvedRelatedScholarships: scholarships,
+    };
+  }
+
+  /**
+   * Preview a guide as it would appear on the student panel without publishing.
+   */
+  async getPreview(id: string) {
+    const blog = await this.findById(id);
+    return this.resolveRelatedEntities(blog);
+  }
+
+  /**
+   * Personalized recommendations based ONLY on actual student data.
+   */
+  async getPersonalizedGuides(userId: string) {
+    if (!userId) return [];
+
+    const user: any = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        studentPreference: true,
+        applications: {
+          where: { status: { not: 'REJECTED' } },
+          include: {
+            course: { select: { id: true, name: true, category: true } },
+            college: { select: { id: true, name: true, state: true } },
+          },
+        },
+        assignedCounselor: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            mobile: true,
+            designation: true,
+          },
+        },
+      },
+    });
+
+    if (!user) return [];
+
+    const stream = user.studentPreference?.stream || null;
+    const preferredCourses: string[] = user.studentPreference?.preferredCourses || [];
+    const preferredStates: string[] = user.studentPreference?.preferredStates || [];
+    const loanRequired = user.studentPreference?.loanRequired || false;
+    const scholarshipRequired =
+      user.studentPreference?.scholarshipRequired || false;
+
+    const applications: any[] = user.applications || [];
+    const appCourseIds: string[] = applications
+      .map((a: any) => a.courseId)
+      .filter(Boolean);
+    const appCollegeIds: string[] = applications
+      .map((a: any) => a.collegeId)
+      .filter((c: any): c is string => !!c);
+    const appCategories: string[] = applications
+      .map((a: any) => a.course?.category)
+      .filter(Boolean);
+
+    let educationLevel: string | null = null;
+    if (user.profile?.graduationCourse || user.profile?.graduationPassingYear) {
+      educationLevel = 'Postgraduate';
+    } else if (user.profile?.twelfthMarks || user.profile?.twelfthPassingYear) {
+      educationLevel = 'Undergraduate';
+    } else if (user.profile?.tenthMarks || user.profile?.tenthPassingYear) {
+      educationLevel = '12th';
+    }
+
+    const conditions: any[] = [];
+
+    if (stream) {
+      conditions.push({
+        stream: { equals: String(stream), mode: 'insensitive' },
+      });
+    }
+    for (const cat of appCategories) {
+      if (cat) {
+        conditions.push({ stream: { equals: String(cat), mode: 'insensitive' } });
+      }
+    }
+
+    if (educationLevel) {
+      conditions.push({
+        educationLevel: { equals: educationLevel, mode: 'insensitive' },
+      });
+    }
+
+    if (preferredCourses.length > 0) {
+      for (const c of preferredCourses) {
+        conditions.push({
+          OR: [
+            { course: { name: { contains: c, mode: 'insensitive' } } },
+            { title: { contains: c, mode: 'insensitive' } },
+          ],
+        });
+      }
+    }
+
+    if (appCourseIds.length > 0) {
+      conditions.push({ courseId: { in: appCourseIds } });
+    }
+
+    if (appCollegeIds.length > 0) {
+      conditions.push({ collegeId: { in: appCollegeIds } });
+    }
+
+    if (user.profile?.state) {
+      conditions.push({
+        state: { equals: user.profile.state, mode: 'insensitive' },
+      });
+    }
+    for (const st of preferredStates) {
+      if (st) {
+        conditions.push({ state: { equals: st, mode: 'insensitive' } });
+      }
+    }
+
+    if (scholarshipRequired || loanRequired) {
+      conditions.push({
+        OR: [
+          { scholarshipId: { not: null } },
+          { governmentScheme: { not: null } },
+          { category: { contains: 'Scholarship', mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    if (conditions.length === 0) {
+      return [];
+    }
+
+    const guides: any[] = await this.prisma.blog.findMany({
+      where: {
+        status: 'PUBLISHED',
+        deletedAt: null,
+        OR: conditions,
+      },
+      take: 20,
+      include: {
+        author: { select: { id: true, fullName: true } },
+        college: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            city: true,
+            state: true,
+          },
+        },
+        course: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            duration: true,
+            totalFees: true,
+          },
+        },
+        exam: { select: { id: true, examName: true, slug: true } },
+        scholarship: {
+          select: { id: true, scholarshipName: true, slug: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const scored = guides.map((guide: any) => {
+      let score = 0;
+      const reasons: string[] = [];
+
+      if (
+        stream &&
+        guide.stream &&
+        guide.stream.toLowerCase() === String(stream).toLowerCase()
+      ) {
+        score += 30;
+        reasons.push(`Matches your ${stream} stream`);
+      }
+      if (
+        educationLevel &&
+        guide.educationLevel &&
+        guide.educationLevel.toLowerCase() === educationLevel.toLowerCase()
+      ) {
+        score += 25;
+        reasons.push(`Relevant for ${educationLevel} studies`);
+      }
+      if (guide.courseId && appCourseIds.includes(guide.courseId)) {
+        score += 35;
+        reasons.push(
+          `Directly matches your application for ${guide.course?.name || 'course'}`,
+        );
+      }
+      if (
+        user.profile?.state &&
+        guide.state &&
+        guide.state.toLowerCase() === user.profile.state.toLowerCase()
+      ) {
+        score += 15;
+        reasons.push(`State-specific guidance for ${guide.state}`);
+      }
+      if (
+        (scholarshipRequired || loanRequired) &&
+        (guide.scholarshipId || guide.governmentScheme)
+      ) {
+        score += 20;
+        reasons.push('Includes financial assistance / scholarship guidance');
+      }
+
+      return {
+        ...guide,
+        recommendationScore: score,
+        matchReason:
+          reasons.join(' • ') ||
+          'Recommended based on your profile preferences',
+      };
+    });
+
+    scored.sort((a: any, b: any) => b.recommendationScore - a.recommendationScore);
+    return scored;
+  }
+
+  /**
+   * Save a guide for the authenticated student.
+   */
+  async saveGuide(userId: string, guideId: string) {
+    if (!userId || !guideId) {
+      throw new BadRequestException('User ID and Guide ID required');
+    }
+    const guide = await this.prisma.blog.findUnique({
+      where: { id: guideId },
+    });
+    if (!guide || guide.status !== 'PUBLISHED' || guide.deletedAt) {
+      throw new NotFoundException('Published guide not found');
+    }
+
+    await this.prisma.savedGuide.upsert({
+      where: {
+        userId_guideId: { userId, guideId },
+      },
+      create: { userId, guideId },
+      update: {},
+    });
+
+    return { success: true, message: 'Guide saved successfully', guideId };
+  }
+
+  /**
+   * Unsave a guide for the authenticated student.
+   */
+  async unsaveGuide(userId: string, guideId: string) {
+    if (!userId || !guideId) {
+      throw new BadRequestException('User ID and Guide ID required');
+    }
+    await this.prisma.savedGuide.deleteMany({
+      where: { userId, guideId },
+    });
+    return { success: true, message: 'Guide removed from saved', guideId };
+  }
+
+  /**
+   * Fetch all saved guides for the authenticated student.
+   */
+  async getSavedGuides(userId: string) {
+    if (!userId) return [];
+    const saved: any[] = await this.prisma.savedGuide.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        guide: {
+          include: {
+            author: { select: { id: true, fullName: true } },
+            college: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                city: true,
+                state: true,
+              },
+            },
+            course: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                duration: true,
+                totalFees: true,
+              },
+            },
+            exam: { select: { id: true, examName: true, slug: true } },
+            scholarship: {
+              select: { id: true, scholarshipName: true, slug: true },
+            },
+          },
+        },
+      },
+    });
+
+    return saved
+      .filter(
+        (s: any) => s.guide && s.guide.status === 'PUBLISHED' && !s.guide.deletedAt,
+      )
+      .map((s: any) => ({
+        ...s.guide,
+        savedAt: s.createdAt,
+      }));
+  }
+
+  /**
+   * Retrieve real counselor recommendations/guidance for a student.
+   */
+  async getCounselorGuidance(userId: string) {
+    if (!userId) return { hasCounselor: false, counselor: null, guides: [] };
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        assignedCounselorId: true,
+        assignedCounselor: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            mobile: true,
+            avatar: true,
+            designation: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.assignedCounselor) {
+      return {
+        hasCounselor: false,
+        counselor: null,
+        message: 'No counselor assigned yet.',
+        guides: [],
+      };
+    }
+
+    const counselorGuides = await this.prisma.blog.findMany({
+      where: {
+        authorId: user.assignedCounselor.id,
+        status: 'PUBLISHED',
+        deletedAt: null,
+      },
+      take: 5,
+      include: {
+        course: { select: { id: true, name: true, slug: true } },
+        college: { select: { id: true, name: true, slug: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return {
+      hasCounselor: true,
+      counselor: user.assignedCounselor,
+      guides: counselorGuides,
+    };
   }
 }

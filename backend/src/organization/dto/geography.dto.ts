@@ -24,6 +24,21 @@ export class CreateStateDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsString()
+  @IsOptional()
+  heroImage?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
+  @IsString()
+  @IsOptional()
+  region?: string;
+
+  @IsOptional()
+  popularCourses?: string[];
 }
 
 export class CreateDistrictDto {

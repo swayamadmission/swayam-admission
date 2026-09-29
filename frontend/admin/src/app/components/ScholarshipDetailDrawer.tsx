@@ -51,7 +51,7 @@ function Section({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F8FAFC] transition-colors"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#0F172A]">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#4A7B5B]">
           <Icon className="w-4 h-4" style={{ color: "#4A7B5B" }} />
           {title}
         </div>
@@ -282,7 +282,7 @@ export default function ScholarshipDetailDrawer({
                       </div>
                       <span className="text-xs text-[#94A3B8]">{s.label}</span>
                     </div>
-                    <div className="text-base font-bold text-[#0F172A]">{s.value}</div>
+                    <div className="text-base font-bold text-[#4A7B5B]">{s.value}</div>
                   </div>
                 ))}
               </div>

@@ -130,7 +130,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
           <button
             onClick={() => onPageChange("leads")}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90 shrink-0"
-            style={{ background: "#F0AE1A", color: "#0F172A" }}
+            style={{ background: "#F0AE1A", color: "#4A7B5B" }}
           >
             View Leads <ArrowRight className="w-4 h-4" />
           </button>
@@ -176,7 +176,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
                       {kpi.change}
                     </span>
                   </div>
-                  <div className="text-[#0F172A] font-semibold text-xl leading-tight">{kpi.value}</div>
+                  <div className="text-[#4A7B5B] font-semibold text-xl leading-tight">{kpi.value}</div>
                   <div className="text-[#94A3B8] text-xs mt-0.5">{kpi.title}</div>
                 </>
               )}
@@ -192,7 +192,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
         <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-[#F1F5F9] min-h-[300px]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-[#0F172A]">Lead Trend</h3>
+              <h3 className="text-[#4A7B5B]">Lead Trend</h3>
               <p className="text-[#94A3B8] text-xs">Daily leads & conversions this week</p>
             </div>
           </div>
@@ -240,7 +240,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
         {/* Stage distribution */}
         <div className="bg-white rounded-2xl p-5 border border-[#F1F5F9] min-h-[300px]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="mb-5">
-            <h3 className="text-[#0F172A]">Pipeline Status</h3>
+            <h3 className="text-[#4A7B5B]">Pipeline Status</h3>
             <p className="text-[#94A3B8] text-xs">Lead stage distribution</p>
           </div>
           {isLoading ? (
@@ -279,7 +279,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
                       <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
                       <span className="text-xs text-[#64748B]">{stage.name}</span>
                     </div>
-                    <span className="text-xs font-medium text-[#0F172A]">{stage.value}</span>
+                    <span className="text-xs font-medium text-[#4A7B5B]">{stage.value}</span>
                   </div>
                 ))}
               </div>
@@ -295,7 +295,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
         <div className="bg-white rounded-2xl p-5 border border-[#F1F5F9] min-h-[250px]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-[#0F172A]">State Performance</h3>
+              <h3 className="text-[#4A7B5B]">State Performance</h3>
               <p className="text-[#94A3B8] text-xs">Top states by leads</p>
             </div>
           </div>
@@ -317,7 +317,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
                   <div key={item.state}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm text-[#475569]">{item.state}</span>
-                      <span className="text-xs font-medium text-[#0F172A]">{item.leads}</span>
+                      <span className="text-xs font-medium text-[#4A7B5B]">{item.leads}</span>
                     </div>
                     <div className="h-2 rounded-full" style={{ background: "#F1F5F9" }}>
                       <div
@@ -336,7 +336,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
         <div className="bg-white rounded-2xl p-5 border border-[#F1F5F9] min-h-[250px]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-[#0F172A]">Top Counselors</h3>
+              <h3 className="text-[#4A7B5B]">Top Counselors</h3>
               <p className="text-[#94A3B8] text-xs">Based on conversions</p>
             </div>
             <button onClick={() => onPageChange("counselors")} className="text-xs" style={{ color: "#4A7B5B" }}>
@@ -367,7 +367,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-sm text-[#0F172A]">{c.name}</span>
+                      <span className="text-sm text-[#4A7B5B]">{c.name}</span>
                       <span className="text-xs text-[#94A3B8]">{c.converted} conv.</span>
                     </div>
                     <div className="h-1.5 rounded-full" style={{ background: "#F1F5F9" }}>
@@ -388,7 +388,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
         <div className="bg-white rounded-2xl p-5 border border-[#F1F5F9] min-h-[250px]" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-[#0F172A]">Recent Leads</h3>
+              <h3 className="text-[#4A7B5B]">Recent Leads</h3>
               <p className="text-[#94A3B8] text-xs">Latest incoming leads</p>
             </div>
             <button onClick={() => onPageChange("leads")} className="text-xs" style={{ color: "#4A7B5B" }}>
@@ -421,7 +421,7 @@ export default function Dashboard({ onPageChange }: DashboardProps) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-[#0F172A] truncate font-medium">{lead.name}</span>
+                        <span className="text-sm text-[#4A7B5B] truncate font-medium">{lead.name}</span>
                         <span
                           className="text-[10px] px-2 py-0.5 rounded-full font-medium ml-2 shrink-0"
                           style={{ background: stage.bg, color: stage.text }}

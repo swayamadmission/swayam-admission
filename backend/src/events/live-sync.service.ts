@@ -23,7 +23,21 @@ export type BusinessEventType =
   | 'referral.reward.updated'
   | 'coupon.created'
   | 'coupon.updated'
-  | 'support.ticket.created';
+  | 'support.ticket.created'
+  | 'guide.created'
+  | 'guide.updated'
+  | 'guide.published'
+  | 'guide.unpublished'
+  | 'guide.deleted'
+  | 'material.created'
+  | 'material.updated'
+  | 'material.published'
+  | 'material.unpublished'
+  | 'material.deleted'
+  | 'material.purchased'
+  | 'notification.created'
+  | 'notification.read'
+  | 'notification.readAll';
 
 @Injectable()
 export class LiveSyncService {

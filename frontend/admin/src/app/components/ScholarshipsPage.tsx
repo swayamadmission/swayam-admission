@@ -204,10 +204,10 @@ export default function ScholarshipsPage() {
           >
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="text-2xl font-bold text-[#0F172A]">
+                <div className="text-2xl font-bold text-[#4A7B5B]">
                   {(s.value ?? 0).toLocaleString("en-IN")}
                 </div>
-                <div className="text-xs text-[#0F172A] font-medium mt-0.5">{s.label}</div>
+                <div className="text-xs text-[#4A7B5B] font-medium mt-0.5">{s.label}</div>
                 <div className="text-xs text-[#94A3B8]">{s.sub}</div>
               </div>
               <div
@@ -230,7 +230,7 @@ export default function ScholarshipsPage() {
           { label: "State Schemes", value: "Active" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl p-3 border border-[#F1F5F9] text-center">
-            <div className="text-sm font-semibold text-[#0F172A]">{String(s.value ?? 0)}</div>
+            <div className="text-sm font-semibold text-[#4A7B5B]">{String(s.value ?? 0)}</div>
             <div className="text-xs text-[#94A3B8] mt-0.5">{s.label}</div>
           </div>
         ))}
@@ -297,7 +297,7 @@ export default function ScholarshipsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "table" ? "#fff" : "transparent",
-                color: view === "table" ? "#0F172A" : "#94A3B8",
+                color: view === "table" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <Table2 className="w-3.5 h-3.5" />
@@ -307,7 +307,7 @@ export default function ScholarshipsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "grid" ? "#fff" : "transparent",
-                color: view === "grid" ? "#0F172A" : "#94A3B8",
+                color: view === "grid" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -450,7 +450,7 @@ export default function ScholarshipsPage() {
       {!isLoading && scholarships.length === 0 && (
         <div className="text-center py-20 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm">
           <Award className="mx-auto h-12 w-12 mb-4" style={{ color: "#CBD5E1" }} />
-          <h3 className="text-lg font-semibold text-[#0F172A] mb-1">No scholarships found</h3>
+          <h3 className="text-lg font-semibold text-[#4A7B5B] mb-1">No scholarships found</h3>
           <p className="text-[#94A3B8] text-sm mb-4">
             {hasActiveFilters
               ? "Try adjusting your search or filter criteria."
@@ -518,7 +518,7 @@ export default function ScholarshipsPage() {
                             <Award className="w-4 h-4" style={{ color: cat.text }} />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-[#0F172A] truncate max-w-[220px]">
+                            <div className="text-sm font-semibold text-[#4A7B5B] truncate max-w-[220px]">
                               {s.scholarshipName}
                             </div>
                             {s.featured && (
@@ -546,12 +546,12 @@ export default function ScholarshipsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-semibold">
+                        <span className="text-xs text-[#4A7B5B] font-semibold">
                           {s.amount ? `₹${s.amount.toLocaleString("en-IN")}` : "Variable"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-medium">
+                        <span className="text-xs text-[#4A7B5B] font-medium">
                           {s.applicationEnd
                             ? new Date(s.applicationEnd).toLocaleDateString("en-IN")
                             : "Ongoing"}
@@ -659,7 +659,7 @@ export default function ScholarshipsPage() {
                 </div>
 
                 {/* Name */}
-                <h3 className="text-sm font-bold text-[#0F172A] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
+                <h3 className="text-sm font-bold text-[#4A7B5B] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
                   {s.scholarshipName}
                 </h3>
                 <p className="text-xs text-[#94A3B8] mb-3 truncate">
@@ -682,7 +682,7 @@ export default function ScholarshipsPage() {
                 {/* Footer row */}
                 <div className="flex items-center justify-between pt-3 border-t border-[#F8FAFC]">
                   <div className="text-xs text-[#475569]">
-                    Grant: <span className="font-semibold text-[#0F172A]">{s.amount ? `₹${s.amount.toLocaleString("en-IN")}` : "Variable"}</span>
+                    Grant: <span className="font-semibold text-[#4A7B5B]">{s.amount ? `₹${s.amount.toLocaleString("en-IN")}` : "Variable"}</span>
                   </div>
                   <div className="text-xs text-[#94A3B8]">
                     {s.state || "All India"}

@@ -739,7 +739,7 @@ function NotificationsPageInner() {
                 <Radio className="w-5 h-5 animate-pulse" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-[#0F172A] tracking-tight">
+                <h1 className="text-xl font-bold text-[#4A7B5B] tracking-tight">
                   Enterprise Communication Engine
                 </h1>
                 <p className="text-xs text-[#94A3B8]">
@@ -762,7 +762,7 @@ function NotificationsPageInner() {
                 refetchAudiencePreview();
                 showFeedback("info", "Communication Center data refreshed.");
               }}
-              className="px-3 py-2 text-xs font-semibold text-[#0F172A] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC] flex items-center gap-1.5 transition shadow-xs"
+              className="px-3 py-2 text-xs font-semibold text-[#4A7B5B] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC] flex items-center gap-1.5 transition shadow-xs"
             >
               <RefreshCw className="w-3.5 h-3.5 text-[#94A3B8]" />
               Refresh
@@ -807,7 +807,7 @@ function NotificationsPageInner() {
                 className={`px-3.5 py-2 text-xs font-semibold rounded-lg flex items-center gap-2 transition whitespace-nowrap ${
                   isActive
                     ? "bg-[#4A7B5B] text-white shadow-xs"
-                    : "text-[#0F172A] hover:bg-[#E8F3EC] hover:text-[#4A7B5B]"
+                    : "text-[#4A7B5B] hover:bg-[#E8F3EC] hover:text-[#4A7B5B]"
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-[#94A3B8]"}`} />
@@ -815,7 +815,7 @@ function NotificationsPageInner() {
                 {tab.badge !== undefined && (
                   <span
                     className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      isActive ? "bg-white/20 text-white" : "bg-[#F1F5F9] text-[#0F172A]"
+                      isActive ? "bg-white/20 text-white" : "bg-[#F1F5F9] text-[#4A7B5B]"
                     }`}
                   >
                     {tab.badge}
@@ -854,7 +854,7 @@ function NotificationsPageInner() {
                         <Icon className="w-3.5 h-3.5" />
                       </div>
                     </div>
-                    <p className="text-xl font-bold text-[#0F172A] mt-2">{kpi.value.toLocaleString()}</p>
+                    <p className="text-xl font-bold text-[#4A7B5B] mt-2">{kpi.value.toLocaleString()}</p>
                   </div>
                 );
               })}
@@ -864,7 +864,7 @@ function NotificationsPageInner() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-3">
-                  <h3 className="text-sm font-bold text-[#0F172A]">Recent Broadcast Campaigns</h3>
+                  <h3 className="text-sm font-bold text-[#4A7B5B]">Recent Broadcast Campaigns</h3>
                   <button onClick={() => setActiveTab("campaigns")} className="text-xs font-bold text-[#4A7B5B] hover:underline">
                     View All →
                   </button>
@@ -873,7 +873,7 @@ function NotificationsPageInner() {
                   {campaignsList.slice(0, 5).map((c: any) => (
                     <div key={c.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <span className="font-bold text-xs text-[#0F172A] block">{c.name}</span>
+                        <span className="font-bold text-xs text-[#4A7B5B] block">{c.name}</span>
                         <span className="text-[10px] text-[#94A3B8] font-mono">
                           {c.campaignCode} • {c.type} • {c.channels?.join(", ")}
                         </span>
@@ -894,7 +894,7 @@ function NotificationsPageInner() {
 
               {/* Gateway Provider Health */}
               <div className="bg-white rounded-xl border border-[#E2E8F0] p-5 shadow-xs space-y-4">
-                <h3 className="text-sm font-bold text-[#0F172A]">Gateway Channel Status</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Gateway Channel Status</h3>
                 <div className="space-y-3">
                   {[
                     { channel: "In-App Realtime", provider: "WebSocket Server", status: "ONLINE", latency: "12ms" },
@@ -904,7 +904,7 @@ function NotificationsPageInner() {
                   ].map((gw, idx) => (
                     <div key={idx} className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between text-xs">
                       <div>
-                        <strong className="text-[#0F172A] block">{gw.channel}</strong>
+                        <strong className="text-[#4A7B5B] block">{gw.channel}</strong>
                         <span className="text-[10px] text-[#94A3B8]">{gw.provider}</span>
                       </div>
                       <div className="text-right">
@@ -1022,13 +1022,13 @@ function NotificationsPageInner() {
                         return (
                           <tr key={c.id} className="hover:bg-[#F8FAFC]/50 transition">
                             <td className="px-5 py-4">
-                              <div className="font-bold text-[#0F172A]">{c.name}</div>
+                              <div className="font-bold text-[#4A7B5B]">{c.name}</div>
                               <div className="text-[10px] text-[#94A3B8] font-mono mt-0.5">
                                 {c.campaignCode} {c.savedAudience ? `• Seg: ${c.savedAudience.name}` : ""}
                               </div>
                             </td>
                             <td className="px-4 py-4">
-                              <div className="font-semibold text-[#0F172A]">{c.type}</div>
+                              <div className="font-semibold text-[#4A7B5B]">{c.type}</div>
                               <div className="text-[10px] text-[#94A3B8]">Target: {c.targetEntity}</div>
                             </td>
                             <td className="px-4 py-4">
@@ -1042,7 +1042,7 @@ function NotificationsPageInner() {
                             </td>
                             <td className="px-4 py-4">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-[#0F172A]">{c.sentCount} / {c.totalAudience}</span>
+                                <span className="font-bold text-[#4A7B5B]">{c.sentCount} / {c.totalAudience}</span>
                               </div>
                               <div className="w-24 bg-[#F1F5F9] rounded-full h-1.5 mt-1 overflow-hidden">
                                 <div
@@ -1082,7 +1082,7 @@ function NotificationsPageInner() {
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   onClick={() => setSelectedCampaignId(c.id)}
-                                  className="px-2.5 py-1 text-xs font-semibold text-[#0F172A] bg-white border border-[#E2E8F0] rounded hover:bg-[#F8FAFC]"
+                                  className="px-2.5 py-1 text-xs font-semibold text-[#4A7B5B] bg-white border border-[#E2E8F0] rounded hover:bg-[#F8FAFC]"
                                 >
                                   Analytics
                                 </button>
@@ -1131,7 +1131,7 @@ function NotificationsPageInner() {
                 <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
                     <div>
-                      <h3 className="text-base font-bold text-[#0F172A]">
+                      <h3 className="text-base font-bold text-[#4A7B5B]">
                         {campaignAnalyticsRes.data.campaign.name}
                       </h3>
                       <p className="text-xs text-[#94A3B8] font-mono">
@@ -1140,7 +1140,7 @@ function NotificationsPageInner() {
                     </div>
                     <button
                       onClick={() => setSelectedCampaignId(null)}
-                      className="text-[#94A3B8] hover:text-[#0F172A]"
+                      className="text-[#94A3B8] hover:text-[#4A7B5B]"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -1150,7 +1150,7 @@ function NotificationsPageInner() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="bg-[#F8FAFC] p-3 rounded-xl border border-[#E2E8F0] text-center">
                       <span className="text-[11px] text-[#94A3B8]">Total Audience</span>
-                      <p className="text-lg font-black text-[#0F172A] mt-1">
+                      <p className="text-lg font-black text-[#4A7B5B] mt-1">
                         {campaignAnalyticsRes.data.summary.totalAudience}
                       </p>
                     </div>
@@ -1176,12 +1176,12 @@ function NotificationsPageInner() {
 
                   {/* Channel Breakdown */}
                   <div>
-                    <h4 className="text-xs font-bold text-[#0F172A] mb-3">Delivery Breakdown by Channel</h4>
+                    <h4 className="text-xs font-bold text-[#4A7B5B] mb-3">Delivery Breakdown by Channel</h4>
                     <div className="space-y-2">
                       {campaignAnalyticsRes.data.channelDistribution?.map((item: any, idx: number) => (
                         <div key={idx} className="p-3 bg-[#F8FAFC] rounded-lg flex items-center justify-between text-xs">
-                          <span className="font-bold text-[#0F172A]">{item.channel}</span>
-                          <span className="text-[#94A3B8]">Status: <strong className="text-[#0F172A]">{item.status}</strong></span>
+                          <span className="font-bold text-[#4A7B5B]">{item.channel}</span>
+                          <span className="text-[#94A3B8]">Status: <strong className="text-[#4A7B5B]">{item.status}</strong></span>
                           <span className="font-bold text-[#4A7B5B]">{item.count} messages</span>
                         </div>
                       ))}
@@ -1218,7 +1218,7 @@ function NotificationsPageInner() {
             <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-xs space-y-6">
               <div className="flex items-center justify-between border-b border-[#F1F5F9] pb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Target Audience Configuration</h3>
+                  <h3 className="text-sm font-bold text-[#4A7B5B]">Target Audience Configuration</h3>
                   <p className="text-xs text-[#94A3B8]">Multi-dimensional database query resolver with state-dependent filters</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1262,7 +1262,7 @@ function NotificationsPageInner() {
 
               {/* Target Entity Toggle */}
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-2">Target Entity Group</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-2">Target Entity Group</label>
                 <div className="grid grid-cols-4 gap-2">
                   {[
                     { id: "STUDENT", label: "Students (Registered)" },
@@ -1276,7 +1276,7 @@ function NotificationsPageInner() {
                       className={`py-2 text-xs font-bold rounded-lg border transition ${
                         builderTargetEntity === t.id
                           ? "bg-[#4A7B5B] text-white border-[#4A7B5B]"
-                          : "bg-[#F8FAFC] text-[#0F172A] border-[#E2E8F0] hover:bg-white"
+                          : "bg-[#F8FAFC] text-[#4A7B5B] border-[#E2E8F0] hover:bg-white"
                       }`}
                     >
                       {t.label}
@@ -1287,7 +1287,7 @@ function NotificationsPageInner() {
 
               {/* Academic Filters */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#0F172A]">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#4A7B5B]">
                   <GraduationCap className="w-4 h-4 text-[#4A7B5B]" /> Academic Segmentation
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1374,7 +1374,7 @@ function NotificationsPageInner() {
 
               {/* Geographic Filters */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#0F172A]">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#4A7B5B]">
                   <MapPin className="w-4 h-4 text-[#4A7B5B]" /> Geography (States + UTs)
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1416,7 +1416,7 @@ function NotificationsPageInner() {
 
               {/* College & Status Filters */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#0F172A]">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#4A7B5B]">
                   <Building className="w-4 h-4 text-[#4A7B5B]" /> Institution & Application Status
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1465,7 +1465,7 @@ function NotificationsPageInner() {
 
               {/* Counselor / IAM Staff Filters & Operational */}
               <div className="space-y-3 pt-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-[#0F172A]">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#4A7B5B]">
                   <ShieldAlert className="w-4 h-4 text-[#4A7B5B]" /> Counselor, IAM & Operational Filters
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -1534,7 +1534,7 @@ function NotificationsPageInner() {
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-xl border border-[#E2E8F0] shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-[#0F172A]">Live Audience Preview</h3>
+                  <h3 className="text-sm font-bold text-[#4A7B5B]">Live Audience Preview</h3>
                   {isAudienceCalculating && (
                     <RefreshCw className="w-3.5 h-3.5 text-[#4A7B5B] animate-spin" />
                   )}
@@ -1542,7 +1542,7 @@ function NotificationsPageInner() {
 
                 <div className="bg-[#E8F3EC] p-4 rounded-xl text-center border border-[#4A7B5B]/20">
                   <span className="text-xs font-semibold text-[#4A7B5B]">Estimated Matching Recipients</span>
-                  <p className="text-3xl font-black text-[#0F172A] mt-1">
+                  <p className="text-3xl font-black text-[#4A7B5B] mt-1">
                     {audiencePreview.totalAudience.toLocaleString()}
                   </p>
                 </div>
@@ -1597,7 +1597,7 @@ function NotificationsPageInner() {
 
               {/* Masked Sample Records */}
               <div className="bg-white p-5 rounded-xl border border-[#E2E8F0] shadow-xs space-y-3">
-                <h4 className="text-xs font-bold text-[#0F172A]">Safe Masked PII Sample (First 5)</h4>
+                <h4 className="text-xs font-bold text-[#4A7B5B]">Safe Masked PII Sample (First 5)</h4>
                 <div className="space-y-2">
                   {audiencePreview.sampleRecipients.length === 0 ? (
                     <p className="text-[11px] text-[#94A3B8] text-center py-4">
@@ -1607,7 +1607,7 @@ function NotificationsPageInner() {
                     audiencePreview.sampleRecipients.slice(0, 5).map((r: any, idx: number) => (
                       <div key={idx} className="p-2.5 rounded bg-[#F8FAFC] border border-[#F1F5F9] text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-[#0F172A]">{r.name}</span>
+                          <span className="font-bold text-[#4A7B5B]">{r.name}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#E8F3EC] text-[#4A7B5B] font-bold">
                             {r.recipientType}
                           </span>
@@ -1700,7 +1700,7 @@ function NotificationsPageInner() {
                       savedAudiencesList.map((item: SavedAudienceItem) => (
                         <tr key={item.id} className="hover:bg-[#F8FAFC]/50 transition">
                           <td className="px-5 py-4">
-                            <div className="font-bold text-[#0F172A]">{item.name}</div>
+                            <div className="font-bold text-[#4A7B5B]">{item.name}</div>
                             <p className="text-[11px] text-[#94A3B8] mt-0.5 line-clamp-1">
                               {item.description || "No description provided."}
                             </p>
@@ -1711,7 +1711,7 @@ function NotificationsPageInner() {
                             </span>
                           </td>
                           <td className="px-4 py-4">
-                            <strong className="text-[#0F172A] font-bold">
+                            <strong className="text-[#4A7B5B] font-bold">
                               {(item.lastPreviewCount || 0).toLocaleString()} recipients
                             </strong>
                           </td>
@@ -1733,7 +1733,7 @@ function NotificationsPageInner() {
 
                               <button
                                 onClick={() => restoreSavedAudienceIntoBuilder(item, false)}
-                                className="px-2 py-1 text-xs font-semibold text-[#0F172A] bg-white border border-[#E2E8F0] rounded hover:bg-[#F8FAFC]"
+                                className="px-2 py-1 text-xs font-semibold text-[#4A7B5B] bg-white border border-[#E2E8F0] rounded hover:bg-[#F8FAFC]"
                                 title="Open in Audience Builder"
                               >
                                 View Filters
@@ -1805,7 +1805,7 @@ function NotificationsPageInner() {
                 <button
                   onClick={() => seedTemplatesMutation.mutate()}
                   disabled={seedTemplatesMutation.isPending}
-                  className="px-3 py-2 text-xs font-semibold text-[#0F172A] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
+                  className="px-3 py-2 text-xs font-semibold text-[#4A7B5B] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC]"
                 >
                   Seed System Defaults
                 </button>
@@ -1838,12 +1838,12 @@ function NotificationsPageInner() {
                         </span>
                         <span className="text-[10px] text-[#94A3B8] font-mono">v{tpl.version}</span>
                       </div>
-                      <h4 className="text-sm font-bold text-[#0F172A] mt-2">{tpl.name}</h4>
+                      <h4 className="text-sm font-bold text-[#4A7B5B] mt-2">{tpl.name}</h4>
                       <p className="text-xs text-[#94A3B8] font-mono mt-0.5">{tpl.code}</p>
 
                       <div className="flex flex-wrap gap-1 mt-3">
                         {tpl.channels?.map((ch: string) => (
-                          <span key={ch} className="px-1.5 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-[10px] font-semibold text-[#0F172A]">
+                          <span key={ch} className="px-1.5 py-0.5 rounded bg-[#F8FAFC] border border-[#E2E8F0] text-[10px] font-semibold text-[#4A7B5B]">
                             {ch}
                           </span>
                         ))}
@@ -1878,14 +1878,14 @@ function NotificationsPageInner() {
                 <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
                     <div>
-                      <h3 className="text-sm font-bold text-[#0F172A]">
+                      <h3 className="text-sm font-bold text-[#4A7B5B]">
                         Live Template Render Preview
                       </h3>
                       <p className="text-xs text-[#94A3B8]">
                         Code: {templatePreviewRes.data.code} (v{templatePreviewRes.data.version})
                       </p>
                     </div>
-                    <button onClick={() => setPreviewTemplateCode(null)} className="text-[#94A3B8] hover:text-[#0F172A]">
+                    <button onClick={() => setPreviewTemplateCode(null)} className="text-[#94A3B8] hover:text-[#4A7B5B]">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
@@ -1894,13 +1894,13 @@ function NotificationsPageInner() {
                   <div className="space-y-4 text-xs">
                     <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                       <span className="font-bold text-[#4A7B5B] block">IN-APP NOTIFICATION</span>
-                      <div className="font-semibold text-[#0F172A]">{templatePreviewRes.data.previews?.IN_APP?.title}</div>
+                      <div className="font-semibold text-[#4A7B5B]">{templatePreviewRes.data.previews?.IN_APP?.title}</div>
                       <p className="text-[#94A3B8]">{templatePreviewRes.data.previews?.IN_APP?.message}</p>
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                       <span className="font-bold text-[#4A7B5B] block">EMAIL PREVIEW</span>
-                      <div className="font-semibold text-[#0F172A]">Sub: {templatePreviewRes.data.previews?.EMAIL?.subject}</div>
+                      <div className="font-semibold text-[#4A7B5B]">Sub: {templatePreviewRes.data.previews?.EMAIL?.subject}</div>
                       <div
                         className="mt-2 p-3 bg-white border border-[#E2E8F0] rounded"
                         dangerouslySetInnerHTML={{ __html: templatePreviewRes.data.previews?.EMAIL?.bodyHtml }}
@@ -1914,7 +1914,7 @@ function NotificationsPageInner() {
                           {templatePreviewRes.data.previews?.SMS?.charCount} characters
                         </span>
                       </div>
-                      <p className="text-[#0F172A] font-mono bg-white p-2.5 rounded border border-[#E2E8F0]">
+                      <p className="text-[#4A7B5B] font-mono bg-white p-2.5 rounded border border-[#E2E8F0]">
                         {templatePreviewRes.data.previews?.SMS?.body}
                       </p>
                     </div>
@@ -1982,7 +1982,7 @@ function NotificationsPageInner() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => refetchLogs()}
-                  className="px-3 py-2 text-xs font-semibold text-[#0F172A] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC] flex items-center gap-1"
+                  className="px-3 py-2 text-xs font-semibold text-[#4A7B5B] bg-white border border-[#E2E8F0] rounded-lg hover:bg-[#F8FAFC] flex items-center gap-1"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-[#94A3B8]" /> Refresh Logs
                 </button>
@@ -2021,7 +2021,7 @@ function NotificationsPageInner() {
                       deliveryLogsList.map((log: any) => (
                         <tr key={log.id} className="hover:bg-[#F8FAFC]/50 transition">
                           <td className="px-5 py-3.5">
-                            <div className="font-bold text-[#0F172A]">{log.recipientName || "Anonymous"}</div>
+                            <div className="font-bold text-[#4A7B5B]">{log.recipientName || "Anonymous"}</div>
                             <div className="text-[10px] text-[#94A3B8]">{log.recipientType}</div>
                           </td>
                           <td className="px-4 py-3.5 text-[#94A3B8]">
@@ -2112,7 +2112,7 @@ function NotificationsPageInner() {
                   <>
                     <button
                       onClick={() => bulkReadMutation.mutate()}
-                      className="px-3 py-2 text-xs font-semibold text-[#0F172A] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg hover:bg-white flex items-center gap-1"
+                      className="px-3 py-2 text-xs font-semibold text-[#4A7B5B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg hover:bg-white flex items-center gap-1"
                     >
                       <CheckCircle className="w-3.5 h-3.5 text-[#4A7B5B]" /> Mark Read ({selectedIds.length})
                     </button>
@@ -2187,15 +2187,15 @@ function NotificationsPageInner() {
                             />
                           </td>
                           <td className="px-4 py-3.5">
-                            <div className="font-bold text-[#0F172A]">{n.title}</div>
+                            <div className="font-bold text-[#4A7B5B]">{n.title}</div>
                             <p className="text-[11px] text-[#94A3B8] line-clamp-1 mt-0.5">{n.message}</p>
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className="px-2 py-0.5 rounded bg-[#F1F5F9] text-[#0F172A] text-[10px] font-semibold">
+                            <span className="px-2 py-0.5 rounded bg-[#F1F5F9] text-[#4A7B5B] text-[10px] font-semibold">
                               {n.category}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-[#0F172A] font-semibold">
+                          <td className="px-4 py-3.5 text-[#4A7B5B] font-semibold">
                             {n.receiverRole || n.user?.fullName || "ALL"}
                           </td>
                           <td className="px-4 py-3.5">
@@ -2257,7 +2257,7 @@ function NotificationsPageInner() {
             {/* Wizard Header */}
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-4">
               <div>
-                <h3 className="text-base font-bold text-[#0F172A]">Campaign Creation Wizard</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Campaign Creation Wizard</h3>
                 <div className="flex items-center gap-2 mt-1">
                   {[
                     { step: 1, label: "Details & Message" },
@@ -2276,7 +2276,7 @@ function NotificationsPageInner() {
                       >
                         {wizardStep > s.step ? "✓" : s.step}
                       </span>
-                      <span className={wizardStep === s.step ? "font-bold text-[#0F172A]" : "text-[#94A3B8]"}>
+                      <span className={wizardStep === s.step ? "font-bold text-[#4A7B5B]" : "text-[#94A3B8]"}>
                         {s.label}
                       </span>
                       {s.step < 3 && <ChevronRight className="w-3.5 h-3.5 text-[#E2E8F0]" />}
@@ -2299,7 +2299,7 @@ function NotificationsPageInner() {
                     setWizardError(null);
                   }
                 }}
-                className="text-[#94A3B8] hover:text-[#0F172A]"
+                className="text-[#94A3B8] hover:text-[#4A7B5B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2318,7 +2318,7 @@ function NotificationsPageInner() {
               <div className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="font-bold text-[#0F172A] block mb-1">Campaign Name *</label>
+                    <label className="font-bold text-[#4A7B5B] block mb-1">Campaign Name *</label>
                     <input
                       id="campaign_name_input"
                       name="campaignName"
@@ -2339,7 +2339,7 @@ function NotificationsPageInner() {
                   </div>
 
                   <div>
-                    <label className="font-bold text-[#0F172A] block mb-1">Campaign Type</label>
+                    <label className="font-bold text-[#4A7B5B] block mb-1">Campaign Type</label>
                     <select
                       id="campaign_type_select"
                       name="campaignType"
@@ -2355,7 +2355,7 @@ function NotificationsPageInner() {
 
                 {/* Delivery Channels */}
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1.5">Delivery Channels *</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1.5">Delivery Channels *</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { id: "IN_APP", label: "In-App Notification", icon: Bell },
@@ -2378,7 +2378,7 @@ function NotificationsPageInner() {
                           className={`p-2.5 rounded-lg border text-left flex items-center gap-2 transition ${
                             isSelected
                               ? "bg-[#E8F3EC] text-[#4A7B5B] border-[#4A7B5B]"
-                              : "bg-[#F8FAFC] text-[#0F172A] border-[#E2E8F0] hover:bg-white"
+                              : "bg-[#F8FAFC] text-[#4A7B5B] border-[#E2E8F0] hover:bg-white"
                           }`}
                         >
                           <Icon className={`w-4 h-4 ${isSelected ? "text-[#4A7B5B]" : "text-[#94A3B8]"}`} />
@@ -2393,7 +2393,7 @@ function NotificationsPageInner() {
                 {templatesList.length > 0 && (
                   <div className="p-3 bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl flex items-center justify-between">
                     <div>
-                      <span className="font-bold text-[#0F172A] block">Load from Saved Template (Optional)</span>
+                      <span className="font-bold text-[#4A7B5B] block">Load from Saved Template (Optional)</span>
                       <span className="text-[11px] text-[#94A3B8]">Pre-populate message fields with an approved template</span>
                     </div>
                     <select
@@ -2426,7 +2426,7 @@ function NotificationsPageInner() {
 
                 {/* Message Title */}
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">Message Title / Heading *</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">Message Title / Heading *</label>
                   <input
                     id="message_title_input"
                     name="messageTitle"
@@ -2445,7 +2445,7 @@ function NotificationsPageInner() {
                 {/* Email Subject */}
                 {campaignDraft.channels.includes("EMAIL") && (
                   <div>
-                    <label className="font-bold text-[#0F172A] block mb-1">Email Subject Line</label>
+                    <label className="font-bold text-[#4A7B5B] block mb-1">Email Subject Line</label>
                     <input
                       id="email_subject_input"
                       name="emailSubject"
@@ -2466,7 +2466,7 @@ function NotificationsPageInner() {
 
                 {/* In-App & General Message Body */}
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">In-App & General Message Body *</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">In-App & General Message Body *</label>
                   <textarea
                     id="message_body_input"
                     name="messageBody"
@@ -2485,7 +2485,7 @@ function NotificationsPageInner() {
                 {campaignDraft.channels.includes("SMS") && (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="font-bold text-[#0F172A]">SMS Body (DLT / 160 Char Standard)</label>
+                      <label className="font-bold text-[#4A7B5B]">SMS Body (DLT / 160 Char Standard)</label>
                       <span className="text-[10px] text-[#94A3B8] font-mono">
                         {(campaignDraft.smsBody || campaignDraft.messageBody || "").length} characters
                       </span>
@@ -2505,7 +2505,7 @@ function NotificationsPageInner() {
                 {/* WhatsApp Body */}
                 {campaignDraft.channels.includes("WHATSAPP") && (
                   <div>
-                    <label className="font-bold text-[#0F172A] block mb-1">WhatsApp Message Body (Optional)</label>
+                    <label className="font-bold text-[#4A7B5B] block mb-1">WhatsApp Message Body (Optional)</label>
                     <textarea
                       id="whatsapp_body_input"
                       name="whatsAppBody"
@@ -2546,7 +2546,7 @@ function NotificationsPageInner() {
               <div className="space-y-4 text-xs">
                 {/* Target Entity Toggle */}
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1.5">Target Entity Group</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1.5">Target Entity Group</label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { id: "STUDENT", label: "Students (Registered)" },
@@ -2561,7 +2561,7 @@ function NotificationsPageInner() {
                         className={`py-2 text-xs font-bold rounded-lg border transition ${
                           builderTargetEntity === t.id
                             ? "bg-[#4A7B5B] text-white border-[#4A7B5B]"
-                            : "bg-[#F8FAFC] text-[#0F172A] border-[#E2E8F0] hover:bg-white"
+                            : "bg-[#F8FAFC] text-[#4A7B5B] border-[#E2E8F0] hover:bg-white"
                         }`}
                       >
                         {t.label}
@@ -2572,7 +2572,7 @@ function NotificationsPageInner() {
 
                 {/* Academic Criteria */}
                 <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
-                  <div className="flex items-center gap-2 font-bold text-[#0F172A]">
+                  <div className="flex items-center gap-2 font-bold text-[#4A7B5B]">
                     <GraduationCap className="w-4 h-4 text-[#4A7B5B]" /> Academic Segmentation
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -2629,7 +2629,7 @@ function NotificationsPageInner() {
 
                 {/* Geography Criteria */}
                 <div className="p-3.5 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
-                  <div className="flex items-center gap-2 font-bold text-[#0F172A]">
+                  <div className="flex items-center gap-2 font-bold text-[#4A7B5B]">
                     <MapPin className="w-4 h-4 text-[#4A7B5B]" /> Geographic Filtering
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -2673,7 +2673,7 @@ function NotificationsPageInner() {
                 <div className="p-4 rounded-xl bg-[#E8F3EC] border border-[#4A7B5B]/20 flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold text-[#4A7B5B]">Estimated Audience Reach</span>
-                    <p className="text-xl font-black text-[#0F172A] mt-0.5">
+                    <p className="text-xl font-black text-[#4A7B5B] mt-0.5">
                       {audiencePreview.eligibleCount.toLocaleString()} Eligible Recipients
                     </p>
                     <p className="text-[11px] text-[#94A3B8]">
@@ -2698,7 +2698,7 @@ function NotificationsPageInner() {
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
                   <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
                     <div>
-                      <h4 className="font-bold text-[#0F172A] text-sm">
+                      <h4 className="font-bold text-[#4A7B5B] text-sm">
                         {campaignDraft.campaignName || "Untitled Campaign"}
                       </h4>
                       <span className="text-[11px] text-[#94A3B8]">
@@ -2717,20 +2717,20 @@ function NotificationsPageInner() {
 
                   <div className="space-y-1 text-xs">
                     <p className="text-[#94A3B8]">
-                      Title: <strong className="text-[#0F172A]">{campaignDraft.messageTitle || "—"}</strong>
+                      Title: <strong className="text-[#4A7B5B]">{campaignDraft.messageTitle || "—"}</strong>
                     </p>
                     {campaignDraft.emailSubject && (
                       <p className="text-[#94A3B8]">
-                        Subject: <strong className="text-[#0F172A]">{campaignDraft.emailSubject}</strong>
+                        Subject: <strong className="text-[#4A7B5B]">{campaignDraft.emailSubject}</strong>
                       </p>
                     )}
-                    <p className="text-[#0F172A] bg-white p-3 rounded-lg border border-[#E2E8F0] mt-1 font-sans whitespace-pre-wrap">
+                    <p className="text-[#4A7B5B] bg-white p-3 rounded-lg border border-[#E2E8F0] mt-1 font-sans whitespace-pre-wrap">
                       {campaignDraft.messageBody || "—"}
                     </p>
                     {campaignDraft.channels.includes("SMS") && campaignDraft.smsBody && (
                       <div className="mt-2 pt-2 border-t border-[#E2E8F0]">
                         <span className="text-[11px] font-bold text-[#94A3B8]">SMS Body:</span>
-                        <p className="text-[#0F172A] font-mono text-[11px] bg-white p-2 rounded border border-[#E2E8F0] mt-0.5">
+                        <p className="text-[#4A7B5B] font-mono text-[11px] bg-white p-2 rounded border border-[#E2E8F0] mt-0.5">
                           {campaignDraft.smsBody}
                         </p>
                       </div>
@@ -2738,7 +2738,7 @@ function NotificationsPageInner() {
                     {campaignDraft.channels.includes("WHATSAPP") && campaignDraft.whatsAppBody && (
                       <div className="mt-2 pt-2 border-t border-[#E2E8F0]">
                         <span className="text-[11px] font-bold text-[#94A3B8]">WhatsApp Body:</span>
-                        <p className="text-[#0F172A] bg-white p-2 rounded border border-[#E2E8F0] mt-0.5">
+                        <p className="text-[#4A7B5B] bg-white p-2 rounded border border-[#E2E8F0] mt-0.5">
                           {campaignDraft.whatsAppBody}
                         </p>
                       </div>
@@ -2749,7 +2749,7 @@ function NotificationsPageInner() {
                 {/* Audience Count Banner */}
                 <div className="p-4 rounded-xl bg-[#E8F3EC] border border-[#4A7B5B]/20 text-center">
                   <span className="text-xs font-semibold text-[#4A7B5B]">Final Validated Audience</span>
-                  <p className="text-2xl font-black text-[#0F172A] mt-0.5">
+                  <p className="text-2xl font-black text-[#4A7B5B] mt-0.5">
                     {audiencePreview.eligibleCount.toLocaleString()} Eligible Recipients
                   </p>
                   <p className="text-[11px] text-[#94A3B8] mt-1">
@@ -2759,7 +2759,7 @@ function NotificationsPageInner() {
 
                 {/* Scheduling Input */}
                 <div className="space-y-1.5">
-                  <label className="font-bold text-[#0F172A] block">Schedule Broadcast Timing (Optional)</label>
+                  <label className="font-bold text-[#4A7B5B] block">Schedule Broadcast Timing (Optional)</label>
                   <div className="flex items-center gap-3">
                     <div className="relative flex-1">
                       <Calendar className="w-4 h-4 text-[#94A3B8] absolute left-3 top-2.5" />
@@ -2798,7 +2798,7 @@ function NotificationsPageInner() {
                     setWizardError(null);
                     setWizardStep((wizardStep - 1) as any);
                   }}
-                  className="px-4 py-2 text-xs font-bold text-[#0F172A] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg hover:bg-white transition"
+                  className="px-4 py-2 text-xs font-bold text-[#4A7B5B] bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg hover:bg-white transition"
                 >
                   ← Back
                 </button>
@@ -2858,16 +2858,16 @@ function NotificationsPageInner() {
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-4 h-4 text-[#4A7B5B]" />
-                <h3 className="text-sm font-bold text-[#0F172A]">Save Reusable Audience Segment</h3>
+                <h3 className="text-sm font-bold text-[#4A7B5B]">Save Reusable Audience Segment</h3>
               </div>
-              <button onClick={() => setShowSaveAudienceModal(false)} className="text-[#94A3B8] hover:text-[#0F172A]">
+              <button onClick={() => setShowSaveAudienceModal(false)} className="text-[#94A3B8] hover:text-[#4A7B5B]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Audience / Segment Name *</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Audience / Segment Name *</label>
                 <input
                   type="text"
                   value={saveAudienceForm.name}
@@ -2878,7 +2878,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Description (Optional)</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Description (Optional)</label>
                 <textarea
                   rows={2}
                   value={saveAudienceForm.description}
@@ -2891,7 +2891,7 @@ function NotificationsPageInner() {
               <div className="p-3 bg-[#E8F3EC] border border-[#4A7B5B]/20 rounded-xl flex items-center justify-between">
                 <div>
                   <span className="text-[11px] text-[#4A7B5B] font-bold block">Current Resolved Reach</span>
-                  <span className="text-xs text-[#0F172A] font-bold">
+                  <span className="text-xs text-[#4A7B5B] font-bold">
                     {audiencePreview.eligibleCount.toLocaleString()} Eligible Recipients
                   </span>
                 </div>
@@ -2905,7 +2905,7 @@ function NotificationsPageInner() {
               <button
                 type="button"
                 onClick={() => setShowSaveAudienceModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-[#0F172A] bg-[#F8FAFC] rounded-lg hover:bg-[#E2E8F0]"
+                className="px-4 py-2 text-xs font-semibold text-[#4A7B5B] bg-[#F8FAFC] rounded-lg hover:bg-[#E2E8F0]"
               >
                 Cancel
               </button>
@@ -2939,15 +2939,15 @@ function NotificationsPageInner() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-sm font-bold text-[#0F172A]">Broadcast System Alert</h3>
-              <button onClick={() => setShowSendModal(false)} className="text-[#94A3B8] hover:text-[#0F172A]">
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Broadcast System Alert</h3>
+              <button onClick={() => setShowSendModal(false)} className="text-[#94A3B8] hover:text-[#4A7B5B]">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Target Role</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Target Role</label>
                 <select
                   value={sendForm.receiverRole}
                   onChange={(e) => setSendForm({ ...sendForm, receiverRole: e.target.value })}
@@ -2960,7 +2960,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Alert Title *</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Alert Title *</label>
                 <input
                   type="text"
                   value={sendForm.title}
@@ -2971,7 +2971,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Message Content *</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Message Content *</label>
                 <textarea
                   rows={3}
                   value={sendForm.message}
@@ -2983,7 +2983,7 @@ function NotificationsPageInner() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">Priority</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">Priority</label>
                   <select
                     value={sendForm.priority}
                     onChange={(e) => setSendForm({ ...sendForm, priority: e.target.value })}
@@ -2995,7 +2995,7 @@ function NotificationsPageInner() {
                   </select>
                 </div>
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">Category</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">Category</label>
                   <select
                     value={sendForm.category}
                     onChange={(e) => setSendForm({ ...sendForm, category: e.target.value })}
@@ -3012,7 +3012,7 @@ function NotificationsPageInner() {
             <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
               <button
                 onClick={() => setShowSendModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-[#0F172A] bg-[#F8FAFC] rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-[#4A7B5B] bg-[#F8FAFC] rounded-lg"
               >
                 Cancel
               </button>
@@ -3033,8 +3033,8 @@ function NotificationsPageInner() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-sm font-bold text-[#0F172A]">Create Authoritative Template</h3>
-              <button onClick={() => setShowTemplateModal(false)} className="text-[#94A3B8] hover:text-[#0F172A]">
+              <h3 className="text-sm font-bold text-[#4A7B5B]">Create Authoritative Template</h3>
+              <button onClick={() => setShowTemplateModal(false)} className="text-[#94A3B8] hover:text-[#4A7B5B]">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -3042,7 +3042,7 @@ function NotificationsPageInner() {
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">Template Code *</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">Template Code *</label>
                   <input
                     type="text"
                     value={templateForm.code}
@@ -3052,7 +3052,7 @@ function NotificationsPageInner() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-[#0F172A] block mb-1">Category</label>
+                  <label className="font-bold text-[#4A7B5B] block mb-1">Category</label>
                   <select
                     value={templateForm.category}
                     onChange={(e) => setTemplateForm({ ...templateForm, category: e.target.value as any })}
@@ -3066,7 +3066,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Template Name *</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Template Name *</label>
                 <input
                   type="text"
                   value={templateForm.name}
@@ -3077,7 +3077,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">In-App Notification Title</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">In-App Notification Title</label>
                 <input
                   type="text"
                   value={templateForm.inAppTitle}
@@ -3088,7 +3088,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">In-App & General Message *</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">In-App & General Message *</label>
                 <textarea
                   rows={2}
                   value={templateForm.inAppMessage}
@@ -3099,7 +3099,7 @@ function NotificationsPageInner() {
               </div>
 
               <div>
-                <label className="font-bold text-[#0F172A] block mb-1">Email Subject Line</label>
+                <label className="font-bold text-[#4A7B5B] block mb-1">Email Subject Line</label>
                 <input
                   type="text"
                   value={templateForm.subject}
@@ -3113,7 +3113,7 @@ function NotificationsPageInner() {
             <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
               <button
                 onClick={() => setShowTemplateModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-[#0F172A] bg-[#F8FAFC] rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-[#4A7B5B] bg-[#F8FAFC] rounded-lg"
               >
                 Cancel
               </button>

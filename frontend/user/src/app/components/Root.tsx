@@ -1,16 +1,19 @@
-import React from "react";
-import { Outlet, Link, useNavigate } from "react-router";
+import React, { useState } from "react";
+import { Outlet, Link, useNavigate, useLocation } from "react-router";
 import { MessageCircle, Phone, CheckCircle2 } from "lucide-react";
 import Navbar, { AuthContext as NavAuthContext } from "./Navbar";
 import Footer from "./Footer";
 import AuthModal from "./AuthModal";
+import FloatingAICounselor from "./FloatingAICounselor";
 import { useAuth } from "../../context/AuthContext";
-import { useState } from "react";
 
 export default function Root() {
   const [authOpen, setAuthOpen] = useState(false);
   const { user, isLoggedIn, logout, login, signup, error, isLoading, clearError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isDedicatedAICounselor = location.pathname.startsWith("/ai-counselor");
 
   const handleLoginSuccess = () => {
     setAuthOpen(false);
@@ -25,6 +28,9 @@ export default function Root() {
           <Outlet />
         </main>
         <Footer />
+
+        {/* Floating AI Counselor (hidden on dedicated /ai-counselor page) */}
+        {!isDedicatedAICounselor && <FloatingAICounselor />}
 
         {/* Floating WhatsApp button */}
         <a href="https://wa.me/919000000000" target="_blank" rel="noopener noreferrer"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { aiApi } from "../../api/ai.api";
 import {
@@ -15,14 +15,18 @@ import {
   UserCheck,
   CheckCircle,
   AlertTriangle,
-  FileCheck,
   Zap,
+  Phone,
+  Power,
+  Activity,
+  Shield,
+  HelpCircle,
 } from "lucide-react";
 
 export default function AiCounselorAdminPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "providers" | "prompts" | "knowledge" | "escalations" | "feedback"
+    "dashboard" | "providers" | "prompts" | "handoff" | "knowledge" | "logs" | "escalations" | "feedback"
   >("dashboard");
 
   // State for modals & settings
@@ -37,7 +41,7 @@ export default function AiCounselorAdminPage() {
   const [correctedAnswer, setCorrectedAnswer] = useState("");
 
   // Queries
-  const { data: statsRes, isLoading: statsLoading } = useQuery({
+  const { data: statsRes } = useQuery({
     queryKey: ["ai_stats"],
     queryFn: () => aiApi.getStats(),
   });
@@ -62,24 +66,64 @@ export default function AiCounselorAdminPage() {
     queryFn: () => aiApi.getConversations(),
   });
 
+  const { data: logsRes, isLoading: logsLoading } = useQuery({
+    queryKey: ["ai_logs"],
+    queryFn: () => aiApi.getLogs(1, 50),
+    enabled: activeTab === "logs" || activeTab === "dashboard",
+  });
+
   // Settings State Form
-  const settingsData = settingsRes?.data || {};
-  const [provider, setProvider] = useState(settingsData.provider || "Gemini");
-  const [modelName, setModelName] = useState(settingsData.modelName || "gemini-1.5-flash");
-  const [apiKey, setApiKey] = useState(settingsData.apiKey || "");
-  const [temperature, setTemperature] = useState(settingsData.temperature || 0.3);
-  const [maxTokens, setMaxTokens] = useState(settingsData.maxTokens || 1000);
-  const [systemPrompt, setSystemPrompt] = useState(
-    settingsData.systemPrompt ||
-      "You are Swayam Admission AI Counselor, an expert educational advisor for colleges in India. Provide precise, factual guidance using verified internal knowledge."
+  const [provider, setProvider] = useState("Gemini");
+  const [modelName, setModelName] = useState("gemini-1.5-flash");
+  const [apiKey, setApiKey] = useState("");
+  const [temperature, setTemperature] = useState(0.3);
+  const [maxTokens, setMaxTokens] = useState(1000);
+  const [rateLimitPerMin, setRateLimitPerMin] = useState(30);
+  const [isEnabled, setIsEnabled] = useState(true);
+  const [welcomeMessage, setWelcomeMessage] = useState(
+    "Namaste! 🙏 Welcome to **Swayam Admission AI Counselor**.\n\nI provide verified academic and admission guidance backed directly by our university directory, course catalog, and official 9-pillar national rankings. How can I assist your educational journey today?"
   );
+  const [suggestedChipsText, setSuggestedChipsText] = useState(
+    "🎓 Colleges in Bihar, 💻 B.Tech under ₹2L, ⚖️ Compare Colleges, 📋 Check Eligibility, 💰 Scholarships & Aid, 📞 Talk to Counselor"
+  );
+  const [counselorPhone, setCounselorPhone] = useState("+919000000000");
+  const [counselorWhatsapp, setCounselorWhatsapp] = useState("+919000000000");
+  const [counselorWorkingHours, setCounselorWorkingHours] = useState(
+    "9:00 AM – 7:00 PM IST (Mon–Sat)"
+  );
+  const [systemPrompt, setSystemPrompt] = useState(
+    "You are Swayam Admission AI Counselor, an expert educational advisor for colleges in India. Provide precise, factual guidance using verified internal knowledge."
+  );
+
+  // Synchronize incoming settings with form state
+  useEffect(() => {
+    if (settingsRes?.data) {
+      const d = settingsRes.data;
+      if (d.provider) setProvider(d.provider);
+      if (d.modelName) setModelName(d.modelName);
+      if (d.apiKey) setApiKey(d.apiKey);
+      if (typeof d.temperature === "number") setTemperature(d.temperature);
+      if (typeof d.maxTokens === "number") setMaxTokens(d.maxTokens);
+      if (typeof d.rateLimitPerMin === "number") setRateLimitPerMin(d.rateLimitPerMin);
+      if (d.systemPrompt) setSystemPrompt(d.systemPrompt);
+      if (typeof d.isEnabled === "boolean") setIsEnabled(d.isEnabled);
+      if (d.welcomeMessage) setWelcomeMessage(d.welcomeMessage);
+      if (Array.isArray(d.suggestedChips)) setSuggestedChipsText(d.suggestedChips.join(", "));
+      if (d.counselorPhone) setCounselorPhone(d.counselorPhone);
+      if (d.counselorWhatsapp) setCounselorWhatsapp(d.counselorWhatsapp);
+      if (d.counselorWorkingHours) setCounselorWorkingHours(d.counselorWorkingHours);
+    }
+  }, [settingsRes?.data]);
 
   // Mutations
   const updateSettingsMutation = useMutation({
     mutationFn: (data: any) => aiApi.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ai_settings"] });
-      alert("AI Settings updated successfully!");
+      alert("AI Settings updated and synchronized successfully!");
+    },
+    onError: (err: any) => {
+      alert("Failed to update AI settings: " + (err?.response?.data?.message || err.message));
     },
   });
 
@@ -91,6 +135,18 @@ export default function AiCounselorAdminPage() {
       setDocTitle("");
       setDocContent("");
       alert("Knowledge Document uploaded and indexed successfully!");
+    },
+  });
+
+  const syncDatabaseMutation = useMutation({
+    mutationFn: () => aiApi.syncDatabase(),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["ai_knowledge"] });
+      queryClient.invalidateQueries({ queryKey: ["ai_stats"] });
+      alert(res?.data?.message || "Successfully indexed live database into AI counselor RAG!");
+    },
+    onError: (err: any) => {
+      alert("Failed to sync database: " + (err?.response?.data?.message || err?.message || "Unknown error"));
     },
   });
 
@@ -112,6 +168,35 @@ export default function AiCounselorAdminPage() {
     },
   });
 
+  const handleSaveAllSettings = () => {
+    const chips = suggestedChipsText
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    updateSettingsMutation.mutate({
+      provider,
+      modelName,
+      apiKey,
+      temperature,
+      maxTokens,
+      rateLimitPerMin,
+      systemPrompt,
+      isEnabled,
+      welcomeMessage,
+      suggestedChips: chips,
+      counselorPhone,
+      counselorWhatsapp,
+      counselorWorkingHours,
+    });
+  };
+
+  const handleToggleEnable = () => {
+    const nextState = !isEnabled;
+    setIsEnabled(nextState);
+    updateSettingsMutation.mutate({ isEnabled: nextState });
+  };
+
   const stats = statsRes?.data || {
     totalConversations: 142,
     activeUsers: 118,
@@ -132,27 +217,57 @@ export default function AiCounselorAdminPage() {
         <div>
           <div className="flex items-center gap-2">
             <Brain className="text-[#4A7B5B]" size={28} />
-            <h1 className="text-2xl font-extrabold text-[#0F172A]">Enterprise AI Control Center</h1>
+            <h1 className="text-2xl font-extrabold text-[#4A7B5B]">Enterprise AI Control Center</h1>
+            <span
+              className={`px-2.5 py-1 rounded-full text-xs font-black flex items-center gap-1 ${
+                isEnabled ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+              }`}
+            >
+              <Power size={12} />
+              {isEnabled ? "ACTIVE" : "PAUSED"}
+            </span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Autonomous Admission Assistant • Multi-Provider RAG • Lead Qualification & Feedback Engine
+            Autonomous Admission Assistant • Multi-Provider RAG • Database Synchronization • PII Protected
           </p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Toggle Button */}
+          <button
+            onClick={handleToggleEnable}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+              isEnabled
+                ? "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
+          >
+            <Power size={13} />
+            {isEnabled ? "Disable AI Feature" : "Enable AI Feature"}
+          </button>
+
+          <button
+            onClick={() => syncDatabaseMutation.mutate()}
+            disabled={syncDatabaseMutation.isPending}
+            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all"
+            title="Index live colleges, courses, rankings, scholarships, exams and study materials into RAG"
+          >
+            <Database size={14} className={syncDatabaseMutation.isPending ? "animate-spin" : ""} />
+            {syncDatabaseMutation.isPending ? "Syncing Live DB..." : "Sync Live DB to RAG"}
+          </button>
           <button
             onClick={() => reindexMutation.mutate()}
             disabled={reindexMutation.isPending}
-            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm hover:bg-gray-50"
+            className="px-3.5 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm hover:bg-gray-50"
           >
-            <RefreshCw size={14} className={reindexMutation.isPending ? "animate-spin" : ""} />
+            <RefreshCw size={13} className={reindexMutation.isPending ? "animate-spin" : ""} />
             Reindex RAG
           </button>
           <button
             onClick={() => setShowUploadModal(true)}
-            className="px-4 py-2.5 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm hover:bg-[#3d664c]"
+            className="px-3.5 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm hover:bg-[#3d664c]"
           >
-            <Upload size={14} /> Upload Knowledge
+            <Upload size={13} /> Upload Knowledge
           </button>
         </div>
       </div>
@@ -162,10 +277,12 @@ export default function AiCounselorAdminPage() {
         {[
           { id: "dashboard", label: "Dashboard & Analytics", icon: Brain },
           { id: "providers", label: "Provider & Model Settings", icon: Cpu },
-          { id: "prompts", label: "Prompt Manager", icon: Sliders },
-          { id: "knowledge", label: "Knowledge Base & RAG", icon: Database },
+          { id: "prompts", label: "Prompts & Welcome Greeting", icon: Sliders },
+          { id: "handoff", label: "Counselor Handoff Desk", icon: Phone },
+          { id: "knowledge", label: "Knowledge Base & RAG Sources", icon: Database },
+          { id: "logs", label: "Usage & Error Logs", icon: Activity },
           { id: "escalations", label: "Escalations Center", icon: AlertTriangle },
-          { id: "feedback", label: "Human Feedback Loop", icon: UserCheck },
+          { id: "feedback", label: "Answer Feedback Loop", icon: UserCheck },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -203,7 +320,7 @@ export default function AiCounselorAdminPage() {
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2" style={{ backgroundColor: m.bg }}>
                   <m.icon size={16} style={{ color: m.color }} />
                 </div>
-                <div className="text-xl font-extrabold text-[#0F172A]">{m.val}</div>
+                <div className="text-xl font-extrabold text-[#4A7B5B]">{m.val}</div>
                 <div className="text-[11px] text-gray-400 mt-0.5">{m.label}</div>
               </div>
             ))}
@@ -225,28 +342,34 @@ export default function AiCounselorAdminPage() {
                   <span className="font-bold text-gray-800">{modelName}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">System Latency</span>
-                  <span className="font-semibold text-emerald-600">350 ms (Optimal)</span>
+                  <span className="text-gray-500 font-medium">Feature Status</span>
+                  <span className={`font-bold ${isEnabled ? "text-emerald-600" : "text-red-500"}`}>
+                    {isEnabled ? "ENABLED" : "PAUSED"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-medium">Rate Limiting</span>
+                  <span className="font-semibold text-gray-700">{rateLimitPerMin} requests/min</span>
                 </div>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Database size={16} className="text-[#3B82F6]" /> RAG Retrieval Engine Stats
+                <Database size={16} className="text-[#3B82F6]" /> Live Database Grounding Status
               </h3>
               <div className="p-4 bg-[#F8FAFC] rounded-xl border border-gray-100 space-y-3">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Internal DB Tables</span>
-                  <span className="font-bold text-gray-800">Colleges, Courses, Scholarships, FAQs</span>
+                  <span className="text-gray-500 font-medium">Synchronized Sources</span>
+                  <span className="font-bold text-gray-800">Colleges, Courses, 9-Pillar Rankings, Scholarships</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Indexed Chunks</span>
-                  <span className="font-bold text-blue-600">1,240 Chunks</span>
+                  <span className="text-gray-500 font-medium">PII & Student Privacy</span>
+                  <span className="font-bold text-emerald-600">STRICT MINIMAL CONTEXT (Emails/Phones Omitted)</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">Zero Hallucination Mode</span>
-                  <span className="font-bold text-emerald-600">ENFORCED</span>
+                  <span className="text-gray-500 font-medium">Prompt-Injection Shield</span>
+                  <span className="font-bold text-emerald-600">ACTIVE</span>
                 </div>
               </div>
             </div>
@@ -257,9 +380,25 @@ export default function AiCounselorAdminPage() {
       {/* TAB 2: PROVIDER & MODEL SETTINGS */}
       {activeTab === "providers" && (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 max-w-3xl">
-          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2 border-b pb-3">
-            <Cpu className="text-[#4A7B5B]" size={18} /> Provider & Model Configuration
-          </h3>
+          <div className="flex justify-between items-center border-b pb-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Cpu className="text-[#4A7B5B]" size={18} /> Provider, Model & API Configuration
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                API keys are stored server-side only and never exposed in browser or network responses.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isEnabled}
+                onChange={(e) => setIsEnabled(e.target.checked)}
+                className="w-4 h-4 text-[#4A7B5B] rounded"
+              />
+              <span className="text-xs font-bold text-gray-800">Enable AI Feature</span>
+            </label>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -267,7 +406,7 @@ export default function AiCounselorAdminPage() {
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#4A7B5B]"
               >
                 <option value="Gemini">Gemini (Google DeepMind)</option>
                 <option value="OpenAI">OpenAI (ChatGPT)</option>
@@ -283,7 +422,7 @@ export default function AiCounselorAdminPage() {
               <select
                 value={modelName}
                 onChange={(e) => setModelName(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#4A7B5B]"
               >
                 {(modelsRes?.data || []).map((m: any) => (
                   <option key={m.modelName} value={m.modelName}>
@@ -294,14 +433,19 @@ export default function AiCounselorAdminPage() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-xs font-bold text-gray-700 block mb-1">API Key (Optional override)</label>
+              <label className="text-xs font-bold text-gray-700 block mb-1">
+                API Key (Stored securely server-side; masked on read)
+              </label>
               <input
                 type="password"
-                placeholder="sk-..."
+                placeholder={settingsRes?.data?.isApiKeyConfigured ? "•••••••••••••••• (Configured on Server)" : "sk-... or AIza..."}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono focus:outline-none focus:border-[#4A7B5B]"
               />
+              <span className="text-[11px] text-gray-400 mt-1 block">
+                Leave blank or masked to keep current configured key.
+              </span>
             </div>
 
             <div>
@@ -310,11 +454,12 @@ export default function AiCounselorAdminPage() {
                 type="range"
                 min="0"
                 max="1"
-                step="0.1"
+                step="0.05"
                 value={temperature}
                 onChange={(e) => setTemperature(parseFloat(e.target.value))}
                 className="w-full"
               />
+              <span className="text-[10px] text-gray-400">Lower = more deterministic & factual for admissions</span>
             </div>
 
             <div>
@@ -323,69 +468,185 @@ export default function AiCounselorAdminPage() {
                 type="number"
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(parseInt(e.target.value, 10))}
-                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#4A7B5B]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Rate Limit (Requests / minute / user)</label>
+              <input
+                type="number"
+                min="5"
+                max="120"
+                value={rateLimitPerMin}
+                onChange={(e) => setRateLimitPerMin(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium focus:outline-none focus:border-[#4A7B5B]"
               />
             </div>
           </div>
 
           <div className="pt-4 border-t flex justify-end">
             <button
-              onClick={() => updateSettingsMutation.mutate({ provider, modelName, apiKey, temperature, maxTokens })}
+              onClick={handleSaveAllSettings}
               disabled={updateSettingsMutation.isPending}
-              className="px-5 py-2.5 bg-[#4A7B5B] text-white font-bold rounded-xl text-xs hover:bg-[#3d664c]"
+              className="px-5 py-2.5 bg-[#4A7B5B] text-white font-bold rounded-xl text-xs hover:bg-[#3d664c] transition-colors shadow-sm"
             >
-              Save Settings
+              {updateSettingsMutation.isPending ? "Saving..." : "Save Settings"}
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 3: PROMPT MANAGER */}
+      {/* TAB 3: PROMPT & WELCOME GREETING */}
       {activeTab === "prompts" && (
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 max-w-3xl">
           <div className="flex justify-between items-center border-b pb-3">
-            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Sliders className="text-[#4A7B5B]" size={18} /> Enterprise System Prompt Manager
-            </h3>
-            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold">
-              v1.4 Published
-            </span>
+            <div>
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Sliders className="text-[#4A7B5B]" size={18} /> System Prompt & Onboarding Experience
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Controls the AI persona, initial welcome message, and suggested inquiry chips.
+              </p>
+            </div>
           </div>
 
           <div>
             <label className="text-xs font-bold text-gray-700 block mb-1">
-              Active System Prompt (Variables: &#123;student_name&#125;, &#123;budget&#125;, &#123;rag_context&#125;)
+              Active System Instructions (Grounding & Persona)
             </label>
             <textarea
               rows={6}
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono leading-relaxed"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-mono leading-relaxed focus:outline-none focus:border-[#4A7B5B]"
             />
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">
+              Student Welcome Message (Displays when starting a new session)
+            </label>
+            <textarea
+              rows={3}
+              value={welcomeMessage}
+              onChange={(e) => setWelcomeMessage(e.target.value)}
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs leading-relaxed focus:outline-none focus:border-[#4A7B5B]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-700 block mb-1">
+              Suggested Questions & Chips (Comma-separated)
+            </label>
+            <input
+              type="text"
+              value={suggestedChipsText}
+              onChange={(e) => setSuggestedChipsText(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
+            />
+            <span className="text-[11px] text-gray-400 mt-1 block">
+              Example: Top Colleges in Bihar, B.Tech under ₹2L, Compare Colleges, Scholarships
+            </span>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
             <button
-              onClick={() => updateSettingsMutation.mutate({ systemPrompt })}
-              className="px-5 py-2.5 bg-[#4A7B5B] text-white font-bold rounded-xl text-xs hover:bg-[#3d664c]"
+              onClick={handleSaveAllSettings}
+              disabled={updateSettingsMutation.isPending}
+              className="px-5 py-2.5 bg-[#4A7B5B] text-white font-bold rounded-xl text-xs hover:bg-[#3d664c] transition-colors shadow-sm"
             >
-              Publish New Version
+              {updateSettingsMutation.isPending ? "Publishing..." : "Save & Synchronize"}
             </button>
           </div>
         </div>
       )}
 
-      {/* TAB 4: KNOWLEDGE BASE & RAG */}
+      {/* TAB 4: COUNSELOR HANDOFF DESK */}
+      {activeTab === "handoff" && (
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6 max-w-2xl">
+          <div className="border-b pb-3">
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <Phone className="text-[#4A7B5B]" size={18} /> Counselor Handoff & Academic Desk Settings
+            </h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              These details are presented to students whenever human counselor assistance is requested or when AI is paused.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Counseling Helpline Phone Number</label>
+              <input
+                type="text"
+                value={counselorPhone}
+                onChange={(e) => setCounselorPhone(e.target.value)}
+                placeholder="+919000000000"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Counselor WhatsApp Contact</label>
+              <input
+                type="text"
+                value={counselorWhatsapp}
+                onChange={(e) => setCounselorWhatsapp(e.target.value)}
+                placeholder="+919000000000"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 block mb-1">Working / Availability Hours</label>
+              <input
+                type="text"
+                value={counselorWorkingHours}
+                onChange={(e) => setCounselorWorkingHours(e.target.value)}
+                placeholder="9:00 AM – 7:00 PM IST (Mon–Sat)"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
+              />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t flex justify-end">
+            <button
+              onClick={handleSaveAllSettings}
+              disabled={updateSettingsMutation.isPending}
+              className="px-5 py-2.5 bg-[#4A7B5B] text-white font-bold rounded-xl text-xs hover:bg-[#3d664c] transition-colors shadow-sm"
+            >
+              {updateSettingsMutation.isPending ? "Saving..." : "Save Handoff Settings"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: KNOWLEDGE BASE & RAG */}
       {activeTab === "knowledge" && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900">Uploaded Knowledge Documents & RAG Chunks</h3>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="px-3.5 py-2 bg-[#4A7B5B] text-white text-xs font-bold rounded-xl hover:bg-[#3d664c]"
-            >
-              + Add Document
-            </button>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100">
+            <div>
+              <h3 className="text-sm font-bold text-gray-900">Uploaded Knowledge Documents & Live RAG</h3>
+              <p className="text-xs text-gray-500">
+                Live database synchronization indexes colleges, courses, 9-pillar rankings, exams, scholarships, guides, and materials.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => syncDatabaseMutation.mutate()}
+                disabled={syncDatabaseMutation.isPending}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+              >
+                <Database size={13} className={syncDatabaseMutation.isPending ? "animate-spin" : ""} />
+                {syncDatabaseMutation.isPending ? "Syncing..." : "Sync Live DB"}
+              </button>
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="px-3.5 py-2 bg-[#4A7B5B] text-white text-xs font-bold rounded-xl hover:bg-[#3d664c]"
+              >
+                + Add Document
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -404,7 +665,7 @@ export default function AiCounselorAdminPage() {
                 {(knowledgeRes?.data || []).length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-gray-400">
-                      No knowledge documents uploaded yet.
+                      No knowledge documents uploaded yet. Click "Sync Live DB" to load all database tables into RAG.
                     </td>
                   </tr>
                 ) : (
@@ -413,7 +674,7 @@ export default function AiCounselorAdminPage() {
                       <td className="p-3 font-bold text-gray-800">{doc.title}</td>
                       <td className="p-3 font-semibold text-[#4A7B5B]">{doc.category}</td>
                       <td className="p-3 text-gray-500">{doc.fileType}</td>
-                      <td className="p-3 font-bold text-blue-600">{doc._count?.chunks || doc.chunkCount}</td>
+                      <td className="p-3 font-bold text-blue-600">{doc._count?.chunks || doc.chunkCount || 0}</td>
                       <td className="p-3">
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
                           {doc.status}
@@ -421,7 +682,11 @@ export default function AiCounselorAdminPage() {
                       </td>
                       <td className="p-3 text-right">
                         <button
-                          onClick={() => aiApi.deleteKnowledge(doc.id).then(() => queryClient.invalidateQueries({ queryKey: ["ai_knowledge"] }))}
+                          onClick={() =>
+                            aiApi
+                              .deleteKnowledge(doc.id)
+                              .then(() => queryClient.invalidateQueries({ queryKey: ["ai_knowledge"] }))
+                          }
                           className="text-red-500 font-semibold hover:underline"
                         >
                           Delete
@@ -436,7 +701,83 @@ export default function AiCounselorAdminPage() {
         </div>
       )}
 
-      {/* TAB 5: ESCALATIONS */}
+      {/* TAB 6: USAGE & ERROR LOGS */}
+      {activeTab === "logs" && (
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+          <div className="flex justify-between items-center border-b pb-3">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Activity className="text-[#4A7B5B]" size={18} /> Chat Usage & Performance Logs
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Real-time execution log showing token metrics, latencies, model invocations, and student queries.
+              </p>
+            </div>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ["ai_logs"] })}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold flex items-center gap-1.5"
+            >
+              <RefreshCw size={12} /> Refresh Logs
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-semibold">
+                  <th className="p-3">Timestamp</th>
+                  <th className="p-3">User</th>
+                  <th className="p-3">Provider & Model</th>
+                  <th className="p-3">Tokens (P / C / Total)</th>
+                  <th className="p-3">Latency</th>
+                  <th className="p-3">Cost ($)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {logsLoading ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-400">
+                      Loading usage logs...
+                    </td>
+                  </tr>
+                ) : (logsRes?.data?.data || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-400">
+                      No usage logs recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  (logsRes?.data?.data || []).map((log: any) => (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="p-3 text-gray-500 font-mono text-[11px]">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-3">
+                        <span className="font-bold text-gray-800">{log.user?.fullName || "Guest Student"}</span>
+                        {log.user?.email && <span className="block text-[10px] text-gray-400">{log.user?.email}</span>}
+                      </td>
+                      <td className="p-3 font-medium text-slate-700">
+                        <span className="font-bold text-[#4A7B5B]">{log.provider}</span> • {log.model}
+                      </td>
+                      <td className="p-3 text-slate-600 font-mono">
+                        {log.promptTokens} / {log.completionTokens} / <strong className="text-blue-600">{log.totalTokens}</strong>
+                      </td>
+                      <td className="p-3 font-semibold text-emerald-700">
+                        {log.latencyMs ? `${log.latencyMs} ms` : "N/A"}
+                      </td>
+                      <td className="p-3 text-slate-500 font-mono">
+                        ${typeof log.estimatedCost === "number" ? log.estimatedCost.toFixed(5) : "0.00"}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 7: ESCALATIONS */}
       {activeTab === "escalations" && (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
@@ -468,7 +809,7 @@ export default function AiCounselorAdminPage() {
         </div>
       )}
 
-      {/* TAB 6: HUMAN FEEDBACK LOOP */}
+      {/* TAB 8: HUMAN FEEDBACK LOOP */}
       {activeTab === "feedback" && (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4 max-w-2xl">
           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">

@@ -85,7 +85,7 @@ export default function FAQPage() {
             className="mb-3"
             style={{
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#4A7B5B",
               fontSize: "clamp(26px, 4vw, 40px)",
             }}
           >

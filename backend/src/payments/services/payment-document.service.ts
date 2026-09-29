@@ -51,7 +51,7 @@ export class PaymentDocumentService {
     body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; color: #1E293B; background: #F8FAFC; }
     .container { max-width: 800px; margin: auto; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 20px; margin-bottom: 30px; }
-    .brand { font-size: 24px; font-weight: 800; color: #0F172A; }
+    .brand { font-size: 24px; font-weight: 800; color: #4A7B5B; }
     .brand span { color: #4A7B5B; }
     .subtitle { font-size: 12px; color: #64748B; margin-top: 4px; }
     .doc-title { text-align: right; }
@@ -66,7 +66,7 @@ export class PaymentDocumentService {
     .text-right { text-align: right; }
     .total-box { margin-left: auto; width: 300px; font-size: 13px; }
     .total-row { display: flex; justify-content: space-between; padding: 6px 0; }
-    .grand-total { border-top: 2px solid #0F172A; font-weight: 800; font-size: 16px; color: #0F172A; padding-top: 10px; margin-top: 6px; }
+    .grand-total { border-top: 2px solid #4A7B5B; font-weight: 800; font-size: 16px; color: #4A7B5B; padding-top: 10px; margin-top: 6px; }
     .footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E2E8F0; pt: 20px; margin-top: 40px; font-size: 11px; color: #94A3B8; }
     .verified-badge { display: inline-block; padding: 4px 10px; background: #DCFCE7; color: #166534; font-weight: 700; border-radius: 9999px; font-size: 11px; margin-top: 4px; }
   </style>
@@ -193,7 +193,7 @@ export class PaymentDocumentService {
     body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; color: #1E293B; background: #F8FAFC; }
     .container { max-width: 800px; margin: auto; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 40px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #E2E8F0; padding-bottom: 20px; margin-bottom: 30px; }
-    .brand { font-size: 24px; font-weight: 800; color: #0F172A; }
+    .brand { font-size: 24px; font-weight: 800; color: #4A7B5B; }
     .brand span { color: #2563EB; }
     .subtitle { font-size: 12px; color: #64748B; margin-top: 4px; }
     .doc-title { text-align: right; }
@@ -208,7 +208,7 @@ export class PaymentDocumentService {
     .text-right { text-align: right; }
     .total-box { margin-left: auto; width: 320px; font-size: 13px; }
     .total-row { display: flex; justify-content: space-between; padding: 6px 0; }
-    .grand-total { border-top: 2px solid #0F172A; font-weight: 800; font-size: 16px; color: #0F172A; padding-top: 10px; margin-top: 6px; }
+    .grand-total { border-top: 2px solid #4A7B5B; font-weight: 800; font-size: 16px; color: #4A7B5B; padding-top: 10px; margin-top: 6px; }
     .footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #E2E8F0; padding-top: 20px; margin-top: 40px; font-size: 11px; color: #94A3B8; }
   </style>
 </head>

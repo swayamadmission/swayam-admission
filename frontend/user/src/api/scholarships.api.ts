@@ -28,6 +28,7 @@ export interface ScholarshipQueryParams {
   q?: string;
   category?: string;
   state?: string;
+  stateId?: string;
   featured?: boolean;
 }
 

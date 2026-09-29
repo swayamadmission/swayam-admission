@@ -38,6 +38,10 @@ import {
   UpdateGeographicAssignmentDto,
   GeographicQueryDto,
 } from './dto/geography.dto';
+import {
+  CreateStateUpdateDto,
+  UpdateStateUpdateDto,
+} from './dto/state-update.dto';
 
 @Controller('organization')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -190,14 +194,95 @@ export class OrganizationController {
 
   @Get('geography/states')
   @RequirePermissions('geographic.view')
-  async getStates() {
-    return this.geographyService.getStates();
+  async getStates(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('region') region?: string,
+  ) {
+    return this.geographyService.getStates({ search, status, region });
+  }
+
+  @Get('geography/states/:id')
+  @RequirePermissions('geographic.view')
+  async getStateDetail(@Param('id') id: string) {
+    return this.geographyService.getStateDetail(id);
   }
 
   @Post('geography/states')
   @RequirePermissions('geographic.manage')
   async createState(@Body() dto: CreateStateDto, @Request() req: any) {
     return this.geographyService.createState(dto, req.user?.id);
+  }
+
+  @Put('geography/states/:id')
+  @RequirePermissions('geographic.manage')
+  async updateState(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateStateDto>,
+    @Request() req: any,
+  ) {
+    return this.geographyService.updateState(id, dto, req.user?.id);
+  }
+
+  @Patch('geography/states/:id')
+  @RequirePermissions('geographic.manage')
+  async patchState(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateStateDto>,
+    @Request() req: any,
+  ) {
+    return this.geographyService.updateState(id, dto, req.user?.id);
+  }
+
+  @Delete('geography/states/:id')
+  @RequirePermissions('geographic.manage')
+  async deleteState(@Param('id') id: string, @Request() req: any) {
+    return this.geographyService.deleteState(id, req.user?.id);
+  }
+
+  @Get('geography/updates')
+  @RequirePermissions('geographic.view')
+  async getStateUpdates(
+    @Query('stateId') stateId?: string,
+    @Query('state') state?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.geographyService.getStateUpdates({ stateId, state, status });
+  }
+
+  @Post('geography/updates')
+  @RequirePermissions('geographic.manage')
+  async createStateUpdate(
+    @Body() dto: CreateStateUpdateDto,
+    @Request() req: any,
+  ) {
+    return this.geographyService.createStateUpdate(dto, req.user?.id);
+  }
+
+  @Put('geography/updates/:id')
+  @RequirePermissions('geographic.manage')
+  async updateStateUpdate(
+    @Param('id') id: string,
+    @Body() dto: UpdateStateUpdateDto,
+    @Request() req: any,
+  ) {
+    return this.geographyService.updateStateUpdate(id, dto, req.user?.id);
+  }
+
+  @Patch('geography/updates/:id')
+  @RequirePermissions('geographic.manage')
+  async patchStateUpdate(
+    @Param('id') id: string,
+    @Body() dto: UpdateStateUpdateDto,
+    @Request() req: any,
+  ) {
+    return this.geographyService.updateStateUpdate(id, dto, req.user?.id);
+  }
+
+  @Delete('geography/updates/:id')
+  @RequirePermissions('geographic.manage')
+  async deleteStateUpdate(@Param('id') id: string, @Request() req: any) {
+    return this.geographyService.deleteStateUpdate(id, req.user?.id);
   }
 
   @Get('geography/districts')
@@ -210,6 +295,22 @@ export class OrganizationController {
   @RequirePermissions('geographic.manage')
   async createDistrict(@Body() dto: CreateDistrictDto, @Request() req: any) {
     return this.geographyService.createDistrict(dto, req.user?.id);
+  }
+
+  @Put('geography/districts/:id')
+  @RequirePermissions('geographic.manage')
+  async updateDistrict(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateDistrictDto>,
+    @Request() req: any,
+  ) {
+    return this.geographyService.updateDistrict(id, dto, req.user?.id);
+  }
+
+  @Delete('geography/districts/:id')
+  @RequirePermissions('geographic.manage')
+  async deleteDistrict(@Param('id') id: string, @Request() req: any) {
+    return this.geographyService.deleteDistrict(id, req.user?.id);
   }
 
   @Get('geography/assignments')

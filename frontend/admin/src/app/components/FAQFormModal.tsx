@@ -278,7 +278,7 @@ export default function FAQFormModal({
                   <button
                     type="button"
                     onClick={addTag}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
+                    className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d694d] text-white rounded-xl text-xs font-semibold transition-colors"
                   >
                     Add
                   </button>
@@ -478,7 +478,7 @@ export default function FAQFormModal({
                   <button
                     type="button"
                     onClick={addKeyword}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
+                    className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d694d] text-white rounded-xl text-xs font-semibold transition-colors"
                   >
                     Add
                   </button>
@@ -512,7 +512,7 @@ export default function FAQFormModal({
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-2.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {isLoading ? "Saving..." : initialData ? "Save Changes" : "Save FAQ"}
             </button>

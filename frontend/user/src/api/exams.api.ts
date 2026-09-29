@@ -26,6 +26,13 @@ export interface Exam {
   importantBooks?: string[];
   previousYearPapers?: string[];
   faqs?: any;
+  description?: string;
+  stateId?: string;
+  state?: {
+    id: string;
+    name: string;
+    code: string;
+  };
   featured: boolean;
   status: string;
 }
@@ -35,6 +42,10 @@ export interface ExamQueryParams {
   limit?: number;
   q?: string;
   category?: string;
+  level?: string;
+  stateId?: string;
+  state?: string;
+  status?: string;
   featured?: boolean;
 }
 

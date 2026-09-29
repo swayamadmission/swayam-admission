@@ -7,7 +7,7 @@ import {
   IsInt,
   Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateStudyMaterialDto {
   @IsNotEmpty()
@@ -89,6 +89,77 @@ export class CreateStudyMaterialDto {
   premium?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
+  price?: number;
+
+  @IsOptional()
+  @IsString()
+  previewFileUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  previewFileName?: string;
+
+  @IsOptional()
+  @IsString()
+  previewFileSize?: string;
+
+  @IsOptional()
+  @IsString()
+  educationLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  academicSession?: string;
+
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  hasCredentials?: boolean;
+
+  @IsOptional()
+  @IsString()
+  authorName?: string;
+
+  @IsOptional()
+  @IsString()
+  authorRole?: string;
+
+  @IsOptional()
+  @IsString()
+  providerName?: string;
+
+  @IsOptional()
+  @IsString()
+  credentialsUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  credentialsNotes?: string;
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : value,
+  )
+  @IsArray()
+  @IsString({ each: true })
+  seoKeywords?: string[];
+
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : value,
+  )
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
@@ -104,4 +175,7 @@ export class CreateStudyMaterialDto {
   @IsOptional()
   @IsString()
   seoDescription?: string;
+
+  @IsOptional()
+  publishedAt?: Date;
 }

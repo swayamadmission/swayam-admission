@@ -97,7 +97,7 @@ export const CollegePortalDashboard: React.FC<CollegePortalDashboardProps> = ({
       label: "Fully Enrolled Students",
       value: metrics.enrolled,
       icon: Users,
-      color: "#0F172A",
+      color: "#4A7B5B",
       bgColor: "#F1F5F9",
       tab: "reporting",
     },
@@ -133,7 +133,7 @@ export const CollegePortalDashboard: React.FC<CollegePortalDashboardProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl font-bold text-[#0F172A]">{college.name}</h1>
+              <h1 className="text-xl font-bold text-[#4A7B5B]">{college.name}</h1>
               <span
                 className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
                   college.status === "ACTIVE" || college.status === "PUBLISHED"
@@ -174,7 +174,7 @@ export const CollegePortalDashboard: React.FC<CollegePortalDashboardProps> = ({
       </div>
 
       {/* Seat Capacity & Intake KPI Card */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gradient-to-br from-[#0F172A] to-[#1E293B] text-white p-6 rounded-2xl shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gradient-to-br from-[#4A7B5B] to-[#1E293B] text-white p-6 rounded-2xl shadow-sm">
         <div className="space-y-1">
           <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">
             Total Academic Seats
@@ -237,7 +237,7 @@ export const CollegePortalDashboard: React.FC<CollegePortalDashboardProps> = ({
                 </span>
               </div>
               <div>
-                <div className="text-2xl font-bold text-[#0F172A]">{card.value}</div>
+                <div className="text-2xl font-bold text-[#4A7B5B]">{card.value}</div>
                 <div className="text-xs text-[#64748B] font-medium mt-1">
                   {card.label}
                 </div>

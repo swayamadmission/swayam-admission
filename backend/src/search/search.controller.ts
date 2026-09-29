@@ -6,17 +6,34 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  search(@Query('q') keyword: string, @Query('type') type: string = 'ALL') {
-    if (!keyword) {
+  search(
+    @Query('q') keyword: string,
+    @Query('type') type: string = 'ALL',
+    @Query('limit') limit?: string,
+  ) {
+    if (!keyword || !keyword.trim()) {
       throw new BadRequestException('Search keyword "q" is required');
     }
-    return this.searchService.search(keyword, type.toUpperCase());
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    return this.searchService.search(keyword, type.toUpperCase(), parsedLimit);
   }
 
   @Get('suggestions')
   getSuggestions(@Query('q') keyword: string) {
-    if (!keyword) {
-      return [];
+    if (!keyword || !keyword.trim()) {
+      return {
+        all: [],
+        colleges: [],
+        courses: [],
+        studyMaterials: [],
+        guides: [],
+        exams: [],
+        scholarships: [],
+        streams: [],
+        blogs: [],
+        reports: [],
+        locations: [],
+      };
     }
     return this.searchService.getSuggestions(keyword);
   }

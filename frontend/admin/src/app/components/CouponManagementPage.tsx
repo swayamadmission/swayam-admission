@@ -221,7 +221,7 @@ export const CouponManagementPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-[#0F172A] to-[#1E293B] p-6 rounded-3xl text-white shadow-sm border border-white/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-[#4A7B5B] to-[#1E293B] p-6 rounded-3xl text-white shadow-sm border border-white/10">
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#4A7B5B]/30 text-[#E8F3EC] border border-[#4A7B5B]/40 text-xs font-semibold mb-2">
             <Tag className="w-3.5 h-3.5 text-[#F0AE1A]" />
@@ -387,7 +387,7 @@ export const CouponManagementPage: React.FC = () => {
                 {filteredCoupons.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/80 transition">
                     <td className="p-4">
-                      <div className="font-mono font-black text-sm text-[#0F172A] flex items-center gap-1.5">
+                      <div className="font-mono font-black text-sm text-[#4A7B5B] flex items-center gap-1.5">
                         <Tag className="w-3.5 h-3.5 text-[#4A7B5B]" />
                         {c.code}
                       </div>

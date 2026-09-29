@@ -24,10 +24,12 @@ export class ScholarshipController {
   @Get()
   findAll(
     @Query('state') state?: string,
+    @Query('stateId') stateId?: string,
     @Query('incomeLimit') incomeLimit?: number,
     @Query('category') category?: string,
+    @Query('status') status?: string,
   ) {
-    return this.scholarshipService.findAll({ state, incomeLimit, category });
+    return this.scholarshipService.findAll({ state, stateId, incomeLimit, category, status });
   }
 
   @Get(':id')

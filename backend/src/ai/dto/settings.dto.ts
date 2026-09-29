@@ -68,4 +68,27 @@ export class UpdateAISettingsDto {
   @IsOptional()
   @IsNumber()
   dailyCostCap?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  welcomeMessage?: string;
+
+  @IsOptional()
+  suggestedChips?: string[];
+
+  @IsOptional()
+  @IsString()
+  counselorPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  counselorWhatsapp?: string;
+
+  @IsOptional()
+  @IsString()
+  counselorWorkingHours?: string;
 }

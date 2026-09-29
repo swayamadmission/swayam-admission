@@ -181,7 +181,7 @@ export default function ApplicationsPage() {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">Admission Review & Decision Governance</h1>
+          <h1 className="text-2xl font-black text-[#4A7B5B] tracking-tight">Admission Review & Decision Governance</h1>
           <p className="text-xs text-[#94A3B8] mt-0.5">
             Review submitted applications, manage reviewer claims, verify program offerings, request corrections & execute governance decisions.
           </p>
@@ -230,7 +230,7 @@ export default function ApplicationsPage() {
                   <Icon size={14} />
                 </div>
               </div>
-              <div className="text-2xl font-black text-[#0F172A] mt-2">{item.count}</div>
+              <div className="text-2xl font-black text-[#4A7B5B] mt-2">{item.count}</div>
             </button>
           );
         })}
@@ -326,7 +326,7 @@ export default function ApplicationsPage() {
                             {studentName.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="text-xs font-bold text-[#0F172A] flex items-center gap-2">
+                            <div className="text-xs font-bold text-[#4A7B5B] flex items-center gap-2">
                               <span>{studentName}</span>
                               {studentId && (
                                 <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-[#4A7B5B] border border-emerald-200">
@@ -344,7 +344,7 @@ export default function ApplicationsPage() {
 
                       {/* Offering */}
                       <td className="px-5 py-3.5">
-                        <div className="text-xs font-bold text-[#0F172A] max-w-[200px] truncate">{collegeName}</div>
+                        <div className="text-xs font-bold text-[#4A7B5B] max-w-[200px] truncate">{collegeName}</div>
                         <div className="text-[10px] text-[#94A3B8]">
                           {app.course?.name || "Course"} {app.branch?.name ? `• ${app.branch.name}` : ""}
                         </div>
@@ -355,7 +355,7 @@ export default function ApplicationsPage() {
                         <div className="text-xs text-[#475569]">
                           <span className="font-semibold text-slate-400">Counselor:</span> {app.counselor?.fullName || "Unassigned"}
                         </div>
-                        <div className="text-xs text-[#0F172A] flex items-center gap-1 mt-0.5">
+                        <div className="text-xs text-[#4A7B5B] flex items-center gap-1 mt-0.5">
                           <span className="font-semibold text-slate-400">Reviewer:</span>{" "}
                           {app.reviewer?.fullName ? (
                             <span className="font-bold text-[#4A7B5B]">{app.reviewer.fullName}</span>
@@ -428,7 +428,7 @@ export default function ApplicationsPage() {
             <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <span className="text-[10px] font-black uppercase text-[#4A7B5B] tracking-wider block">Admission Governance Review</span>
-                <h2 className="text-lg font-extrabold text-[#0F172A]">
+                <h2 className="text-lg font-extrabold text-[#4A7B5B]">
                   {selectedApp.applicationNumber || selectedApp.applicationId || selectedApp.id}
                 </h2>
                 <p className="text-xs text-slate-500">
@@ -462,11 +462,11 @@ export default function ApplicationsPage() {
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div>
                     <span className="text-[10px] text-slate-500 block">College</span>
-                    <span className="text-xs font-bold text-[#0F172A]">{selectedApp.college?.name || "N/A"}</span>
+                    <span className="text-xs font-bold text-[#4A7B5B]">{selectedApp.college?.name || "N/A"}</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block">Course & Branch</span>
-                    <span className="text-xs font-bold text-[#0F172A]">
+                    <span className="text-xs font-bold text-[#4A7B5B]">
                       {selectedApp.course?.name || "N/A"} {selectedApp.branch?.name ? `(${selectedApp.branch.name})` : ""}
                     </span>
                   </div>
@@ -486,7 +486,7 @@ export default function ApplicationsPage() {
                 return (
                   <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-4 shadow-xs">
                     <div className="flex items-center justify-between border-b pb-2">
-                      <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">Candidate Application Snapshot</span>
+                      <span className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">Candidate Application Snapshot</span>
                       <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800">
                         Category: <strong>{studentCategory}</strong>
                       </span>
@@ -538,11 +538,11 @@ export default function ApplicationsPage() {
 
               {/* Reviewer & Counselor Ownership Card */}
               <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-3">
-                <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">Responsibility Assignment</span>
+                <span className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider block">Responsibility Assignment</span>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-3 bg-white rounded-xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Guidance Counselor</span>
-                    <span className="text-xs font-bold text-[#0F172A] block mt-0.5">
+                    <span className="text-xs font-bold text-[#4A7B5B] block mt-0.5">
                       {selectedApp.counselor?.fullName || "Unassigned"}
                     </span>
                   </div>
@@ -567,7 +567,7 @@ export default function ApplicationsPage() {
 
               {/* Structured Review Checklist */}
               <div className="space-y-3">
-                <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">Structured Pre-Decision Review Checklist</span>
+                <span className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider block">Structured Pre-Decision Review Checklist</span>
                 <div className="space-y-2">
                   {[
                     { label: "Applicant Identity & Contact Verified", ok: !!selectedApp.user?.fullName && !!selectedApp.user?.mobile },
@@ -616,14 +616,14 @@ export default function ApplicationsPage() {
 
               {/* Timeline Log */}
               <div className="space-y-3">
-                <span className="text-xs font-bold text-[#0F172A] uppercase tracking-wider block">Audit Timeline Log</span>
+                <span className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider block">Audit Timeline Log</span>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {(!selectedApp.timeline || selectedApp.timeline.length === 0) ? (
                     <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-400">No timeline events recorded yet.</div>
                   ) : (
                     selectedApp.timeline.map((tm: any, idx: number) => (
                       <div key={tm.id || idx} className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-0.5">
-                        <div className="flex justify-between font-bold text-[#0F172A]">
+                        <div className="flex justify-between font-bold text-[#4A7B5B]">
                           <span>{tm.action}</span>
                           <span className="text-[10px] text-slate-400">{new Date(tm.createdAt).toLocaleString()}</span>
                         </div>
@@ -676,7 +676,7 @@ export default function ApplicationsPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-[#0F172A]">Confirm Admission Approval</h3>
+              <h3 className="text-base font-extrabold text-[#4A7B5B]">Confirm Admission Approval</h3>
               <button onClick={() => setApproveModalApp(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
             <p className="text-xs text-slate-600">
@@ -711,7 +711,7 @@ export default function ApplicationsPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-[#0F172A]">Reject Application</h3>
+              <h3 className="text-base font-extrabold text-[#4A7B5B]">Reject Application</h3>
               <button onClick={() => setRejectModalApp(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
 
@@ -780,7 +780,7 @@ export default function ApplicationsPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-[#0F172A]">Request Student Correction</h3>
+              <h3 className="text-base font-extrabold text-[#4A7B5B]">Request Student Correction</h3>
               <button onClick={() => setCorrectionModalApp(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
 
@@ -836,7 +836,7 @@ export default function ApplicationsPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-base font-extrabold text-[#0F172A]">Reopen Decision Governance</h3>
+              <h3 className="text-base font-extrabold text-[#4A7B5B]">Reopen Decision Governance</h3>
               <button onClick={() => setReopenModalApp(null)} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
             </div>
 

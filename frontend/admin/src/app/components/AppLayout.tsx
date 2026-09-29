@@ -35,6 +35,7 @@ import ProfilePage from "./ProfilePage";
 import ReferralManagementPage from "./ReferralManagementPage";
 import CouponManagementPage from "./CouponManagementPage";
 import FeeManagementPage from "./FeeManagementPage";
+import StatesManagementPage from "./StatesManagementPage";
 import ErrorBoundary from "./ErrorBoundary";
 import {
   LayoutDashboard, Users, BarChart3, Building2, Settings,
@@ -57,7 +58,7 @@ function PlaceholderPage({ title, icon: Icon, description }: { title: string; ic
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "#E8F3EC" }}>
           <Icon className="w-8 h-8" style={{ color: "#4A7B5B" }} />
         </div>
-        <h2 className="text-[#0F172A] mb-2">{title}</h2>
+        <h2 className="text-[#4A7B5B] mb-2">{title}</h2>
         <p className="text-[#64748B] text-sm">{description}</p>
         <div className="mt-4 px-4 py-2 rounded-full inline-block text-xs" style={{ background: "#E8F3EC", color: "#4A7B5B" }}>
           Module coming soon
@@ -94,6 +95,8 @@ export default function AppLayout({ user, currentPage, onPageChange, onLogout }:
       case "organization": return <OrganizationPage />;
       case "blogs": return <BlogsPage />;
       case "courses": return <CoursesPage />;
+      case "states":
+      case "state-management": return <StatesManagementPage onPageChange={onPageChange} />;
       case "documents": return <DocumentsPage />;
       case "exams": return <ExamsPage />;
       case "scholarships": return <ScholarshipsPage />;

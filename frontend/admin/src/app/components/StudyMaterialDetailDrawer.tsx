@@ -6,7 +6,7 @@ import {
   Lock, Sparkles, Building, Layers
 } from "lucide-react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { materialsApi, type StudyMaterial } from "../../api/materials.api";
+import { materialsApi, resolveThumbnailUrl, type StudyMaterial } from "../../api/materials.api";
 
 interface StudyMaterialDetailDrawerProps {
   isOpen: boolean;
@@ -54,7 +54,7 @@ function Section({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F8FAFC] transition-colors"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#0F172A]">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#4A7B5B]">
           <Icon className="w-4 h-4" style={{ color: "#4A7B5B" }} />
           {title}
         </div>
@@ -210,7 +210,10 @@ export default function StudyMaterialDetailDrawer({
         {/* Action Bar */}
         {material && (
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[#F1F5F9] shrink-0 bg-white">
-            <div className="px-2.5 py-1 rounded-full text-xs font-semibold" style={statusConf}>
+            <div
+              className="px-2.5 py-1 rounded-full text-xs font-semibold"
+              style={{ background: statusConf.bg, color: statusConf.text }}
+            >
               {labelFmt(material.status)}
             </div>
             {material.featured && (
@@ -274,18 +277,35 @@ export default function StudyMaterialDetailDrawer({
 
           {!isLoading && material && (
             <>
+              {/* Thumbnail Cover if exists */}
+              {resolveThumbnailUrl(material.thumbnail) && (
+                <div className="w-full aspect-[16/9] rounded-xl overflow-hidden bg-slate-950 border border-slate-200 shadow-xs relative flex items-center justify-center">
+                  <img
+                    src={resolveThumbnailUrl(material.thumbnail)!}
+                    alt={material.title}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[10px] px-2 py-0.5 rounded font-medium pointer-events-none">
+                    Cover Thumbnail (16:9)
+                  </div>
+                </div>
+              )}
+
               {/* Stats Bar */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-white p-3 rounded-xl border border-[#F1F5F9] text-center">
-                  <div className="text-lg font-bold text-[#0F172A]">{material.downloadCount.toLocaleString("en-IN")}</div>
+                  <div className="text-lg font-bold text-[#4A7B5B]">{material.downloadCount.toLocaleString("en-IN")}</div>
                   <div className="text-xs text-[#94A3B8]">Downloads</div>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-[#F1F5F9] text-center">
-                  <div className="text-lg font-bold text-[#0F172A]">{material.viewCount.toLocaleString("en-IN")}</div>
+                  <div className="text-lg font-bold text-[#4A7B5B]">{material.viewCount.toLocaleString("en-IN")}</div>
                   <div className="text-xs text-[#94A3B8]">Views</div>
                 </div>
                 <div className="bg-white p-3 rounded-xl border border-[#F1F5F9] text-center">
-                  <div className="text-lg font-bold text-[#0F172A]">{material.pages ?? "N/A"}</div>
+                  <div className="text-lg font-bold text-[#4A7B5B]">{material.pages ?? "N/A"}</div>
                   <div className="text-xs text-[#94A3B8]">Pages</div>
                 </div>
               </div>
@@ -294,7 +314,7 @@ export default function StudyMaterialDetailDrawer({
               {material.fileUrl && (
                 <div className="bg-white p-3 rounded-xl border border-[#F1F5F9]">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#0F172A] flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-[#4A7B5B] flex items-center gap-1.5">
                       <Eye className="w-4 h-4 text-[#4A7B5B]" />
                       Resource Preview
                     </span>
@@ -358,6 +378,21 @@ export default function StudyMaterialDetailDrawer({
                 <InfoRow label="File Extension" value={material.fileExtension?.toUpperCase()} />
                 <InfoRow label="File Size" value={material.fileSize} />
                 <InfoRow label="Page Count" value={material.pages ? `${material.pages} pages` : undefined} />
+                {material.thumbnail && (
+                  <InfoRow
+                    label="Thumbnail Image"
+                    value={
+                      <a
+                        href={material.thumbnail}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-emerald-700 hover:underline flex items-center justify-end gap-1 font-medium"
+                      >
+                        <ExternalLink className="w-3 h-3" /> View Thumbnail
+                      </a>
+                    }
+                  />
+                )}
                 {material.fileUrl && (
                   <InfoRow
                     label="Direct File Link"
@@ -374,6 +409,36 @@ export default function StudyMaterialDetailDrawer({
                   />
                 )}
               </Section>
+
+              {/* Credentials & Verified Source */}
+              {material.hasCredentials && (
+                <Section title="Credentials & Verified Source" icon={Building}>
+                  <InfoRow label="Author / Educator" value={material.authorName} />
+                  <InfoRow label="Author Role" value={material.authorRole} />
+                  <InfoRow label="Source / Provider" value={material.providerName} />
+                  {material.credentialsUrl && (
+                    <InfoRow
+                      label="Profile / Link"
+                      value={
+                        <a
+                          href={material.credentialsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline flex items-center justify-end gap-1"
+                        >
+                          <ExternalLink className="w-3 h-3" /> View Profile
+                        </a>
+                      }
+                    />
+                  )}
+                  {material.credentialsNotes && (
+                    <div className="pt-1">
+                      <p className="text-xs text-[#94A3B8] mb-1">Credential Notes</p>
+                      <p className="text-xs text-[#1E293B] leading-relaxed">{material.credentialsNotes}</p>
+                    </div>
+                  )}
+                </Section>
+              )}
 
               {/* Related Academic Entities */}
               <Section title="Linked Academic Entities" icon={GraduationCap}>

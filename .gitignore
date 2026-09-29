@@ -24,6 +24,8 @@ out/
 # Uploads & Temporary Media
 uploads/
 */uploads/
+storage/
+*/storage/
 tmp/
 temp/
 

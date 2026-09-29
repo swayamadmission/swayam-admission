@@ -188,7 +188,7 @@ export default function AuthModal({ open, onClose, onLogin, authLogin, authSignu
                   <div className="w-14 h-14 bg-[#E8F3EC] rounded-full flex items-center justify-center mx-auto mb-3">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4A7B5B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-[#0F172A] mb-1">Account Created!</h3>
+                  <h3 className="text-lg font-semibold text-[#4A7B5B] mb-1">Account Created!</h3>
                   <p className="text-sm text-gray-500 mb-4">You can now sign in with your credentials.</p>
                   <button
                     onClick={() => { setSignupSuccess(false); switchTab("login"); }}

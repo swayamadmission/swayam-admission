@@ -102,10 +102,10 @@ export default function ScholarshipsPage() {
           <nav className="flex items-center gap-2 mb-4" style={{ fontSize: "12px", color: "#94a3b8" }}>
             <Link to="/" className="hover:text-[#4A7B5B] transition-colors">Home</Link>
             <ChevronRight size={12} />
-            <span style={{ color: "#0F172A", fontWeight: 600 }}>Scholarships</span>
+            <span style={{ color: "#4A7B5B", fontWeight: 600 }}>Scholarships</span>
           </nav>
           <div className="mb-2" style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>Financial Aid & Support</div>
-          <h1 className="mb-2" style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(24px,4vw,36px)" }}>Scholarships & Financial Aid</h1>
+          <h1 className="mb-2" style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(24px,4vw,36px)" }}>Scholarships & Financial Aid</h1>
           <p style={{ fontSize: "14px", color: "#64748b" }}>Discover 50+ scholarships for Indian students. Check eligibility, deadlines, and apply directly.</p>
 
           <button
@@ -126,7 +126,7 @@ export default function ScholarshipsPage() {
             <div className="px-6 py-4 flex items-center justify-between" style={{ backgroundColor: "#E8F3EC" }}>
               <div className="flex items-center gap-2">
                 <Sparkles size={18} className="text-[#4A7B5B]" />
-                <span style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>Scholarship Eligibility Checker</span>
+                <span style={{ fontSize: "15px", fontWeight: 700, color: "#4A7B5B" }}>Scholarship Eligibility Checker</span>
               </div>
               <button onClick={() => { setShowChecker(false); setCheckerResults(null); }} className="p-1.5 rounded-lg hover:bg-[#4A7B5B]/10 transition-colors">
                 <X size={16} className="text-[#4A7B5B]" />
@@ -174,7 +174,7 @@ export default function ScholarshipsPage() {
                 <div className="mt-6">
                   <div className="flex items-center gap-2 mb-4">
                     <CheckCircle size={18} className="text-[#4A7B5B]" />
-                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>
+                    <span style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}>
                       {checkerResults.length} Scholarships Found for You
                     </span>
                   </div>
@@ -192,7 +192,7 @@ export default function ScholarshipsPage() {
                             <Award size={16} style={{ color: style.color }} />
                           </div>
                           <div>
-                            <p style={{ fontSize: "12px", fontWeight: 600, color: "#0F172A" }}>{s.scholarshipName}</p>
+                            <p style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>{s.scholarshipName}</p>
                             <p style={{ fontSize: "11px", color: style.color, fontWeight: 600 }}>{s.amount ? `₹${s.amount}/year` : "Varies"}</p>
                             <p style={{ fontSize: "10px", color: "#94a3b8" }}>Deadline: {s.applicationEnd ? new Date(s.applicationEnd).toLocaleDateString() : 'N/A'}</p>
                           </div>
@@ -219,7 +219,7 @@ export default function ScholarshipsPage() {
                 <Icon size={18} className="text-[#4A7B5B]" />
               </div>
               <div>
-                <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>{value}</div>
+                <div style={{ fontSize: "20px", fontWeight: 800, color: "#4A7B5B" }}>{value}</div>
                 <div style={{ fontSize: "11px", color: "#94a3b8" }}>{label}</div>
               </div>
             </div>
@@ -229,7 +229,7 @@ export default function ScholarshipsPage() {
         {/* Featured Scholarships */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Featured Scholarships</h2>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Featured Scholarships</h2>
             <span style={{ fontSize: "12px", color: "#94a3b8" }}>Most applied this season</span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -246,7 +246,7 @@ export default function ScholarshipsPage() {
                     <span className="px-2 py-1 rounded-full" style={{ fontSize: "10px", fontWeight: 600, backgroundColor: style.bg, color: style.color }}>{(s as any).badge}</span>
                   )}
                 </div>
-                <h3 className="mb-1" style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A", lineHeight: 1.3 }}>{s.scholarshipName}</h3>
+                <h3 className="mb-1" style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B", lineHeight: 1.3 }}>{s.scholarshipName}</h3>
                 <p className="mb-3" style={{ fontSize: "11px", color: "#64748b" }}>{s.provider || "Various Providers"}</p>
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                   <div>
@@ -254,7 +254,7 @@ export default function ScholarshipsPage() {
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>per year</div>
                   </div>
                   <div className="text-right">
-                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#0F172A" }}>Due: {s.applicationEnd ? new Date(s.applicationEnd).toLocaleDateString() : 'N/A'}</div>
+                    <div style={{ fontSize: "11px", fontWeight: 600, color: "#4A7B5B" }}>Due: {s.applicationEnd ? new Date(s.applicationEnd).toLocaleDateString() : 'N/A'}</div>
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>N/A beneficiaries</div>
                   </div>
                 </div>
@@ -303,7 +303,7 @@ export default function ScholarshipsPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#0F172A" }}>{s.scholarshipName}</h3>
+                    <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#4A7B5B" }}>{s.scholarshipName}</h3>
                     <span className="px-2 py-0.5 rounded-full" style={{ fontSize: "10px", fontWeight: 600, backgroundColor: CATEGORY_COLORS[s.category] + "20", color: CATEGORY_COLORS[s.category] }}>{s.category || "General"}</span>
                     {(s as any).badge && <span className="px-2 py-0.5 rounded-full" style={{ fontSize: "10px", fontWeight: 600, backgroundColor: style.bg, color: style.color }}>{(s as any).badge}</span>}
                   </div>

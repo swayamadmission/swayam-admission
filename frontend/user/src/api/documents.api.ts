@@ -78,6 +78,29 @@ export interface DynamicChecklistResponse {
   };
 }
 
+export interface DeletionRequestItem {
+  id: string;
+  requestId: string;
+  documentId: string;
+  document?: Document;
+}
+
+export interface DeletionRequest {
+  id: string;
+  studentId: string;
+  applicationId?: string;
+  reason: string;
+  additionalDetails?: string;
+  status: string;
+  requestedAt: string;
+  scheduledDeletionAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  completedAt?: string;
+  items?: DeletionRequestItem[];
+}
+
 export const documentsApi = {
   getMyDocuments: () =>
     api.get<Document[]>("/documents/my"),
@@ -119,4 +142,40 @@ export const documentsApi = {
 
   download: (id: string) =>
     api.get(`/documents/${id}/download`),
+
+  requestDeletion: (data: {
+    documentIds: string[];
+    reason: string;
+    additionalDetails?: string;
+    applicationId?: string;
+    confirmation?: boolean;
+    studentConfirmed?: boolean;
+  }) =>
+    api.post<{ success: boolean; data: DeletionRequest; message: string }>(
+      "/documents/deletion-requests",
+      {
+        ...data,
+        confirmation: true,
+        studentConfirmed: true,
+      },
+    ),
+
+  getMyDeletionRequests: () =>
+    api.get<{ success: boolean; data: DeletionRequest[] }>(
+      "/documents/deletion-requests/my",
+    ),
+
+  cancelDeletionRequest: (id: string) =>
+    api.patch<{ success: boolean; message: string }>(
+      `/documents/deletion-requests/${id}/cancel`,
+    ),
+
+  getDocumentUrl: (id: string, mode: "preview" | "download" = "preview") => {
+    const token = localStorage.getItem("swayam_token") || "";
+    const baseUrl = (api.defaults.baseURL || "http://localhost:3000/v1").replace(
+      /\/$/,
+      "",
+    );
+    return `${baseUrl}/documents/${id}/${mode}?token=${encodeURIComponent(token)}`;
+  },
 };

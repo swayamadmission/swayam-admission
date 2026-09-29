@@ -261,7 +261,7 @@ export default function ScholarshipDetailPage() {
             <ChevronRight size={12} />
             <Link to="/scholarships" className="hover:text-[#4A7B5B]">Scholarships</Link>
             <ChevronRight size={12} />
-            <span style={{ color: "#0F172A", fontWeight: 600 }}>{scholarship?.shortName}</span>
+            <span style={{ color: "#4A7B5B", fontWeight: 600 }}>{scholarship?.shortName}</span>
           </nav>
 
           <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -279,7 +279,7 @@ export default function ScholarshipDetailPage() {
                   </span>
                 )}
               </div>
-              <h1 className="mb-1" style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(18px,3vw,26px)" }}>{scholarship?.name}</h1>
+              <h1 className="mb-1" style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(18px,3vw,26px)" }}>{scholarship?.name}</h1>
               <p style={{ fontSize: "13px", color: "#64748b" }}>By {scholarship?.provider} • {scholarship?.students} beneficiaries</p>
             </div>
           </div>
@@ -297,7 +297,7 @@ export default function ScholarshipDetailPage() {
                 </div>
                 <div>
                   <div style={{ fontSize: "10px", color: "#94a3b8" }}>{label}</div>
-                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#0F172A" }}>{value}</div>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#4A7B5B" }}>{value}</div>
                 </div>
               </div>
             ))}
@@ -332,27 +332,27 @@ export default function ScholarshipDetailPage() {
             {activeTab === "overview" && (
               <div className="space-y-6">
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                  <h2 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>About this Scholarship</h2>
+                  <h2 className="mb-3" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>About this Scholarship</h2>
                   <p style={{ fontSize: "14px", color: "#475569", lineHeight: 1.7 }}>{detail.overview}</p>
                 </div>
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                  <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Key Highlights</h2>
+                  <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Key Highlights</h2>
                   <div className="grid sm:grid-cols-2 gap-3">
                     {detail.highlights.map((h, i) => (
                       <div key={i} className="flex items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: scholarship?.bg }}>
                         <CheckCircle size={16} style={{ color: scholarship?.color }} />
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>{h}</span>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#4A7B5B" }}>{h}</span>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                  <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Benefits Breakdown</h2>
+                  <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Benefits Breakdown</h2>
                   <div className="space-y-3">
                     {detail.benefits.map((b, i) => (
                       <div key={i} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
                         <span style={{ fontSize: "13px", color: "#64748b" }}>{b.label}</span>
-                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}>{b.value}</span>
+                        <span style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}>{b.value}</span>
                       </div>
                     ))}
                   </div>
@@ -362,7 +362,7 @@ export default function ScholarshipDetailPage() {
 
             {activeTab === "eligibility" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Eligibility Criteria</h2>
+                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Eligibility Criteria</h2>
                 <div className="space-y-3">
                   {detail.eligibilityCriteria.map((c, i) => (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
@@ -387,7 +387,7 @@ export default function ScholarshipDetailPage() {
 
             {activeTab === "documents" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Required Documents</h2>
+                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Required Documents</h2>
                 <p className="mb-4" style={{ fontSize: "13px", color: "#64748b" }}>Keep these documents ready before starting your application. Upload scanned copies in JPG/PDF format (max 200KB each).</p>
                 <div className="grid sm:grid-cols-2 gap-3">
                   {detail.documents.map((doc, i) => (
@@ -404,7 +404,7 @@ export default function ScholarshipDetailPage() {
 
             {activeTab === "apply" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                <h2 className="mb-2" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>How to Apply</h2>
+                <h2 className="mb-2" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>How to Apply</h2>
                 <p className="mb-6" style={{ fontSize: "13px", color: "#64748b" }}>Follow these steps to successfully apply for this scholarship.</p>
                 <div className="space-y-4">
                   {detail.steps.map((s) => (
@@ -416,7 +416,7 @@ export default function ScholarshipDetailPage() {
                         {s.step < detail.steps.length && <div className="w-0.5 flex-1 mt-2" style={{ backgroundColor: (scholarship?.color || "") + "30" }} />}
                       </div>
                       <div className="pb-5">
-                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>{s.title}</p>
+                        <p style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}>{s.title}</p>
                         <p style={{ fontSize: "13px", color: "#64748b", lineHeight: 1.6 }}>{s.desc}</p>
                       </div>
                     </div>
@@ -432,7 +432,7 @@ export default function ScholarshipDetailPage() {
 
             {activeTab === "dates" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Important Dates</h2>
+                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Important Dates</h2>
                 <div className="space-y-0">
                   {detail.dates.map((d, i) => (
                     <div key={i} className="flex items-center justify-between py-4 border-b border-gray-50 last:border-0">
@@ -453,13 +453,13 @@ export default function ScholarshipDetailPage() {
 
             {activeTab === "faqs" && (
               <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Frequently Asked Questions</h2>
+                <h2 className="mb-4" style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Frequently Asked Questions</h2>
                 <div className="space-y-3">
                   {detail.faqs.map((faq: any, i: number) => (
                     <div key={i} className="border border-gray-100 rounded-xl overflow-hidden">
                       <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
                         className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors">
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#0F172A" }}>{faq.q}</span>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#4A7B5B" }}>{faq.q}</span>
                         {openFaq === i ? <ChevronUp size={16} className="text-gray-400 shrink-0" /> : <ChevronDown size={16} className="text-gray-400 shrink-0" />}
                       </button>
                       {openFaq === i && (
@@ -488,11 +488,11 @@ export default function ScholarshipDetailPage() {
               </div>
               <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
                 <span style={{ fontSize: "12px", color: "#64748b" }}>Provider</span>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#0F172A" }}>{scholarship?.provider}</span>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#4A7B5B" }}>{scholarship?.provider}</span>
               </div>
               <div className="flex items-center justify-between py-2.5 mb-4">
                 <span style={{ fontSize: "12px", color: "#64748b" }}>Beneficiaries</span>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#0F172A" }}>{scholarship?.students}</span>
+                <span style={{ fontSize: "12px", fontWeight: 700, color: "#4A7B5B" }}>{scholarship?.students}</span>
               </div>
               <a href={detail.applyUrl} target="_blank" rel="noopener noreferrer"
                 className="block w-full text-center py-3 rounded-xl text-white transition-all hover:opacity-90 mb-2"
@@ -524,7 +524,7 @@ export default function ScholarshipDetailPage() {
             {/* Related Scholarships */}
             {related.length > 0 && (
               <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                <h3 className="mb-4" style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}>More Scholarships</h3>
+                <h3 className="mb-4" style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}>More Scholarships</h3>
                 <div className="space-y-3">
                   {related.map((s: any) => {
                     const style = getCategoryColor(s.category);
@@ -535,7 +535,7 @@ export default function ScholarshipDetailPage() {
                         <Award size={15} style={{ color: style.color }} />
                       </div>
                       <div>
-                        <p style={{ fontSize: "12px", fontWeight: 600, color: "#0F172A" }}>{s.scholarshipName}</p>
+                        <p style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>{s.scholarshipName}</p>
                         <p style={{ fontSize: "11px", color: style.color, fontWeight: 600 }}>{s.amount ? `₹${s.amount}` : "Varies"}</p>
                       </div>
                     </Link>

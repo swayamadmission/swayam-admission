@@ -206,7 +206,7 @@ export default function CrmTasksPage() {
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A7B5B]">
             Operational Workflow Engine
           </span>
-          <h1 className="text-2xl font-black text-[#0F172A]">CRM Follow-Up & Task Command Center</h1>
+          <h1 className="text-2xl font-black text-[#4A7B5B]">CRM Follow-Up & Task Command Center</h1>
           <p className="text-xs text-[#64748B] mt-0.5">
             Real-time follow-ups, scheduled counseling reminders, and senior counselor escalation queues.
           </p>
@@ -229,7 +229,7 @@ export default function CrmTasksPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="p-4 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] block">Active Follow-ups</span>
-          <span className="text-xl font-black text-[#0F172A] mt-1 block">{stats.activeTotal}</span>
+          <span className="text-xl font-black text-[#4A7B5B] mt-1 block">{stats.activeTotal}</span>
           <span className="text-[10px] text-[#4A7B5B] font-semibold">Total Assigned</span>
         </div>
 
@@ -253,7 +253,7 @@ export default function CrmTasksPage() {
 
         <div className="p-4 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs">
           <span className="text-[11px] font-bold text-[#64748B] block">Upcoming</span>
-          <span className="text-xl font-black text-[#0F172A] mt-1 block">{stats.upcoming}</span>
+          <span className="text-xl font-black text-[#4A7B5B] mt-1 block">{stats.upcoming}</span>
           <span className="text-[10px] text-[#64748B] font-semibold">Next 7 Days</span>
         </div>
 
@@ -282,7 +282,7 @@ export default function CrmTasksPage() {
               className={`pb-3 px-3.5 flex items-center gap-2 text-xs font-bold transition-all border-b-2 ${
                 isActive
                   ? "border-[#4A7B5B] text-[#4A7B5B]"
-                  : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                  : "border-transparent text-[#64748B] hover:text-[#4A7B5B]"
               }`}
             >
               {t.label}
@@ -306,7 +306,7 @@ export default function CrmTasksPage() {
       {activeTab === "workload" ? (
         <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-xs">
           <div className="p-4 border-b border-[#E2E8F0] bg-[#F8FAFC]">
-            <h3 className="text-sm font-bold text-[#0F172A]">Senior Counselor Team Workload Overview</h3>
+            <h3 className="text-sm font-bold text-[#4A7B5B]">Senior Counselor Team Workload Overview</h3>
             <p className="text-xs text-[#64748B]">Real-time task distribution, overdue alerts, and completion performance.</p>
           </div>
 
@@ -333,11 +333,11 @@ export default function CrmTasksPage() {
                   {workloads.map((w) => (
                     <tr key={w.counselorId} className="hover:bg-[#F8FAFC] transition-colors">
                       <td className="p-3.5 pl-5">
-                        <span className="font-bold text-[#0F172A] block">{w.fullName}</span>
+                        <span className="font-bold text-[#4A7B5B] block">{w.fullName}</span>
                         <span className="text-[11px] text-[#64748B]">{w.email}</span>
                       </td>
                       <td className="p-3.5 text-[#475569] font-medium">{w.department}</td>
-                      <td className="p-3.5 text-center font-bold text-[#0F172A]">{w.openTasks}</td>
+                      <td className="p-3.5 text-center font-bold text-[#4A7B5B]">{w.openTasks}</td>
                       <td className="p-3.5 text-center font-bold text-amber-700">{w.dueToday}</td>
                       <td className="p-3.5 text-center font-bold text-red-700">
                         {w.overdue > 0 ? (
@@ -431,7 +431,7 @@ export default function CrmTasksPage() {
           ) : tasksList.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-[#E2E8F0] space-y-2">
               <CheckCircle2 className="w-8 h-8 text-[#4A7B5B] mx-auto opacity-50" />
-              <h4 className="text-sm font-bold text-[#0F172A]">All Clear! No Tasks in this Queue</h4>
+              <h4 className="text-sm font-bold text-[#4A7B5B]">All Clear! No Tasks in this Queue</h4>
               <p className="text-xs text-[#64748B]">You're up to date on all follow-ups.</p>
             </div>
           ) : (
@@ -492,7 +492,7 @@ export default function CrmTasksPage() {
                           )}
                         </div>
 
-                        <h4 className="text-sm font-bold text-[#0F172A] mt-1.5">{task.title}</h4>
+                        <h4 className="text-sm font-bold text-[#4A7B5B] mt-1.5">{task.title}</h4>
                         {task.description && (
                           <p className="text-xs text-[#64748B] mt-0.5 leading-relaxed">{task.description}</p>
                         )}
@@ -502,7 +502,7 @@ export default function CrmTasksPage() {
                         <span className="text-[10px] text-[#94A3B8] block font-medium">Due Date</span>
                         <span
                           className={`text-xs font-bold ${
-                            isOverdue ? "text-red-600" : "text-[#0F172A]"
+                            isOverdue ? "text-red-600" : "text-[#4A7B5B]"
                           }`}
                         >
                           {new Date(task.dueDate).toLocaleString([], {
@@ -518,7 +518,7 @@ export default function CrmTasksPage() {
                       <div className="p-2.5 rounded-xl bg-[#F8FAFC] border border-[#F1F5F9] flex items-center justify-between text-xs">
                         <div>
                           <span className="text-[10px] text-[#94A3B8] uppercase font-bold block">Contact</span>
-                          <strong className="text-[#0F172A]">
+                          <strong className="text-[#4A7B5B]">
                             {task.student?.fullName || task.lead?.fullName}
                           </strong>
                           <span className="text-[11px] text-[#64748B] ml-2">
@@ -538,7 +538,7 @@ export default function CrmTasksPage() {
                     <div className="flex items-center justify-between pt-2 border-t border-[#F1F5F9] text-xs">
                       <div className="flex items-center gap-1.5 text-[#64748B]">
                         <UserCheck className="w-3.5 h-3.5 text-[#4A7B5B]" />
-                        <span>Counselor: <strong className="text-[#0F172A]">{task.User?.fullName || "Assigned"}</strong></span>
+                        <span>Counselor: <strong className="text-[#4A7B5B]">{task.User?.fullName || "Assigned"}</strong></span>
                       </div>
 
                       {!isCompleted && (
@@ -582,7 +582,7 @@ export default function CrmTasksPage() {
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <div>
                 <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">New Follow-Up</span>
-                <h3 className="text-base font-bold text-[#0F172A]">Create Follow-Up Task</h3>
+                <h3 className="text-base font-bold text-[#4A7B5B]">Create Follow-Up Task</h3>
               </div>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
@@ -594,7 +594,7 @@ export default function CrmTasksPage() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Task Title *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Task Title *</label>
                 <input
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
@@ -605,7 +605,7 @@ export default function CrmTasksPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Due Date & Time *</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Due Date & Time *</label>
                   <input
                     type="datetime-local"
                     value={newTaskDueDate}
@@ -614,7 +614,7 @@ export default function CrmTasksPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-[#0F172A] block mb-1">Priority</label>
+                  <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Priority</label>
                   <select
                     value={newTaskPriority}
                     onChange={(e) => setNewTaskPriority(e.target.value)}
@@ -629,7 +629,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Assign to Counselor *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Assign to Counselor *</label>
                 <select
                   value={newTaskAssignedTo}
                   onChange={(e) => setNewTaskAssignedTo(e.target.value)}
@@ -648,7 +648,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Instructions / Description</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Instructions / Description</label>
                 <textarea
                   value={newTaskDesc}
                   onChange={(e) => setNewTaskDesc(e.target.value)}
@@ -686,12 +686,12 @@ export default function CrmTasksPage() {
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Complete Follow-Up</span>
-              <h3 className="text-base font-bold text-[#0F172A]">{completingTask.title}</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">{completingTask.title}</h3>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Outcome *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Outcome *</label>
                 <select
                   value={completeOutcome}
                   onChange={(e) => setCompleteOutcome(e.target.value)}
@@ -708,7 +708,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Completion Notes</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Completion Notes</label>
                 <textarea
                   value={completeNotes}
                   onChange={(e) => setCompleteNotes(e.target.value)}
@@ -719,7 +719,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">
                   Schedule Next Follow-Up (Optional)
                 </label>
                 <input
@@ -758,12 +758,12 @@ export default function CrmTasksPage() {
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Reschedule Follow-Up</span>
-              <h3 className="text-base font-bold text-[#0F172A]">{reschedulingTask.title}</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">{reschedulingTask.title}</h3>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">New Due Date & Time *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">New Due Date & Time *</label>
                 <input
                   type="datetime-local"
                   value={rescheduleDate}
@@ -773,7 +773,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Reason for Rescheduling *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Reason for Rescheduling *</label>
                 <textarea
                   value={rescheduleReason}
                   onChange={(e) => setRescheduleReason(e.target.value)}
@@ -811,12 +811,12 @@ export default function CrmTasksPage() {
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">Reassign Follow-Up</span>
-              <h3 className="text-base font-bold text-[#0F172A]">{reassigningTask.title}</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">{reassigningTask.title}</h3>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">New Assigned Counselor *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">New Assigned Counselor *</label>
                 <select
                   value={reassignTargetId}
                   onChange={(e) => setReassignTargetId(e.target.value)}
@@ -835,7 +835,7 @@ export default function CrmTasksPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-[#0F172A] block mb-1">Reason for Reassignment *</label>
+                <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Reason for Reassignment *</label>
                 <textarea
                   value={reassignReason}
                   onChange={(e) => setReassignReason(e.target.value)}

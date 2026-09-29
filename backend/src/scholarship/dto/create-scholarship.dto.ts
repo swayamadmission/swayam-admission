@@ -35,6 +35,15 @@ export class CreateScholarshipDto {
   state?: string;
 
   @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  states?: string[];
+
+  @IsOptional()
   @IsNumber()
   incomeLimit?: number;
 

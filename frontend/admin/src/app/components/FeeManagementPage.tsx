@@ -320,7 +320,7 @@ export const FeeManagementPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#0F172A] p-6 rounded-2xl text-white shadow-lg border border-slate-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#4A7B5B] p-6 rounded-2xl text-white shadow-lg border border-slate-800">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-[#4A7B5B]/20 border border-[#4A7B5B]/30 text-[#E8F3EC]">
@@ -357,7 +357,7 @@ export const FeeManagementPage: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Fee Structures</div>
-          <div className="text-2xl font-bold text-[#0F172A] mt-1">{fees.length}</div>
+          <div className="text-2xl font-bold text-[#4A7B5B] mt-1">{fees.length}</div>
           <div className="text-xs text-slate-500 mt-1">Configured in central catalog</div>
         </div>
         <div className="bg-white p-4 lg:p-5 rounded-2xl border border-slate-200 shadow-sm">

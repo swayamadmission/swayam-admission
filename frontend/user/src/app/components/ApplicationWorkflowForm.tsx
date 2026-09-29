@@ -1206,7 +1206,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                   disabled={isReadOnly}
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#4A7B5B] outline-none bg-white font-semibold text-[#0F172A]"
+                  className="w-full p-3 border rounded-xl focus:ring-2 focus:ring-[#4A7B5B] outline-none bg-white font-semibold text-[#4A7B5B]"
                 >
                   {categories.length > 0 ? (
                     categories.map((c) => (

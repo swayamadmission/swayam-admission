@@ -98,7 +98,23 @@ export class ScholarshipsService {
     if (scholarshipType)
       where.scholarshipType = { equals: scholarshipType, mode: 'insensitive' };
     if (provider) where.provider = { contains: provider, mode: 'insensitive' };
-    if (state) where.state = { equals: state, mode: 'insensitive' };
+    if (state || query.stateId) {
+      const stateConditions: Prisma.ScholarshipWhereInput[] = [];
+      if (state) {
+        stateConditions.push(
+          { state: { equals: state, mode: 'insensitive' } },
+          { states: { has: state } },
+          { stateRelation: { name: { equals: state, mode: 'insensitive' } } },
+        );
+      }
+      if (query.stateId) {
+        stateConditions.push({ stateId: query.stateId });
+      }
+      where.AND = [
+        ...(where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : []),
+        { OR: stateConditions },
+      ];
+    }
     if (featured !== undefined) where.featured = featured === 'true';
 
     const now = new Date();
@@ -130,6 +146,11 @@ export class ScholarshipsService {
         skip,
         take: limit,
         orderBy,
+        include: {
+          stateRelation: {
+            select: { id: true, name: true, code: true },
+          },
+        },
       }),
       this.prisma.scholarship.count({ where }),
     ]);
@@ -171,6 +192,24 @@ export class ScholarshipsService {
 
     const slug = await this.generateUniqueSlug(baseSlug);
 
+    let stateName = dto.state;
+    let stateId = dto.stateId;
+    if (stateId && !stateName) {
+      const st = await this.prisma.state.findUnique({ where: { id: stateId } });
+      if (st) stateName = st.name;
+    } else if (stateName && !stateId) {
+      const st = await this.prisma.state.findFirst({
+        where: {
+          OR: [
+            { name: { equals: stateName.trim(), mode: 'insensitive' } },
+            { code: { equals: stateName.trim().toUpperCase() } },
+          ],
+        },
+      });
+      if (st) stateId = st.id;
+    }
+    const states = dto.states && dto.states.length > 0 ? dto.states : (stateName ? [stateName] : []);
+
     const scholarship = await this.prisma.scholarship.create({
       data: {
         scholarshipName: dto.scholarshipName,
@@ -180,7 +219,9 @@ export class ScholarshipsService {
         scholarshipType: dto.scholarshipType,
         category: dto.category,
         gender: dto.gender,
-        state: dto.state,
+        state: stateName,
+        stateId: stateId,
+        states: states,
         country: dto.country ?? 'India',
         incomeLimit: dto.incomeLimit,
         requiredMarks: dto.requiredMarks,
@@ -201,6 +242,9 @@ export class ScholarshipsService {
         faqs: dto.faqs ?? null,
         featured: dto.featured ?? false,
         status: dto.status ?? 'PUBLISHED',
+      },
+      include: {
+        stateRelation: { select: { id: true, name: true, code: true } },
       },
     });
 
@@ -230,6 +274,23 @@ export class ScholarshipsService {
       throw new NotFoundException(`Scholarship with ID ${id} not found`);
     }
 
+    let stateName = dto.state;
+    let stateId = dto.stateId;
+    if (stateId && !stateName) {
+      const st = await this.prisma.state.findUnique({ where: { id: stateId } });
+      if (st) stateName = st.name;
+    } else if (stateName && stateId === undefined) {
+      const st = await this.prisma.state.findFirst({
+        where: {
+          OR: [
+            { name: { equals: stateName.trim(), mode: 'insensitive' } },
+            { code: { equals: stateName.trim().toUpperCase() } },
+          ],
+        },
+      });
+      if (st) stateId = st.id;
+    }
+
     const updateData: Prisma.ScholarshipUpdateInput = {
       ...(dto.scholarshipName !== undefined && {
         scholarshipName: dto.scholarshipName,
@@ -241,7 +302,9 @@ export class ScholarshipsService {
       }),
       ...(dto.category !== undefined && { category: dto.category }),
       ...(dto.gender !== undefined && { gender: dto.gender }),
-      ...(dto.state !== undefined && { state: dto.state }),
+      ...(stateName !== undefined && { state: stateName }),
+      ...(stateId !== undefined && { stateId: stateId }),
+      ...(dto.states !== undefined && { states: dto.states }),
       ...(dto.country !== undefined && { country: dto.country }),
       ...(dto.incomeLimit !== undefined && { incomeLimit: dto.incomeLimit }),
       ...(dto.requiredMarks !== undefined && {
@@ -281,6 +344,9 @@ export class ScholarshipsService {
     const updated = await this.prisma.scholarship.update({
       where: { id },
       data: updateData,
+      include: {
+        stateRelation: { select: { id: true, name: true, code: true } },
+      },
     });
 
     await this.auditService.logAction({

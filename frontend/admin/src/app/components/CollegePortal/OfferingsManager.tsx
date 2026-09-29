@@ -167,7 +167,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#0F172A]">
+          <h2 className="text-lg font-bold text-[#4A7B5B]">
             College Academic Program Offerings
           </h2>
           <p className="text-xs text-[#64748B]">
@@ -204,7 +204,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
           <select
             value={selectedSession}
             onChange={(e) => setSelectedSession(e.target.value)}
-            className="px-3 py-2 text-sm border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 bg-white font-medium text-[#0F172A]"
+            className="px-3 py-2 text-sm border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 bg-white font-medium text-[#4A7B5B]"
           >
             <option value="2026-27">Session 2026-27</option>
             <option value="2025-26">Session 2025-26</option>
@@ -233,7 +233,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
         ) : offerings.length === 0 ? (
           <div className="p-12 text-center text-[#64748B] space-y-3">
             <Layers className="w-10 h-10 mx-auto text-[#94A3B8]" />
-            <p className="font-medium text-[#0F172A]">No academic offerings found</p>
+            <p className="font-medium text-[#4A7B5B]">No academic offerings found</p>
             <p className="text-xs">Create your first course offering for session {selectedSession}.</p>
           </div>
         ) : (
@@ -253,13 +253,13 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
               <tbody className="divide-y divide-[#E2E8F0]">
                 {offerings.map((offering) => (
                   <tr key={offering.id} className="hover:bg-[#F8FAFC]/70 transition">
-                    <td className="py-3.5 px-4 font-semibold text-[#0F172A]">
+                    <td className="py-3.5 px-4 font-semibold text-[#4A7B5B]">
                       {offering.course?.name || "Unassigned Course"}
                       <div className="text-xs font-normal text-[#64748B]">
                         Level: {offering.course?.level || "N/A"}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-[#0F172A]">
+                    <td className="py-3.5 px-4 text-[#4A7B5B]">
                       {offering.branch?.name || "General / Core"}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-[#64748B]">
@@ -271,7 +271,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                           {offering.availableSeats}
                         </span>
                         <span className="text-xs text-[#64748B]">avail of</span>
-                        <span className="font-semibold text-[#0F172A]">
+                        <span className="font-semibold text-[#4A7B5B]">
                           {offering.totalSeats}
                         </span>
                       </div>
@@ -279,7 +279,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                         Consumed: {offering.consumedSeats} | Res: {offering.reservedSeats}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-[#0F172A]">
+                    <td className="py-3.5 px-4 font-bold text-[#4A7B5B]">
                       ₹{offering.totalFee.toLocaleString("en-IN")}
                       <div className="text-xs font-normal text-[#64748B]">
                         Tuition: ₹{offering.tuitionFee.toLocaleString("en-IN")}
@@ -353,7 +353,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                           });
                           setModalOpen(true);
                         }}
-                        className="px-2.5 py-1 text-xs font-medium text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] rounded-lg transition"
+                        className="px-2.5 py-1 text-xs font-medium text-[#64748B] hover:text-[#4A7B5B] hover:bg-[#F1F5F9] rounded-lg transition"
                       >
                         <Edit2 className="w-3.5 h-3.5 inline" />
                       </button>
@@ -371,12 +371,12 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-xl border border-[#E2E8F0] my-8">
             <div className="flex items-center justify-between pb-4 border-b border-[#E2E8F0]">
-              <h3 className="font-bold text-[#0F172A] text-lg">
+              <h3 className="font-bold text-[#4A7B5B] text-lg">
                 {editingOffering ? "Edit Program Offering" : "Create Academic Offering"}
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-[#64748B] hover:text-[#0F172A]"
+                className="text-[#64748B] hover:text-[#4A7B5B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -385,7 +385,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
             <form onSubmit={handleSaveOffering} className="space-y-4 pt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                     Central Course Catalog *
                   </label>
                   <select
@@ -405,7 +405,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                     Branch / Specialization
                   </label>
                   <select
@@ -426,7 +426,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                     Academic Session *
                   </label>
                   <input
@@ -443,7 +443,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Total Seats *
                     </label>
                     <input
@@ -461,7 +461,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Reserved Seats
                     </label>
                     <input
@@ -483,7 +483,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
               {/* Componentized Fees Breakdown */}
               <div className="border-t border-[#E2E8F0] pt-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold text-[#0F172A] uppercase tracking-wider">
+                  <h4 className="text-xs font-bold text-[#4A7B5B] uppercase tracking-wider">
                     Componentized Fee Structure (Annual)
                   </h4>
                   <span className="text-sm font-bold text-[#4A7B5B]">
@@ -586,7 +586,7 @@ export const OfferingsManager: React.FC<OfferingsManagerProps> = ({ collegeId })
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                   Eligibility Criteria
                 </label>
                 <textarea

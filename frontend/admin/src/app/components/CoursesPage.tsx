@@ -216,8 +216,8 @@ export default function CoursesPage() {
           >
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="text-2xl font-bold text-[#0F172A]">{s.value.toLocaleString("en-IN")}</div>
-                <div className="text-xs text-[#0F172A] font-medium mt-0.5">{s.label}</div>
+                <div className="text-2xl font-bold text-[#4A7B5B]">{s.value.toLocaleString("en-IN")}</div>
+                <div className="text-xs text-[#4A7B5B] font-medium mt-0.5">{s.label}</div>
                 <div className="text-xs text-[#94A3B8]">{s.sub}</div>
               </div>
               <div
@@ -240,7 +240,7 @@ export default function CoursesPage() {
             { label: "Most Popular", value: stats.mostPopularCourse ?? "—" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-xl p-3 border border-[#F1F5F9] text-center">
-              <div className="text-sm font-semibold text-[#0F172A] truncate">{String(s.value)}</div>
+              <div className="text-sm font-semibold text-[#4A7B5B] truncate">{String(s.value)}</div>
               <div className="text-xs text-[#94A3B8] mt-0.5">{s.label}</div>
             </div>
           ))}
@@ -308,7 +308,7 @@ export default function CoursesPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "table" ? "#fff" : "transparent",
-                color: view === "table" ? "#0F172A" : "#94A3B8",
+                color: view === "table" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <Table2 className="w-3.5 h-3.5" />
@@ -318,7 +318,7 @@ export default function CoursesPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "grid" ? "#fff" : "transparent",
-                color: view === "grid" ? "#0F172A" : "#94A3B8",
+                color: view === "grid" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -463,7 +463,7 @@ export default function CoursesPage() {
       {!isLoading && courses.length === 0 && (
         <div className="text-center py-20 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm">
           <BookOpen className="mx-auto h-12 w-12 mb-4" style={{ color: "#CBD5E1" }} />
-          <h3 className="text-lg font-semibold text-[#0F172A] mb-1">No courses found</h3>
+          <h3 className="text-lg font-semibold text-[#4A7B5B] mb-1">No courses found</h3>
           <p className="text-[#94A3B8] text-sm mb-4">
             {hasActiveFilters
               ? "Try adjusting your search or filter criteria."
@@ -532,7 +532,7 @@ export default function CoursesPage() {
                             <GraduationCap className="w-4 h-4" style={{ color: cat.text }} />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-[#0F172A] truncate max-w-[200px]">
+                            <div className="text-sm font-semibold text-[#4A7B5B] truncate max-w-[200px]">
                               {course.name}
                             </div>
                             {course.featured && (
@@ -568,7 +568,7 @@ export default function CoursesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-[#0F172A]">
+                        <span className="text-sm font-medium text-[#4A7B5B]">
                           {course.totalFees
                             ? `₹${(course.totalFees / 100000).toFixed(1)}L`
                             : "—"}
@@ -681,7 +681,7 @@ export default function CoursesPage() {
                 </div>
 
                 {/* Course name */}
-                <h3 className="text-sm font-bold text-[#0F172A] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
+                <h3 className="text-sm font-bold text-[#4A7B5B] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
                   {course.name}
                 </h3>
                 <p className="text-xs text-[#94A3B8] mb-3 truncate">

@@ -12,6 +12,9 @@ export interface Scholarship {
   category?: string;
   gender?: string;
   state?: string;
+  stateId?: string;
+  states?: string[];
+  stateRelation?: { id: string; name: string; code: string };
   country?: string;
   incomeLimit?: number;
   requiredMarks?: number;
@@ -57,6 +60,7 @@ export interface ScholarshipQueryParams {
   scholarshipType?: string;
   provider?: string;
   state?: string;
+  stateId?: string;
   status?: string;
   featured?: boolean;
   expiringSoon?: boolean;
@@ -72,6 +76,8 @@ export type CreateScholarshipPayload = {
   category?: string;
   gender?: string;
   state?: string;
+  stateId?: string;
+  states?: string[];
   country?: string;
   incomeLimit?: number;
   requiredMarks?: number;

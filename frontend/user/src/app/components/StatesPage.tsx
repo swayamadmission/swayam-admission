@@ -196,14 +196,69 @@ export const ALL_STATES: StateInfo[] = [
 
 const REGIONS = ["All Regions", "North India", "East India", "West India", "Central India", "South India"];
 
+import { useQuery } from "@tanstack/react-query";
+import { geographyApi } from "../../api/geography.api";
+
 export default function StatesPage() {
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("All Regions");
 
-  const featured = ALL_STATES.filter(s => s.featured);
-  const filtered = ALL_STATES.filter(s =>
-    (region === "All Regions" || s.region === region) &&
-    (search === "" || s.name.toLowerCase().includes(search.toLowerCase()))
+  const { data: dbStates = [], isLoading } = useQuery({
+    queryKey: ["geography_states"],
+    queryFn: () => geographyApi.getStates(),
+  });
+
+  const staticMap = new Map(ALL_STATES.map((s) => [s.name.toLowerCase(), s]));
+
+  // Build state list strictly driven by database published states
+  const statesWithDbCounts: StateInfo[] = dbStates.map((st: any) => {
+    const staticInfo = staticMap.get(st.name.toLowerCase());
+    return {
+      slug:
+        st.slug ||
+        (staticInfo
+          ? staticInfo.slug
+          : st.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/(^-|-$)+/g, "")),
+      name: st.name,
+      emoji: staticInfo?.emoji || "🏛️",
+      region: st.region
+        ? st.region.includes("India")
+          ? st.region
+          : `${st.region} India`
+        : staticInfo?.region || "North India",
+      colleges: st.collegesCount ?? (staticInfo?.colleges || 0),
+      students: staticInfo?.students || "5L+",
+      topCourse:
+        (st.popularCourses && st.popularCourses[0]) ||
+        staticInfo?.topCourse ||
+        "Higher Education",
+      scholarships: st.scholarshipsCount ?? (staticInfo?.scholarships || 0),
+      govtColleges:
+        staticInfo?.govtColleges ?? Math.floor((st.collegesCount || 0) * 0.4),
+      privateColleges:
+        staticInfo?.privateColleges ?? Math.ceil((st.collegesCount || 0) * 0.6),
+      img:
+        st.heroImage ||
+        staticInfo?.img ||
+        "https://images.unsplash.com/photo-1759562588736-186cce2c26b5?w=400&q=80",
+      popularCities: staticInfo?.popularCities || [],
+      featured: staticInfo?.featured ?? false,
+      color: staticInfo?.color || "#4A7B5B",
+      description:
+        st.description ||
+        staticInfo?.description ||
+        `Explore top colleges and universities across ${st.name}.`,
+    };
+  });
+
+  const featured = statesWithDbCounts.filter((s) => s.featured);
+  const filtered = statesWithDbCounts.filter(
+    (s) =>
+      (region === "All Regions" || s.region === region) &&
+      (search === "" || s.name.toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
@@ -214,10 +269,10 @@ export default function StatesPage() {
           <nav className="flex items-center gap-2 mb-4" style={{ fontSize: "12px", color: "#94a3b8" }}>
             <Link to="/" className="hover:text-[#4A7B5B] transition-colors">Home</Link>
             <ChevronRight size={12} />
-            <span style={{ color: "#0F172A", fontWeight: 600 }}>States</span>
+            <span style={{ color: "#4A7B5B", fontWeight: 600 }}>States</span>
           </nav>
           <div className="mb-2" style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>Browse by Location</div>
-          <h1 className="mb-2" style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(24px,4vw,36px)" }}>Colleges by State</h1>
+          <h1 className="mb-2" style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(24px,4vw,36px)" }}>Colleges by State</h1>
           <p style={{ fontSize: "14px", color: "#64748b" }}>Explore 500+ colleges across 15+ Indian states with scholarships, fees and admission details</p>
         </div>
       </div>
@@ -236,7 +291,7 @@ export default function StatesPage() {
                 <Icon size={18} className="text-[#4A7B5B]" />
               </div>
               <div>
-                <div style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>{value}</div>
+                <div style={{ fontSize: "20px", fontWeight: 800, color: "#4A7B5B" }}>{value}</div>
                 <div style={{ fontSize: "11px", color: "#94a3b8" }}>{label}</div>
               </div>
             </div>
@@ -246,7 +301,7 @@ export default function StatesPage() {
         {/* Featured states banner */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>Featured States</h2>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#4A7B5B" }}>Featured States</h2>
             <span style={{ fontSize: "12px", color: "#94a3b8" }}>Highest student enquiries</span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -293,7 +348,7 @@ export default function StatesPage() {
             <Link key={state.slug} to={`/states/${state.slug}`}
               className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-[#4A7B5B]/20 transition-all text-center">
               <div className="text-3xl mb-2">{state.emoji}</div>
-              <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}>{state.name}</h3>
+              <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}>{state.name}</h3>
               <p style={{ fontSize: "11px", color: "#94a3b8" }} className="mb-2">{state.colleges} Colleges</p>
               <div className="flex items-center justify-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: state.color }} />

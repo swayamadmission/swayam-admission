@@ -53,7 +53,7 @@ function Section({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-[#F8FAFC] transition-colors"
       >
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#0F172A]">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[#4A7B5B]">
           <Icon className="w-4 h-4" style={{ color: "#4A7B5B" }} />
           {title}
         </div>
@@ -182,7 +182,7 @@ export default function ExamDetailDrawer({
         {/* Action Bar */}
         {exam && (
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[#F1F5F9] shrink-0 bg-white">
-            <div className="px-2.5 py-1 rounded-full text-xs font-semibold" style={statusConf}>
+            <div className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ backgroundColor: statusConf.bg, color: statusConf.text }}>
               {labelFmt(exam.status)}
             </div>
             {exam.featured && (
@@ -278,14 +278,27 @@ export default function ExamDetailDrawer({
                       </div>
                       <span className="text-xs text-[#94A3B8]">{s.label}</span>
                     </div>
-                    <div className="text-base font-bold text-[#0F172A]">{s.value}</div>
+                    <div className="text-base font-bold text-[#4A7B5B]">{s.value}</div>
                   </div>
                 ))}
               </div>
 
+              {/* Description */}
+              {exam.description && (
+                <Section title="Description & Highlights" icon={BookOpen}>
+                  <p className="text-xs text-[#475569] leading-relaxed whitespace-pre-wrap">
+                    {exam.description}
+                  </p>
+                </Section>
+              )}
+
               {/* Overview */}
               <Section title="Exam Overview" icon={BookOpen}>
                 <InfoRow label="Conducted By" value={exam.conductedBy} />
+                <InfoRow
+                  label="Assigned State"
+                  value={exam.state ? `${exam.state.name} (${exam.state.code})` : "National / All-India"}
+                />
                 <InfoRow label="Category" value={labelFmt(exam.category)} />
                 <InfoRow label="Exam Level" value={labelFmt(exam.level)} />
                 <InfoRow label="Exam Mode" value={labelFmt(exam.examMode)} />
@@ -410,7 +423,7 @@ export default function ExamDetailDrawer({
                         key={item?.courseId ?? Math.random()}
                         className="bg-white p-3 rounded-xl border border-[#F1F5F9]"
                       >
-                        <div className="text-xs font-bold text-[#0F172A]">
+                        <div className="text-xs font-bold text-[#4A7B5B]">
                           {item?.course?.name ?? "Unnamed Course"}
                         </div>
                         {item?.course?.college && (

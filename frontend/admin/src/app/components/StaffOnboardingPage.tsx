@@ -354,7 +354,7 @@ export default function StaffOnboardingPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">
+          <h1 className="text-2xl font-bold text-[#4A7B5B] tracking-tight">
             Staff Onboarding & Confidential KYC Governance
           </h1>
           <p className="text-sm text-[#64748B] mt-0.5">
@@ -381,7 +381,7 @@ export default function StaffOnboardingPage() {
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-[#0F172A]">{pendingCount}</div>
+            <div className="text-2xl font-bold text-[#4A7B5B]">{pendingCount}</div>
             <div className="text-xs text-[#64748B] font-medium">
               Pending Onboarding Requests
             </div>
@@ -393,7 +393,7 @@ export default function StaffOnboardingPage() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-[#0F172A]">{verifiedKycCount}</div>
+            <div className="text-2xl font-bold text-[#4A7B5B]">{verifiedKycCount}</div>
             <div className="text-xs text-[#64748B] font-medium">
               Verified Candidate KYCs
             </div>
@@ -405,7 +405,7 @@ export default function StaffOnboardingPage() {
             <UserCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-[#0F172A]">{approvedCount}</div>
+            <div className="text-2xl font-bold text-[#4A7B5B]">{approvedCount}</div>
             <div className="text-xs text-[#64748B] font-medium">
               Active Post Holders Approved
             </div>
@@ -433,7 +433,7 @@ export default function StaffOnboardingPage() {
             <select
               value={approvalFilter}
               onChange={(e) => setApprovalFilter(e.target.value)}
-              className="h-10 px-3 text-xs border border-[#CBD5E1] rounded-lg bg-white text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+              className="h-10 px-3 text-xs border border-[#CBD5E1] rounded-lg bg-white text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
             >
               <option value="ALL">All Statuses</option>
               <option value="PENDING">Pending Approval</option>
@@ -444,7 +444,7 @@ export default function StaffOnboardingPage() {
             <select
               value={kycFilter}
               onChange={(e) => setKycFilter(e.target.value)}
-              className="h-10 px-3 text-xs border border-[#CBD5E1] rounded-lg bg-white text-[#0F172A] focus:outline-none focus:border-[#4A7B5B]"
+              className="h-10 px-3 text-xs border border-[#CBD5E1] rounded-lg bg-white text-[#4A7B5B] focus:outline-none focus:border-[#4A7B5B]"
             >
               <option value="ALL">All KYC</option>
               <option value="VERIFIED">KYC Verified</option>
@@ -497,7 +497,7 @@ export default function StaffOnboardingPage() {
                       className="hover:bg-[#F8FAFC]/80 transition-colors"
                     >
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-[#0F172A]">
+                        <div className="font-semibold text-[#4A7B5B]">
                           {item.fullName}
                         </div>
                         <div className="text-[11px] text-[#64748B] flex items-center gap-2 mt-0.5">
@@ -522,7 +522,7 @@ export default function StaffOnboardingPage() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <div className="font-medium text-[#0F172A]">
+                        <div className="font-medium text-[#4A7B5B]">
                           {item.requestedState?.name || "All India"}
                         </div>
                         <div className="text-[11px] text-[#64748B]">
@@ -631,7 +631,7 @@ export default function StaffOnboardingPage() {
             {/* Drawer Header */}
             <div className="p-5 border-b border-[#E2E8F0] flex items-center justify-between bg-[#F8FAFC]">
               <div>
-                <h3 className="text-lg font-bold text-[#0F172A]">
+                <h3 className="text-lg font-bold text-[#4A7B5B]">
                   Candidate Onboarding: {selectedRequest.fullName}
                 </h3>
                 <p className="text-xs text-[#64748B]">
@@ -659,19 +659,19 @@ export default function StaffOnboardingPage() {
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div>
                     <span className="text-[#64748B] block">Personal Email:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedRequest.personalEmail}
                     </span>
                   </div>
                   <div>
                     <span className="text-[#64748B] block">Personal Mobile:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedRequest.personalMobile}
                     </span>
                   </div>
                   <div>
                     <span className="text-[#64748B] block">Applying Role:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedRequest.requestedRoleSlug === "senior-counselor"
                         ? "Senior Counselor (Regional Seat)"
                         : "Counselor"}
@@ -679,7 +679,7 @@ export default function StaffOnboardingPage() {
                   </div>
                   <div>
                     <span className="text-[#64748B] block">Target District:</span>
-                    <span className="font-semibold text-[#0F172A]">
+                    <span className="font-semibold text-[#4A7B5B]">
                       {selectedRequest.requestedDistrict?.name || "General Region"}
                     </span>
                   </div>
@@ -729,7 +729,7 @@ export default function StaffOnboardingPage() {
                         className="p-3 bg-white border border-[#E2E8F0] rounded-xl flex items-center justify-between text-xs"
                       >
                         <div>
-                          <div className="font-semibold text-[#0F172A] flex items-center gap-2">
+                          <div className="font-semibold text-[#4A7B5B] flex items-center gap-2">
                             <span>{doc.documentType} Card</span>
                             <Badge
                               variant="outline"
@@ -835,7 +835,7 @@ export default function StaffOnboardingPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-[#0F172A] block">
+                    <Label className="text-xs font-semibold text-[#4A7B5B] block">
                       Initial Temporary Password for Candidate
                     </Label>
                     <div className="flex items-center gap-2">
@@ -957,7 +957,7 @@ export default function StaffOnboardingPage() {
       {rejectModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-[#0F172A]">
+            <h3 className="text-base font-bold text-[#4A7B5B]">
               Reject Staff Onboarding Request
             </h3>
             <p className="text-xs text-[#64748B]">
@@ -1002,7 +1002,7 @@ export default function StaffOnboardingPage() {
                   <KeyRound className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-[#0F172A] text-sm">
+                  <h3 className="font-bold text-[#4A7B5B] text-sm">
                     Admin Staff Password & Security Operations
                   </h3>
                   <p className="text-[11px] text-[#64748B]">
@@ -1074,7 +1074,7 @@ export default function StaffOnboardingPage() {
                       <span>{resetSuccessData.message}</span>
                     </div>
                     <div className="p-3 bg-white border border-emerald-200 rounded-lg flex items-center justify-between">
-                      <span className="font-mono text-sm font-bold text-[#0F172A]">
+                      <span className="font-mono text-sm font-bold text-[#4A7B5B]">
                         {resetSuccessData.temporaryPassword}
                       </span>
                       <Button
@@ -1224,7 +1224,7 @@ export default function StaffOnboardingPage() {
               <div className="space-y-4 text-xs">
                 <p className="text-[#64748B]">
                   Currently status:{" "}
-                  <strong className="text-[#0F172A]">
+                  <strong className="text-[#4A7B5B]">
                     {securityTargetUser.status}
                   </strong>
                 </p>

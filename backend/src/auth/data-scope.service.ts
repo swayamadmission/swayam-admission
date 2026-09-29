@@ -1333,6 +1333,18 @@ export class DataScopeService {
         return;
     }
 
+    if (ctx.isCollegeStaff && ctx.collegeId) {
+      if (
+        doc.collegeId === ctx.collegeId ||
+        doc.application?.collegeId === ctx.collegeId
+      ) {
+        return;
+      }
+      throw new ForbiddenException(
+        `Access Denied: Document "${doc.id}" does not belong to your college.`,
+      );
+    }
+
     if (ctx.dataScopes.includes('STATE')) {
       const docState = (
         doc.user?.state ||

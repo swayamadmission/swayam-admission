@@ -669,7 +669,7 @@ export default function ApplyNowPage() {
           <h1
             style={{
               fontWeight: 800,
-              color: "#0F172A",
+              color: "#4A7B5B",
               fontSize: "clamp(24px,4vw,32px)",
             }}
           >
@@ -729,7 +729,7 @@ export default function ApplyNowPage() {
                 <Gift className="w-5 h-5 text-[#F0AE1A]" />
               </div>
               <div>
-                <p className="font-bold text-[#0F172A] text-sm">Referred by {referralInfo.referrerName}</p>
+                <p className="font-bold text-[#4A7B5B] text-sm">Referred by {referralInfo.referrerName}</p>
                 <p className="text-[11px] text-[#4A7B5B] font-mono font-semibold">Referral Code: {referralInfo.code} (Active)</p>
               </div>
             </div>
@@ -747,7 +747,7 @@ export default function ApplyNowPage() {
               <div className="space-y-4">
                 <div>
                   <h2
-                    style={{ fontWeight: 700, color: "#0F172A", fontSize: "20px" }}
+                    style={{ fontWeight: 700, color: "#4A7B5B", fontSize: "20px" }}
                     className="mb-1"
                   >
                     Basic Information & Academic Profile
@@ -942,7 +942,7 @@ export default function ApplyNowPage() {
               <div className="space-y-4">
                 <div>
                   <h2
-                    style={{ fontWeight: 700, color: "#0F172A", fontSize: "20px" }}
+                    style={{ fontWeight: 700, color: "#4A7B5B", fontSize: "20px" }}
                     className="mb-1"
                   >
                     Your Preferences & Location
@@ -1268,7 +1268,7 @@ export default function ApplyNowPage() {
               <div className="space-y-4">
                 <div>
                   <h2
-                    style={{ fontWeight: 700, color: "#0F172A", fontSize: "20px" }}
+                    style={{ fontWeight: 700, color: "#4A7B5B", fontSize: "20px" }}
                     className="mb-1"
                   >
                     College Choice & Consent
@@ -1426,7 +1426,7 @@ export default function ApplyNowPage() {
                   <CheckCircle2 size={40} className="text-[#4A7B5B]" />
                 </div>
                 <h2
-                  style={{ fontWeight: 800, color: "#0F172A", fontSize: "24px" }}
+                  style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "24px" }}
                   className="mb-1"
                 >
                   Application Created Successfully! 🎉
@@ -1454,8 +1454,8 @@ export default function ApplyNowPage() {
                   className="max-w-md mx-auto mb-6"
                 >
                   Thank you{" "}
-                  <strong className="text-[#0F172A]">{form.name || "Student"}</strong>! Your application has been logged into our centralized ERP. A senior counselor mapped to{" "}
-                  <strong className="text-[#0F172A]">
+                  <strong className="text-[#4A7B5B]">{form.name || "Student"}</strong>! Your application has been logged into our centralized ERP. A senior counselor mapped to{" "}
+                  <strong className="text-[#4A7B5B]">
                     {form.district || form.state || "your region"}
                   </strong>{" "}
                   will assist your admission journey.
@@ -1466,7 +1466,7 @@ export default function ApplyNowPage() {
                   <div className="p-3 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-left">
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>Target Program</div>
                     <div
-                      style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}
+                      style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}
                       className="truncate"
                     >
                       {form.courseId === "OTHER"
@@ -1478,7 +1478,7 @@ export default function ApplyNowPage() {
                   <div className="p-3 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-left">
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>State & District</div>
                     <div
-                      style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}
+                      style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}
                       className="truncate"
                     >
                       {form.district ? `${form.district}, ${form.state}` : form.state || "India"}
@@ -1488,7 +1488,7 @@ export default function ApplyNowPage() {
                   <div className="p-3 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-left">
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>Academic Level</div>
                     <div
-                      style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}
+                      style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}
                       className="truncate"
                     >
                       {form.educationLevel || "N/A"} ({form.passingYear})
@@ -1498,7 +1498,7 @@ export default function ApplyNowPage() {
                   <div className="p-3 bg-[#F8FAFC] border border-slate-100 rounded-2xl text-left">
                     <div style={{ fontSize: "10px", color: "#94a3b8" }}>Budget</div>
                     <div
-                      style={{ fontSize: "13px", fontWeight: 700, color: "#0F172A" }}
+                      style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}
                       className="truncate"
                     >
                       {form.budget || "Standard"}

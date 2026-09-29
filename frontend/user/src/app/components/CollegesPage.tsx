@@ -5,9 +5,9 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 
 import { useQuery } from "@tanstack/react-query";
 import { collegesApi, CollegeQueryParams } from "../../api/colleges.api";
+import { geographyApi } from "../../api/geography.api";
 import { useDebounce } from "../../hooks/useDebounce";
 
-const STATES = ["All States","Bihar","Uttar Pradesh","Delhi NCR","Haryana","Punjab","Rajasthan","Madhya Pradesh","Maharashtra"];
 const COURSES_FILTER = ["All Courses","B.Tech","MBA","BCA","MCA","Nursing","Law","BBA","Hotel Management"];
 const TYPES = ["All Types","Government","Private","Deemed"];
 const OWNERSHIPS = ["All Ownerships", "Public", "Private", "Trust"];
@@ -17,9 +17,11 @@ export default function CollegesPage() {
   const [searchParams] = useSearchParams();
   const defaultSearch = searchParams.get("q") || "";
   const defaultState = searchParams.get("state") || "All States";
+  const defaultCity = searchParams.get("city") || "";
 
   const [search, setSearch] = useState(defaultSearch);
   const [stateFilter, setStateFilter] = useState(defaultState);
+  const [cityFilter, setCityFilter] = useState(defaultCity);
   const [courseFilter, setCourseFilter] = useState("All Courses");
   const [typeFilter, setTypeFilter] = useState("All Types");
   const [ownershipFilter, setOwnershipFilter] = useState("All Ownerships");
@@ -30,9 +32,16 @@ export default function CollegesPage() {
 
   const debouncedSearch = useDebounce(search, 500);
 
+  const { data: dbStates = [] } = useQuery({
+    queryKey: ["geography_states"],
+    queryFn: () => geographyApi.getStates(),
+  });
+  const stateOptions = ["All States", ...dbStates.map((s) => s.name)];
+
   const queryParams: CollegeQueryParams = {};
   if (debouncedSearch) queryParams.q = debouncedSearch;
   if (stateFilter !== "All States") queryParams.state = stateFilter;
+  if (cityFilter) queryParams.city = cityFilter;
   if (typeFilter !== "All Types") queryParams.type = typeFilter.toUpperCase();
   if (ownershipFilter !== "All Ownerships") queryParams.ownership = ownershipFilter;
   if (hostelRequired) queryParams.hostel = true;
@@ -45,7 +54,7 @@ export default function CollegesPage() {
 
   const filtered = collegesRes?.data?.data || [];
 
-  const hasFilters = stateFilter !== "All States" || courseFilter !== "All Courses" || typeFilter !== "All Types" || ownershipFilter !== "All Ownerships" || hostelRequired || budgetMax !== "";
+  const hasFilters = stateFilter !== "All States" || cityFilter !== "" || courseFilter !== "All Courses" || typeFilter !== "All Types" || ownershipFilter !== "All Ownerships" || hostelRequired || budgetMax !== "";
 
   const [compareList, setCompareList] = useState<{id:string, name:string}[]>([]);
 
@@ -73,7 +82,7 @@ export default function CollegesPage() {
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
           <div className="mb-2" style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>Browse</div>
-          <h1 className="mb-2" style={{fontWeight:800,color:"#0F172A",fontSize:"clamp(24px,4vw,36px)"}}>All Colleges</h1>
+          <h1 className="mb-2" style={{fontWeight:800,color:"#4A7B5B",fontSize:"clamp(24px,4vw,36px)"}}>All Colleges</h1>
           <p style={{fontSize:"14px",color:"#64748b"}}>500+ verified colleges across India with detailed information and direct admission</p>
         </div>
       </div>
@@ -97,7 +106,7 @@ export default function CollegesPage() {
         {showFilters && (
           <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-5 grid grid-cols-1 sm:grid-cols-4 gap-4">
             {[
-              {label:"State",value:stateFilter,opts:STATES,set:setStateFilter},
+              {label:"State",value:stateFilter,opts:stateOptions,set:setStateFilter},
               {label:"Course",value:courseFilter,opts:COURSES_FILTER,set:setCourseFilter},
               {label:"College Type",value:typeFilter,opts:TYPES,set:setTypeFilter},
               {label:"Ownership",value:ownershipFilter,opts:OWNERSHIPS,set:setOwnershipFilter},
@@ -106,7 +115,7 @@ export default function CollegesPage() {
                 <label style={{fontSize:"11px",fontWeight:600,color:"#94a3b8"}} className="block mb-1.5">{f.label.toUpperCase()}</label>
                 <select value={f.value} onChange={e=>f.set(e.target.value)}
                   className="w-full px-3 py-2.5 bg-[#F8FAFC] border border-gray-200 rounded-xl text-sm text-gray-700 focus:outline-none focus:border-[#4A7B5B]">
-                  {f.opts.map(o=><option key={o}>{o}</option>)}
+                  {f.opts.map((o: string)=><option key={o}>{o}</option>)}
                 </select>
               </div>
             ))}
@@ -124,12 +133,24 @@ export default function CollegesPage() {
 
             {hasFilters && (
               <div className="sm:col-span-4 flex justify-end">
-                <button onClick={()=>{setStateFilter("All States");setCourseFilter("All Courses");setTypeFilter("All Types");setOwnershipFilter("All Ownerships");setHostelRequired(false);setBudgetMax("")}}
+                <button onClick={()=>{setStateFilter("All States");setCityFilter("");setCourseFilter("All Courses");setTypeFilter("All Types");setOwnershipFilter("All Ownerships");setHostelRequired(false);setBudgetMax("")}}
                   className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700">
                   <X size={13}/> Clear all filters
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Active City Filter Badge */}
+        {cityFilter && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#E8F3EC] text-[#4A7B5B] rounded-full text-xs font-semibold">
+              <MapPin size={11} /> City: {cityFilter}
+              <button onClick={() => setCityFilter("")} className="hover:text-red-500 ml-1">
+                <X size={12} />
+              </button>
+            </span>
           </div>
         )}
 
@@ -161,7 +182,7 @@ export default function CollegesPage() {
                 </button>
               </div>
               <div className="p-4">
-                <h3 className="mb-1 group-hover:text-[#4A7B5B] transition-colors" style={{fontSize:"15px",fontWeight:700,color:"#0F172A"}}>{c.name}</h3>
+                <h3 className="mb-1 group-hover:text-[#4A7B5B] transition-colors" style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{c.name}</h3>
                 <div className="flex items-center gap-1 text-gray-400 mb-3">
                   <MapPin size={11}/><span style={{fontSize:"11px"}}>{c.city}, {c.state}</span>
                 </div>
@@ -179,7 +200,7 @@ export default function CollegesPage() {
                   <div className="text-right">
                     <div className="flex items-center gap-1">
                       <Star size={12} className="fill-[#F0AE1A] text-[#F0AE1A]"/>
-                      <span style={{fontSize:"13px",fontWeight:700,color:"#0F172A"}}>{c.ranking || 4.5}</span>
+                      <span style={{fontSize:"13px",fontWeight:700,color:"#4A7B5B"}}>{c.ranking || 4.5}</span>
                     </div>
                     <div style={{fontSize:"10px",color:"#94a3b8"}}>Verified</div>
                   </div>
@@ -206,7 +227,7 @@ export default function CollegesPage() {
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-50 transform transition-transform">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-[#0F172A] font-bold">
+              <div className="flex items-center gap-2 text-[#4A7B5B] font-bold">
                 <Scale size={20} className="text-[#4A7B5B]" /> Compare ({compareList.length}/3)
               </div>
               <div className="hidden sm:flex gap-2">

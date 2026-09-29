@@ -22,7 +22,7 @@ Background:
 #F8FAFC
 
 Text:
-#0F172A
+#4A7B5B
 
 Soft Secondary:
 #E8F3EC

@@ -5,6 +5,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useQuery } from "@tanstack/react-query";
 import { blogsApi, PublicBlogQueryParams } from "../../api/blogs.api";
 import { useDebounce } from "../../hooks/useDebounce";
+import { formatIndianDate } from "../../utils/date.utils";
 
 const CATEGORIES = [
   { id: "all", label: "All Articles", icon: Newspaper },
@@ -12,6 +13,7 @@ const CATEGORIES = [
   { id: "mba", label: "MBA", icon: TrendingUp },
   { id: "scholarships", label: "Scholarships", icon: Award },
   { id: "admission tips", label: "Admission Tips", icon: GraduationCap },
+  { id: "Research & Rankings", label: "Research & Rankings", icon: Award },
 ];
 
 const getCategoryColor = (category: string) => {
@@ -22,6 +24,9 @@ const getCategoryColor = (category: string) => {
     case "scholarship": return "#10B981";
     case "admission tips":
     case "admission": return "#F97316";
+    case "research & rankings":
+    case "rankings":
+    case "research": return "#4A7B5B";
     default: return "#3B82F6";
   }
 };
@@ -57,16 +62,35 @@ export default function BlogPage() {
     <div style={{ backgroundColor: "#F8FAFC" }} className="min-h-screen">
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
-          <div className="mb-2" style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>
-            Knowledge Hub & AI Search Engine
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div>
+            <div className="mb-2" style={{ fontSize: "12px", fontWeight: 600, color: "#4A7B5B" }}>
+              Knowledge Hub & AI Search Engine
+            </div>
+            <h1 className="mb-2" style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "clamp(24px,4vw,36px)" }}>
+              Blogs, Articles & Admission News
+            </h1>
+            <p style={{ fontSize: "14px", color: "#64748b" }}>
+              Latest news, guides, and AI-optimized insights on college admissions, scholarships, and career planning
+            </p>
           </div>
-          <h1 className="mb-2" style={{ fontWeight: 800, color: "#0F172A", fontSize: "clamp(24px,4vw,36px)" }}>
-            Blogs, Articles & Admission News
-          </h1>
-          <p style={{ fontSize: "14px", color: "#64748b" }}>
-            Latest news, guides, and AI-optimized insights on college admissions, scholarships, and career planning
-          </p>
+
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              to="/rankings"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition-all shadow-xs"
+              style={{ backgroundColor: "#4A7B5B" }}
+            >
+              <Award size={15} className="text-[#F0AE1A]" /> View Official Rankings
+            </Link>
+            <Link
+              to="/rankings"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
+              style={{ borderColor: "#4A7B5B", color: "#4A7B5B", backgroundColor: "#E8F3EC" }}
+            >
+              <BookOpen size={15} /> Research Hub
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -100,16 +124,16 @@ export default function BlogPage() {
                   </div>
                   <h2
                     className="mb-3 group-hover:text-[#4A7B5B] transition-colors"
-                    style={{ fontSize: "clamp(18px,2.5vw,24px)", fontWeight: 800, color: "#0F172A", lineHeight: 1.3 }}
+                    style={{ fontSize: "clamp(18px,2.5vw,24px)", fontWeight: 800, color: "#4A7B5B", lineHeight: 1.3 }}
                   >
                     {featured.title}
                   </h2>
                   <p className="mb-4 line-clamp-3" style={{ fontSize: "14px", color: "#64748b", lineHeight: 1.7 }}>
-                    {featured.excerpt || featured.tldr}
+                    {featured.excerpt || (featured as any).tldr}
                   </p>
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center gap-3" style={{ fontSize: "12px", color: "#94a3b8" }}>
-                      <span>{featured.publishedAt ? new Date(featured.publishedAt).toLocaleDateString() : "Recent"}</span>
+                      <span>{featured.publishedAt ? formatIndianDate(featured.publishedAt) : "Recent"}</span>
                       <span>·</span>
                       <div className="flex items-center gap-1">
                         <Clock size={12} />
@@ -196,18 +220,18 @@ export default function BlogPage() {
                         </div>
                         <h3
                           className="group-hover:text-[#4A7B5B] transition-colors leading-snug mb-2 line-clamp-2"
-                          style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}
+                          style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}
                         >
                           {blog.title}
                         </h3>
                         <p className="mb-3 line-clamp-2" style={{ fontSize: "12px", color: "#64748b", lineHeight: 1.6 }}>
-                          {blog.excerpt || blog.tldr}
+                          {blog.excerpt || (blog as any).tldr}
                         </p>
                       </div>
                     </div>
 
                     <div className="p-4 pt-0 flex items-center justify-between text-slate-400 text-[11px]">
-                      <span>{blog.publishedAt ? new Date(blog.publishedAt).toLocaleDateString() : "Recent"}</span>
+                      <span>{blog.publishedAt ? formatIndianDate(blog.publishedAt) : "Recent"}</span>
                       <span className="flex items-center gap-1 text-[#4A7B5B]" style={{ fontSize: "11px", fontWeight: 600 }}>
                         Read Article <ArrowRight size={11} />
                       </span>
@@ -230,7 +254,7 @@ export default function BlogPage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp size={16} className="text-[#4A7B5B]" />
-                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#0F172A" }}>Trending Topics</h3>
+                <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}>Trending Topics</h3>
               </div>
               <div className="space-y-3">
                 {TRENDING.map((t, i) => (

@@ -134,7 +134,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#0F172A]">
+          <h2 className="text-lg font-bold text-[#4A7B5B]">
             College Admission Review Queue
           </h2>
           <p className="text-xs text-[#64748B]">
@@ -180,7 +180,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
         ) : applications.length === 0 ? (
           <div className="p-12 text-center text-[#64748B] space-y-3">
             <FileText className="w-10 h-10 mx-auto text-[#94A3B8]" />
-            <p className="font-medium text-[#0F172A]">No applications in queue</p>
+            <p className="font-medium text-[#4A7B5B]">No applications in queue</p>
             <p className="text-xs">Incoming student applications will appear here for review.</p>
           </div>
         ) : (
@@ -204,14 +204,14 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
                       {app.applicationNumber || app.applicationId || app.id.slice(0, 8)}
                     </td>
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-[#0F172A]">
+                      <div className="font-semibold text-[#4A7B5B]">
                         {app.user?.fullName || "Applicant"}
                       </div>
                       <div className="text-xs text-[#64748B]">
                         {app.user?.mobile || app.user?.email || "No contact"}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-[#0F172A]">
+                    <td className="py-3.5 px-4 text-[#4A7B5B]">
                       {app.course?.name || "Course N/A"}
                       <div className="text-xs text-[#64748B]">
                         {app.branch?.name || "General"}
@@ -277,7 +277,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl border border-[#E2E8F0] my-8 space-y-6">
             <div className="flex items-center justify-between pb-4 border-b border-[#E2E8F0]">
               <div>
-                <h3 className="font-bold text-[#0F172A] text-lg">
+                <h3 className="font-bold text-[#4A7B5B] text-lg">
                   Admission Review: {selectedApp.applicationNumber || selectedApp.id}
                 </h3>
                 <p className="text-xs text-[#64748B]">
@@ -286,7 +286,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
               </div>
               <button
                 onClick={() => setSelectedApp(null)}
-                className="text-[#64748B] hover:text-[#0F172A]"
+                className="text-[#64748B] hover:text-[#4A7B5B]"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -296,19 +296,19 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-[#F8FAFC] p-4 rounded-xl text-xs">
               <div>
                 <span className="text-[#64748B] block">Email & Mobile:</span>
-                <span className="font-semibold text-[#0F172A]">
+                <span className="font-semibold text-[#4A7B5B]">
                   {selectedApp.user?.email} • {selectedApp.user?.mobile}
                 </span>
               </div>
               <div>
                 <span className="text-[#64748B] block">Program Selection:</span>
-                <span className="font-semibold text-[#0F172A]">
+                <span className="font-semibold text-[#4A7B5B]">
                   {selectedApp.course?.name} ({selectedApp.branch?.name || "General"})
                 </span>
               </div>
               <div>
                 <span className="text-[#64748B] block">12th / Qualifying Marks:</span>
-                <span className="font-semibold text-[#0F172A]">
+                <span className="font-semibold text-[#4A7B5B]">
                   {selectedApp.user?.profile?.twelfthMarks || "Pending Verification"}
                 </span>
               </div>
@@ -368,7 +368,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
                     </p>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Admission Decision Remarks (Optional)
                     </label>
                     <textarea
@@ -394,7 +394,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
               {activeActionTab === "correction" && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Affected Application Section *
                     </label>
                     <select
@@ -408,7 +408,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Correction Directive for Student *
                     </label>
                     <textarea
@@ -434,7 +434,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
               {activeActionTab === "reject" && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Internal Audit Rejection Reason *
                     </label>
                     <textarea
@@ -446,7 +446,7 @@ export const CollegeApplicationQueue: React.FC<CollegeApplicationQueueProps> = (
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#4A7B5B] mb-1">
                       Public Student-Facing Reason (Optional)
                     </label>
                     <textarea

@@ -156,7 +156,8 @@ export const CouponApplyWidget: React.FC<CouponApplyWidgetProps> = ({
                     handleApplyCode(inputCode);
                   }
                 }}
-                className="w-full uppercase font-mono px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:border-[#4A7B5B]"
+                style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+                className="w-full uppercase font-mono px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-900 placeholder:normal-case placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 focus:border-[#4A7B5B] shadow-xs"
               />
             </div>
             <button

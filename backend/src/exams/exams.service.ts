@@ -134,6 +134,8 @@ export class ExamsService {
       limit = 20,
       category,
       level,
+      stateId,
+      state,
       examMode,
       status,
       featured,
@@ -158,6 +160,15 @@ export class ExamsService {
 
     if (category) where.category = { equals: category, mode: 'insensitive' };
     if (level) where.level = { equals: level, mode: 'insensitive' };
+    if (stateId) {
+      where.stateId = stateId;
+    } else if (state) {
+      where.OR = [
+        ...(where.OR || []),
+        { state: { name: { equals: state, mode: 'insensitive' } } },
+        { state: { code: { equals: state.toUpperCase() } } },
+      ];
+    }
     if (examMode) where.examMode = { equals: examMode, mode: 'insensitive' };
     if (featured !== undefined) where.featured = featured === 'true';
 
@@ -193,6 +204,13 @@ export class ExamsService {
         take: limit,
         orderBy,
         include: {
+          state: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
           courses: {
             include: {
               course: {
@@ -234,6 +252,13 @@ export class ExamsService {
     const exam = await this.prisma.exam.findUnique({
       where: { id },
       include: {
+        state: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         courses: {
           include: {
             course: {
@@ -272,6 +297,8 @@ export class ExamsService {
       data: {
         ...examFields,
         slug,
+        stateId: dto.stateId || null,
+        description: dto.description ?? null,
         applicationStart: dto.applicationStart
           ? new Date(dto.applicationStart)
           : null,
@@ -329,6 +356,12 @@ export class ExamsService {
       ...(examFields.examName && { examName: examFields.examName }),
       ...(examFields.category && { category: examFields.category }),
       ...(examFields.level && { level: examFields.level }),
+      ...(examFields.stateId !== undefined && {
+        stateId: examFields.stateId || null,
+      }),
+      ...(examFields.description !== undefined && {
+        description: examFields.description,
+      }),
       ...(examFields.conductedBy !== undefined && {
         conductedBy: examFields.conductedBy,
       }),

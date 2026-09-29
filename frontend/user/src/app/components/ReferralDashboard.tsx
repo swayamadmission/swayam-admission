@@ -93,7 +93,7 @@ export const ReferralDashboard: React.FC = () => {
       <div className="min-h-[400px] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-3 border-[#4A7B5B] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-medium text-[#0F172A]">Loading Swayam Admission rewards...</p>
+          <p className="text-sm font-medium text-[#4A7B5B]">Loading Swayam Admission rewards...</p>
         </div>
       </div>
     );
@@ -158,7 +158,7 @@ export const ReferralDashboard: React.FC = () => {
       )}
 
       {/* Header Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] text-white p-6 md:p-8 shadow-sm border border-white/10">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#4A7B5B] to-[#1E293B] text-white p-6 md:p-8 shadow-sm border border-white/10">
         <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#4A7B5B]/30 text-[#E8F3EC] border border-[#4A7B5B]/50 text-xs font-semibold">
@@ -184,7 +184,7 @@ export const ReferralDashboard: React.FC = () => {
           {/* Referral Code Box */}
           <div className="w-full lg:w-auto bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-5 flex flex-col items-center gap-3 min-w-[280px]">
             <span className="text-xs uppercase tracking-wider text-slate-300 font-bold">Your Official Referral Code</span>
-            <div className="flex items-center gap-2 bg-[#0F172A] px-4 py-2.5 rounded-xl border border-white/10 w-full justify-between">
+            <div className="flex items-center gap-2 bg-[#4A7B5B] px-4 py-2.5 rounded-xl border border-white/10 w-full justify-between">
               <span className="font-mono text-base font-extrabold tracking-widest text-[#F0AE1A]">
                 {data?.referralCode || 'SWY-XXXX'}
               </span>

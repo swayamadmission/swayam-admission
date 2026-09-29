@@ -110,7 +110,7 @@ export default function CentralActivityTimeline({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-[#0F172A]">Central Activity & Contact Journal</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">Central Activity & Contact Journal</h3>
               <span className="px-2 py-0.5 rounded-full bg-[#E8F3EC] text-[#4A7B5B] text-xs font-bold">
                 {meta.total} records
               </span>
@@ -173,7 +173,7 @@ export default function CentralActivityTimeline({
                 onClick={() => setSelectedChannel(ch)}
                 className={`h-8 px-2.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
                   selectedChannel === ch
-                    ? "bg-[#0F172A] text-white"
+                    ? "bg-[#4A7B5B] text-white"
                     : "bg-[#F8FAFC] text-[#64748B] border border-[#E2E8F0] hover:bg-white"
                 }`}
               >
@@ -201,7 +201,7 @@ export default function CentralActivityTimeline({
       ) : events.length === 0 ? (
         <div className="p-8 text-center bg-white rounded-2xl border border-[#E2E8F0] space-y-2">
           <Activity className="w-8 h-8 text-[#94A3B8] mx-auto opacity-50" />
-          <h4 className="text-sm font-bold text-[#0F172A]">No Activities Recorded Yet</h4>
+          <h4 className="text-sm font-bold text-[#4A7B5B]">No Activities Recorded Yet</h4>
           <p className="text-xs text-[#64748B]">Log a phone call, WhatsApp conversation, or counselor note above.</p>
         </div>
       ) : (
@@ -224,7 +224,7 @@ export default function CentralActivityTimeline({
                       <span className="p-1.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
                         {getChannelIcon(evt.channel)}
                       </span>
-                      <h4 className="text-sm font-bold text-[#0F172A]">{evt.title}</h4>
+                      <h4 className="text-sm font-bold text-[#4A7B5B]">{evt.title}</h4>
 
                       {/* Staff vs System Badge */}
                       <span
@@ -297,7 +297,7 @@ export default function CentralActivityTimeline({
                   <div className="flex items-center justify-between text-[11px] text-[#64748B] pt-1">
                     <div className="flex items-center gap-1">
                       <span>Logged by:</span>
-                      <strong className="text-[#0F172A]">{evt.actorName}</strong>
+                      <strong className="text-[#4A7B5B]">{evt.actorName}</strong>
                       {evt.actorRole && (
                         <span className="px-1.5 py-0.2 bg-slate-100 rounded text-[10px] text-slate-600">
                           {evt.actorRole}
@@ -328,14 +328,14 @@ export default function CentralActivityTimeline({
           <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-2xl space-y-4 border border-[#E2E8F0]">
             <div>
               <span className="text-[10px] font-bold uppercase text-red-600">Void Operational Activity</span>
-              <h3 className="text-base font-bold text-[#0F172A]">Confirm Retraction</h3>
+              <h3 className="text-base font-bold text-[#4A7B5B]">Confirm Retraction</h3>
               <p className="text-xs text-[#64748B] mt-1">
                 This will mark the entry as voided in the authoritative journal while maintaining audit history.
               </p>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-[#0F172A] block mb-1">Reason for Voiding *</label>
+              <label className="text-xs font-bold text-[#4A7B5B] block mb-1">Reason for Voiding *</label>
               <textarea
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}

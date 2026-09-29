@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCollegeDto } from './dto/create-college.dto';
+import { UpdateCollegeDto } from './dto/update-college.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { AuditService } from '../audit/audit.service';
 import { Prisma } from '@prisma/client';
@@ -121,8 +122,31 @@ export class CollegesService {
       ];
     }
 
-    if (state) whereClause.state = { equals: state, mode: 'insensitive' };
-    if (city) whereClause.city = { equals: city, mode: 'insensitive' };
+    if (state) {
+      whereClause.AND = [
+        ...((whereClause.AND as any[]) || []),
+        {
+          OR: [
+            { state: { equals: state, mode: 'insensitive' } },
+            { stateId: state },
+            { stateRelation: { name: { equals: state, mode: 'insensitive' } } },
+            { stateRelation: { code: { equals: state.toUpperCase() } } },
+          ],
+        },
+      ];
+    }
+    if (city) {
+      whereClause.AND = [
+        ...((whereClause.AND as any[]) || []),
+        {
+          OR: [
+            { city: { equals: city, mode: 'insensitive' } },
+            { districtId: city },
+            { districtRelation: { name: { equals: city, mode: 'insensitive' } } },
+          ],
+        },
+      ];
+    }
     if (ownership) whereClause.ownership = ownership as any;
     if (hostel !== undefined) whereClause.hostelAvailable = hostel;
     if (placementMin) whereClause.highestPackage = { gte: placementMin };
@@ -152,6 +176,8 @@ export class CollegesService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
+          stateRelation: { select: { id: true, name: true, code: true } },
+          districtRelation: { select: { id: true, name: true, code: true } },
           courses: {
             where: { status: 'PUBLISHED' },
           },
@@ -170,17 +196,30 @@ export class CollegesService {
     const college = await this.prisma.college.findUnique({
       where: { id },
       include: {
+        stateRelation: true,
+        districtRelation: true,
         courses: {
           where: { status: { not: 'ARCHIVED' } },
+          include: {
+            branches: true,
+          },
         },
         gallery: {
           orderBy: { sortOrder: 'asc' },
+        },
+        StudyMaterial: {
+          where: { status: 'PUBLISHED' },
         },
         faqs: {
           orderBy: { displayOrder: 'asc' },
         },
         _count: {
-          select: { applications: true },
+          select: {
+            applications: true,
+            courses: true,
+            gallery: true,
+            StudyMaterial: true,
+          },
         },
       },
     });
@@ -210,53 +249,142 @@ export class CollegesService {
     }));
   }
 
-  private mapDtoToData(dto: CreateCollegeDto): any {
-    return {
-      name: dto.name,
-      slug: dto.name
+  private mapDtoToData(dto: Partial<CreateCollegeDto>, isUpdate = false): any {
+    const data: any = {};
+
+    if (dto.name !== undefined) {
+      data.name = dto.name;
+      data.slug = dto.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, ''),
-      shortDescription: dto.shortDescription,
-      fullDescription: dto.fullDescription,
-      logo: dto.logo,
-      banner: dto.banner,
-      establishedYear: dto.establishedYear,
-      ownership: dto.ownership,
-      type: dto.type,
-      university: dto.university,
-      accreditation: dto.accreditation,
-      approvals: dto.approvals,
-      ranking: dto.ranking,
-      nirfRanking: dto.nirfRanking,
-      naacGrade: dto.naacGrade,
-      city: dto.city,
-      state: dto.state,
-      address: dto.address,
-      pincode: dto.pincode,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-      website: dto.website,
-      email: dto.email,
-      phone: dto.phone,
-      whatsapp: dto.whatsapp,
-      placementPercentage: dto.placementPercentage,
-      highestPackage: dto.highestPackage,
-      averagePackage: dto.averagePackage,
-      hostelAvailable: dto.hostelAvailable,
-      transportAvailable: dto.transportAvailable,
-      scholarshipAvailable: dto.scholarshipAvailable,
-      applicationFee: dto.applicationFee,
-      featured: dto.featured,
-      verified: dto.verified,
-      status: dto.status,
-      seoTitle: dto.seoTitle,
-      seoDescription: dto.seoDescription,
-    };
+        .replace(/(^-|-$)+/g, '');
+    }
+
+    if (dto.shortDescription !== undefined) data.shortDescription = dto.shortDescription;
+    if (dto.fullDescription !== undefined) data.fullDescription = dto.fullDescription;
+    if (dto.logo !== undefined) data.logo = dto.logo;
+    if (dto.banner !== undefined) data.banner = dto.banner;
+    if (dto.establishedYear !== undefined) data.establishedYear = dto.establishedYear;
+    if (dto.ownership !== undefined) data.ownership = dto.ownership;
+    if (dto.type !== undefined) data.type = dto.type;
+    if (dto.university !== undefined) data.university = dto.university;
+    if (dto.accreditation !== undefined) data.accreditation = dto.accreditation;
+    if (dto.approvals !== undefined) data.approvals = dto.approvals;
+    if (dto.ranking !== undefined) data.ranking = dto.ranking;
+    if (dto.nirfRanking !== undefined) data.nirfRanking = dto.nirfRanking;
+    if (dto.naacGrade !== undefined) data.naacGrade = dto.naacGrade;
+    if (dto.city !== undefined) data.city = dto.city;
+    if (dto.state !== undefined) data.state = dto.state;
+    if (dto.stateId !== undefined) data.stateId = dto.stateId;
+    if (dto.districtId !== undefined) data.districtId = dto.districtId;
+    if (dto.address !== undefined) data.address = dto.address;
+    if (dto.pincode !== undefined) data.pincode = dto.pincode;
+    if (dto.latitude !== undefined) data.latitude = dto.latitude;
+    if (dto.longitude !== undefined) data.longitude = dto.longitude;
+    if (dto.website !== undefined) data.website = dto.website;
+    if (dto.email !== undefined) data.email = dto.email;
+    if (dto.phone !== undefined) data.phone = dto.phone;
+    if (dto.whatsapp !== undefined) data.whatsapp = dto.whatsapp;
+    if (dto.contactPerson !== undefined) data.contactPerson = dto.contactPerson;
+    if (dto.placementPercentage !== undefined) data.placementPercentage = dto.placementPercentage;
+    if (dto.highestPackage !== undefined) data.highestPackage = dto.highestPackage;
+    if (dto.averagePackage !== undefined) data.averagePackage = dto.averagePackage;
+    if (dto.medianPackage !== undefined) data.medianPackage = dto.medianPackage;
+    if (dto.placementCompanies !== undefined) data.placementCompanies = dto.placementCompanies;
+    if (dto.placementInfo !== undefined) data.placementInfo = dto.placementInfo;
+    if (dto.placementYear !== undefined) data.placementYear = dto.placementYear;
+    if (dto.hostelAvailable !== undefined) data.hostelAvailable = dto.hostelAvailable;
+    if (dto.boysHostelAvailable !== undefined) data.boysHostelAvailable = dto.boysHostelAvailable;
+    if (dto.girlsHostelAvailable !== undefined) data.girlsHostelAvailable = dto.girlsHostelAvailable;
+    if (dto.hostelFee !== undefined) data.hostelFee = dto.hostelFee;
+    if (dto.hostelFacilities !== undefined) data.hostelFacilities = dto.hostelFacilities;
+    if (dto.messInfo !== undefined) data.messInfo = dto.messInfo;
+    if (dto.otherFacilities !== undefined) data.otherFacilities = dto.otherFacilities;
+    if (dto.transportAvailable !== undefined) data.transportAvailable = dto.transportAvailable;
+    if (dto.scholarshipAvailable !== undefined) data.scholarshipAvailable = dto.scholarshipAvailable;
+    if (dto.applicationFee !== undefined) data.applicationFee = dto.applicationFee;
+    if (dto.featured !== undefined) data.featured = dto.featured;
+    if (dto.verified !== undefined) data.verified = dto.verified;
+    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.seoTitle !== undefined) data.seoTitle = dto.seoTitle;
+    if (dto.seoDescription !== undefined) data.seoDescription = dto.seoDescription;
+    if (dto.seoKeywords !== undefined) data.seoKeywords = dto.seoKeywords;
+    if (dto.rating !== undefined) data.rating = dto.rating;
+
+    // Apply defaults only on create (not update)
+    if (!isUpdate) {
+      if (data.status === undefined) data.status = 'PUBLISHED';
+      if (data.rating === undefined) data.rating = 4.2;
+      if (data.hostelAvailable === undefined) {
+        data.hostelAvailable = !!(data.boysHostelAvailable || data.girlsHostelAvailable);
+      }
+      if (data.boysHostelAvailable === undefined) data.boysHostelAvailable = false;
+      if (data.girlsHostelAvailable === undefined) data.girlsHostelAvailable = false;
+      if (data.transportAvailable === undefined) data.transportAvailable = false;
+      if (data.scholarshipAvailable === undefined) data.scholarshipAvailable = false;
+      if (data.placementCompanies === undefined) data.placementCompanies = [];
+      if (data.hostelFacilities === undefined) data.hostelFacilities = [];
+      if (data.otherFacilities === undefined) data.otherFacilities = [];
+      if (data.seoKeywords === undefined) data.seoKeywords = [];
+    }
+
+    return data;
+  }
+
+  private async resolveGeography(data: any) {
+    if (data.stateId) {
+      const stateObj = await this.prisma.state.findUnique({
+        where: { id: data.stateId },
+      });
+      if (stateObj) {
+        data.state = stateObj.name;
+      }
+    } else if (data.state) {
+      const stateObj = await this.prisma.state.findFirst({
+        where: {
+          OR: [
+            { name: { equals: data.state.trim(), mode: 'insensitive' } },
+            { code: { equals: data.state.trim().toUpperCase() } },
+          ],
+        },
+      });
+      if (stateObj) {
+        data.stateId = stateObj.id;
+        data.state = stateObj.name;
+      }
+    }
+
+    if (data.districtId) {
+      const districtObj = await this.prisma.district.findUnique({
+        where: { id: data.districtId },
+      });
+      if (districtObj) {
+        data.city = districtObj.name;
+        if (!data.stateId) {
+          data.stateId = districtObj.stateId;
+          const st = await this.prisma.state.findUnique({ where: { id: districtObj.stateId } });
+          if (st) data.state = st.name;
+        }
+      }
+    } else if (data.city) {
+      const districtWhere: any = {
+        name: { equals: data.city.trim(), mode: 'insensitive' },
+      };
+      if (data.stateId) {
+        districtWhere.stateId = data.stateId;
+      }
+      const districtObj = await this.prisma.district.findFirst({
+        where: districtWhere,
+      });
+      if (districtObj) {
+        data.districtId = districtObj.id;
+      }
+    }
   }
 
   async createCollege(dto: CreateCollegeDto, adminId: string) {
     const data = this.mapDtoToData(dto);
+    await this.resolveGeography(data);
 
     // If gallery or faqs exist, we create them along with the college
     if (dto.gallery && dto.gallery.length > 0) {
@@ -290,13 +418,14 @@ export class CollegesService {
     return college;
   }
 
-  async updateCollege(id: string, dto: CreateCollegeDto, adminId: string) {
+  async updateCollege(id: string, dto: UpdateCollegeDto, adminId: string) {
     const existing = await this.prisma.college.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException(`College with id ${id} not found`);
     }
 
-    const data = this.mapDtoToData(dto);
+    const data = this.mapDtoToData(dto, true);
+    await this.resolveGeography(data);
 
     // For update, we don't necessarily want to override slug unless explicitly requested
     delete data.slug;
@@ -308,8 +437,10 @@ export class CollegesService {
       updateQuery.gallery = {
         deleteMany: {},
         create: dto.gallery.map((g, idx) => ({
-          ...g,
+          imageUrl: g.imageUrl,
+          caption: g.caption || '',
           sortOrder: g.sortOrder ?? idx,
+          isCover: g.isCover ?? (idx === 0),
         })),
       };
     }
@@ -404,6 +535,155 @@ export class CollegesService {
       where: { id: courseId },
       data: { status: 'ARCHIVED' },
     });
+  }
+
+  async updateCourse(courseId: string, dto: CreateCourseDto) {
+    const existing = await this.prisma.course.findUnique({
+      where: { id: courseId },
+    });
+    if (!existing) {
+      throw new NotFoundException(`Course with id ${courseId} not found`);
+    }
+
+    return this.prisma.course.update({
+      where: { id: courseId },
+      data: {
+        name: dto.name,
+        duration: dto.duration,
+        seats: dto.seats,
+        totalFees: dto.totalFees !== undefined ? dto.totalFees : dto.fees,
+        semesterFees: dto.semesterFees,
+        applicationFee: dto.applicationFee,
+        level: dto.level,
+        category: dto.category,
+        specialization: dto.specialization,
+        eligibility: dto.eligibility,
+        scholarshipInfo: dto.scholarshipInfo,
+        status: dto.status,
+      },
+    });
+  }
+
+  // =========================================================================
+  // GALLERY MANAGEMENT
+  // =========================================================================
+
+  async addGalleryImage(
+    collegeId: string,
+    data: { imageUrl: string; caption?: string; sortOrder?: number; isCover?: boolean },
+  ) {
+    const college = await this.prisma.college.findUnique({ where: { id: collegeId } });
+    if (!college) {
+      throw new NotFoundException(`College with id ${collegeId} not found`);
+    }
+
+    if (data.isCover) {
+      // Unset previous cover images
+      await this.prisma.collegeGallery.updateMany({
+        where: { collegeId, isCover: true },
+        data: { isCover: false },
+      });
+    }
+
+    return this.prisma.collegeGallery.create({
+      data: {
+        collegeId,
+        imageUrl: data.imageUrl,
+        caption: data.caption || '',
+        sortOrder: data.sortOrder ?? 0,
+        isCover: data.isCover ?? false,
+      },
+    });
+  }
+
+  async updateGalleryImage(
+    collegeId: string,
+    imageId: string,
+    data: { caption?: string; sortOrder?: number; isCover?: boolean },
+  ) {
+    const existing = await this.prisma.collegeGallery.findUnique({ where: { id: imageId } });
+    if (!existing || existing.collegeId !== collegeId) {
+      throw new NotFoundException(`Gallery image not found`);
+    }
+
+    if (data.isCover) {
+      await this.prisma.collegeGallery.updateMany({
+        where: { collegeId, isCover: true },
+        data: { isCover: false },
+      });
+    }
+
+    return this.prisma.collegeGallery.update({
+      where: { id: imageId },
+      data: {
+        caption: data.caption !== undefined ? data.caption : existing.caption,
+        sortOrder: data.sortOrder !== undefined ? data.sortOrder : existing.sortOrder,
+        isCover: data.isCover !== undefined ? data.isCover : existing.isCover,
+      },
+    });
+  }
+
+  async deleteGalleryImage(collegeId: string, imageId: string) {
+    const existing = await this.prisma.collegeGallery.findUnique({ where: { id: imageId } });
+    if (!existing || existing.collegeId !== collegeId) {
+      throw new NotFoundException(`Gallery image not found`);
+    }
+
+    return this.prisma.collegeGallery.delete({
+      where: { id: imageId },
+    });
+  }
+
+  // =========================================================================
+  // STUDY MATERIALS LINKING
+  // =========================================================================
+
+  async getCollegeStudyMaterials(collegeId: string) {
+    return this.prisma.studyMaterial.findMany({
+      where: { collegeId, status: { not: 'ARCHIVED' } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async linkStudyMaterial(collegeId: string, materialId: string) {
+    const college = await this.prisma.college.findUnique({ where: { id: collegeId } });
+    if (!college) {
+      throw new NotFoundException(`College with id ${collegeId} not found`);
+    }
+
+    return this.prisma.studyMaterial.update({
+      where: { id: materialId },
+      data: { collegeId },
+    });
+  }
+
+  async unlinkStudyMaterial(collegeId: string, materialId: string) {
+    return this.prisma.studyMaterial.update({
+      where: { id: materialId },
+      data: { collegeId: null },
+    });
+  }
+
+  // =========================================================================
+  // PUBLISH / UNPUBLISH STATUS TOGGLE
+  // =========================================================================
+
+  async setPublishStatus(collegeId: string, publish: boolean, adminId: string) {
+    const status = publish ? 'PUBLISHED' : 'DRAFT';
+    const updated = await this.prisma.college.update({
+      where: { id: collegeId },
+      data: { status },
+    });
+
+    await this.auditService.logAction({
+      userId: adminId,
+      action: publish ? 'PUBLISH_COLLEGE' : 'UNPUBLISH_COLLEGE',
+      entity: 'College',
+      entityId: collegeId,
+      newValue: { status },
+    });
+
+    return updated;
   }
 
   // =========================================================================

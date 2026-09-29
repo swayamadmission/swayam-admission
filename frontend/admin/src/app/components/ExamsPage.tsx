@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { examsApi, type Exam, type ExamQueryParams, type ExamDashboardStats } from "../../api/exams.api";
+import { organizationApi, StateItem } from "../../api/organization.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import ExamFormModal from "./ExamFormModal";
 import ExamDetailDrawer from "./ExamDetailDrawer";
@@ -100,6 +101,7 @@ export default function ExamsPage() {
   const [registrationStatus, setRegistrationStatus] = useState("");
   const [status, setStatus] = useState("");
   const [featured, setFeatured] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Modals
@@ -113,6 +115,14 @@ export default function ExamsPage() {
 
   const LIMIT = 20;
 
+  // ── States Query ───────────────────────────────────────────────────────────
+  const { data: statesRes } = useQuery({
+    queryKey: ["geography_states"],
+    queryFn: () => organizationApi.getStates(),
+    staleTime: 60_000,
+  });
+  const statesList: StateItem[] = Array.isArray(statesRes) ? statesRes : (statesRes as any)?.data || [];
+
   // ── Queries ───────────────────────────────────────────────────────────────
   const params: ExamQueryParams = {
     page,
@@ -123,6 +133,7 @@ export default function ExamsPage() {
     ...(examMode && { examMode }),
     ...(registrationStatus && { registrationStatus }),
     ...(status && { status }),
+    ...(stateFilter && { state: stateFilter }),
     ...(featured && { featured: featured === "true" }),
   };
 
@@ -185,11 +196,12 @@ export default function ExamsPage() {
   const resetFilters = () => {
     setCategory(""); setLevel(""); setExamMode("");
     setRegistrationStatus(""); setStatus(""); setFeatured(""); setSearch("");
+    setStateFilter("");
     setPage(1);
   };
 
   const hasActiveFilters = !!(
-    category || level || examMode || registrationStatus || status || featured || dSearch
+    category || level || examMode || registrationStatus || status || featured || dSearch || stateFilter
   );
 
   return (
@@ -238,10 +250,10 @@ export default function ExamsPage() {
           >
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="text-2xl font-bold text-[#0F172A]">
+                <div className="text-2xl font-bold text-[#4A7B5B]">
                   {(s.value ?? 0).toLocaleString("en-IN")}
                 </div>
-                <div className="text-xs text-[#0F172A] font-medium mt-0.5">{s.label}</div>
+                <div className="text-xs text-[#4A7B5B] font-medium mt-0.5">{s.label}</div>
                 <div className="text-xs text-[#94A3B8]">{s.sub}</div>
               </div>
               <div
@@ -264,7 +276,7 @@ export default function ExamsPage() {
           { label: "Results Declared", value: stats?.resultsDeclared ?? 0 },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl p-3 border border-[#F1F5F9] text-center">
-            <div className="text-sm font-semibold text-[#0F172A]">{String(s.value ?? 0)}</div>
+            <div className="text-sm font-semibold text-[#4A7B5B]">{String(s.value ?? 0)}</div>
             <div className="text-xs text-[#94A3B8] mt-0.5">{s.label}</div>
           </div>
         ))}
@@ -331,7 +343,7 @@ export default function ExamsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "table" ? "#fff" : "transparent",
-                color: view === "table" ? "#0F172A" : "#94A3B8",
+                color: view === "table" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <Table2 className="w-3.5 h-3.5" />
@@ -341,7 +353,7 @@ export default function ExamsPage() {
               className="flex items-center px-2.5 h-7 rounded-lg text-xs transition-colors"
               style={{
                 background: view === "grid" ? "#fff" : "transparent",
-                color: view === "grid" ? "#0F172A" : "#94A3B8",
+                color: view === "grid" ? "#4A7B5B" : "#94A3B8",
               }}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -362,7 +374,7 @@ export default function ExamsPage() {
       {/* ── Filter Panel ──────────────────────────────────────────────────────── */}
       {showFilters && (
         <div className="bg-white rounded-2xl border border-[#E2E8F0] p-4 shadow-sm">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
             {/* Category */}
             <div>
               <label className="block text-xs font-medium text-[#374151] mb-1">Category</label>
@@ -393,6 +405,26 @@ export default function ExamsPage() {
                   <option value="">All Levels</option>
                   {Object.entries(LEVEL_LABELS).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#94A3B8] pointer-events-none" />
+              </div>
+            </div>
+
+            {/* State Filter */}
+            <div>
+              <label className="block text-xs font-medium text-[#374151] mb-1">State</label>
+              <div className="relative">
+                <select
+                  value={stateFilter}
+                  onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
+                  className="w-full h-8 px-2 rounded-lg border border-[#E2E8F0] text-xs bg-white appearance-none focus:outline-none focus:border-[#4A7B5B]"
+                >
+                  <option value="">All States</option>
+                  {statesList.map((st) => (
+                    <option key={st.id} value={st.name}>
+                      {st.name}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#94A3B8] pointer-events-none" />
@@ -505,7 +537,7 @@ export default function ExamsPage() {
       {!isLoading && exams.length === 0 && (
         <div className="text-center py-20 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm">
           <Calendar className="mx-auto h-12 w-12 mb-4" style={{ color: "#CBD5E1" }} />
-          <h3 className="text-lg font-semibold text-[#0F172A] mb-1">No exams found</h3>
+          <h3 className="text-lg font-semibold text-[#4A7B5B] mb-1">No exams found</h3>
           <p className="text-[#94A3B8] text-sm mb-4">
             {hasActiveFilters
               ? "Try adjusting your search or filter criteria."
@@ -574,7 +606,7 @@ export default function ExamsPage() {
                             <Calendar className="w-4 h-4" style={{ color: cat.text }} />
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-[#0F172A] truncate max-w-[220px]">
+                            <div className="text-sm font-semibold text-[#4A7B5B] truncate max-w-[220px]">
                               {exam.examName}
                             </div>
                             {exam.featured && (
@@ -591,14 +623,14 @@ export default function ExamsPage() {
                       <td className="px-4 py-3">
                         <span
                           className="px-2 py-0.5 rounded-md text-xs font-medium"
-                          style={cat}
+                          style={{ backgroundColor: cat.bg, color: cat.text }}
                         >
                           {CATEGORY_LABELS[exam.category] ?? exam.category}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-medium text-[#475569] bg-[#F1F5F9] px-2 py-0.5 rounded">
-                          {LEVEL_LABELS[exam.level] ?? exam.level}
+                          {exam.state?.name || (LEVEL_LABELS[exam.level] ?? exam.level)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -607,14 +639,14 @@ export default function ExamsPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-medium">
+                        <span className="text-xs text-[#4A7B5B] font-medium">
                           {exam.applicationEnd
                             ? new Date(exam.applicationEnd).toLocaleDateString("en-IN")
                             : "TBA"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-xs text-[#0F172A] font-medium">
+                        <span className="text-xs text-[#4A7B5B] font-medium">
                           {exam.examDate
                             ? new Date(exam.examDate).toLocaleDateString("en-IN")
                             : "TBA"}
@@ -623,7 +655,7 @@ export default function ExamsPage() {
                       <td className="px-4 py-3">
                         <span
                           className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                          style={st}
+                          style={{ backgroundColor: st.bg, color: st.text }}
                         >
                           {labelFmt(exam.status)}
                         </span>
@@ -714,7 +746,7 @@ export default function ExamsPage() {
                     )}
                     <span
                       className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={st}
+                      style={{ backgroundColor: st.bg, color: st.text }}
                     >
                       {labelFmt(exam.status)}
                     </span>
@@ -722,7 +754,7 @@ export default function ExamsPage() {
                 </div>
 
                 {/* Exam Name */}
-                <h3 className="text-sm font-bold text-[#0F172A] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
+                <h3 className="text-sm font-bold text-[#4A7B5B] mb-1 line-clamp-2 leading-tight group-hover:text-[#4A7B5B] transition-colors">
                   {exam.examName}
                 </h3>
                 <p className="text-xs text-[#94A3B8] mb-3 truncate">
@@ -733,13 +765,18 @@ export default function ExamsPage() {
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   <span
                     className="text-xs px-2 py-0.5 rounded-md font-medium"
-                    style={cat}
+                    style={{ backgroundColor: cat.bg, color: cat.text }}
                   >
                     {CATEGORY_LABELS[exam.category] ?? exam.category}
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-[#F1F5F9] text-[#64748B]">
                     {LEVEL_LABELS[exam.level] ?? exam.level}
                   </span>
+                  {exam.state && (
+                    <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-[#E8F3EC] text-[#4A7B5B]">
+                      📍 {exam.state.name}
+                    </span>
+                  )}
                   <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-[#F1F5F9] text-[#64748B]">
                     {exam.examMode ?? "ONLINE"}
                   </span>
@@ -748,7 +785,7 @@ export default function ExamsPage() {
                 {/* Footer row */}
                 <div className="flex items-center justify-between pt-3 border-t border-[#F8FAFC]">
                   <div className="text-xs text-[#475569]">
-                    Fee: <span className="font-semibold text-[#0F172A]">{exam.applicationFee ? `₹${exam.applicationFee}` : "Free"}</span>
+                    Fee: <span className="font-semibold text-[#4A7B5B]">{exam.applicationFee ? `₹${exam.applicationFee}` : "Free"}</span>
                   </div>
                   <div className="text-xs text-[#94A3B8]">
                     {(exam.courses ?? []).length} Courses

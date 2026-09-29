@@ -64,7 +64,7 @@ export function ErrorState({
             <IconComponent size={16} />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-[#0F172A] truncate">{displayTitle}</p>
+            <p className="text-xs font-bold text-[#4A7B5B] truncate">{displayTitle}</p>
             <p className="text-[11px] text-gray-500 truncate">{displayMessage}</p>
           </div>
         </div>
@@ -88,7 +88,7 @@ export function ErrorState({
       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 ${iconBg}`}>
         <IconComponent size={26} />
       </div>
-      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#0F172A" }} className="mb-1.5">
+      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }} className="mb-1.5">
         {displayTitle}
       </h3>
       <p className="text-gray-500 text-xs max-w-sm mx-auto mb-5 leading-relaxed">

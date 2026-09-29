@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
+import { DocumentVaultStorageService } from './document-vault-storage.service';
+import { DocumentWatermarkService } from './document-watermark.service';
+import { DocumentAuditService } from './document-audit.service';
+import { DocumentRetentionService } from './document-retention.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StorageModule } from '../storage/storage.module';
 import { AuditModule } from '../audit/audit.module';
@@ -17,8 +21,20 @@ import { SettingsModule } from '../settings/settings.module';
     AuthModule,
     SettingsModule,
   ],
-  providers: [DocumentsService],
+  providers: [
+    DocumentsService,
+    DocumentVaultStorageService,
+    DocumentWatermarkService,
+    DocumentAuditService,
+    DocumentRetentionService,
+  ],
   controllers: [DocumentsController],
-  exports: [DocumentsService],
+  exports: [
+    DocumentsService,
+    DocumentVaultStorageService,
+    DocumentWatermarkService,
+    DocumentAuditService,
+    DocumentRetentionService,
+  ],
 })
 export class DocumentsModule {}

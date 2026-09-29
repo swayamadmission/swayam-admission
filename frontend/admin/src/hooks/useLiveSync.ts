@@ -102,6 +102,32 @@ export function useLiveSync(roomType: "admin" | "counselor" = "admin", entityId?
       queryClient.invalidateQueries({ queryKey: ["admin_dashboard_metrics"] });
     });
 
+    // ERP Guide Events
+    socket.on("guide.created", () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_blog_stats"] });
+    });
+
+    socket.on("guide.updated", () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_blog_stats"] });
+    });
+
+    socket.on("guide.published", () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_blog_stats"] });
+    });
+
+    socket.on("guide.unpublished", () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_blog_stats"] });
+    });
+
+    socket.on("guide.deleted", () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_blogs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_blog_stats"] });
+    });
+
     return () => {
       socket.disconnect();
     };

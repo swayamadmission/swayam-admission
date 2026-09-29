@@ -188,4 +188,132 @@ export class CreateBlogDto {
   @IsArray()
   @IsString({ each: true })
   relatedBlogs?: string[];
+
+  // Career & Admission Guide ERP fields
+  @IsOptional()
+  @IsString()
+  guideType?: string; // CAREER or ADMISSION
+
+  @IsOptional()
+  @IsString()
+  educationLevel?: string;
+
+  @IsOptional()
+  @IsString()
+  stream?: string;
+
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @IsOptional()
+  @IsString()
+  careerPath?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skills?: string[];
+
+  @IsOptional()
+  @IsString()
+  eligibility?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  entranceExams?: string[];
+
+  @IsOptional()
+  @IsString()
+  salaryRange?: string;
+
+  @IsOptional()
+  @IsString()
+  averageSalary?: string;
+
+  @IsOptional()
+  @IsString()
+  growthRate?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  higherStudyOptions?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  jobRoles?: string[];
+
+  @IsOptional()
+  @IsString()
+  govPrivatePaths?: string;
+
+  @IsOptional()
+  @IsString()
+  admissionProcess?: string;
+
+  @IsOptional()
+  @IsString()
+  applicationProcess?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  requiredDocuments?: string[];
+
+  @IsOptional()
+  admissionStages?: any;
+
+  @IsOptional()
+  @IsString()
+  feesInfo?: string;
+
+  @IsOptional()
+  @IsString()
+  counsellingInfo?: string;
+
+  @IsOptional()
+  @IsString()
+  scholarshipInfo?: string;
+
+  @IsOptional()
+  @IsString()
+  stateSchemesInfo?: string;
+
+  @IsOptional()
+  importantTimelines?: any;
+
+  @IsOptional()
+  @IsString()
+  prepGuidance?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  relatedCourseIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  relatedCollegeIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  relatedExamIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  relatedScholarshipIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  stateId?: string;
+
+  @IsOptional()
+  @IsString()
+  districtId?: string;
 }

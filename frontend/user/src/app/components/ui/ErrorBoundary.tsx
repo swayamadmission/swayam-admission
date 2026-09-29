@@ -43,7 +43,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle size={28} />
             </div>
             <div>
-              <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A" }}>
+              <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#4A7B5B" }}>
                 {this.props.fallbackTitle || "Something went wrong"}
               </h3>
               <p className="text-gray-500 text-xs mt-1.5 leading-relaxed">

@@ -12,13 +12,17 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { StudyMaterialsService } from './study-materials.service';
 import { CreateStudyMaterialDto } from './dto/create-study-material.dto';
 import { UpdateStudyMaterialDto } from './dto/update-study-material.dto';
 import { StudyMaterialQueryDto } from './dto/study-material-query.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -120,8 +124,10 @@ export class StudyMaterialsController {
 
   // ── Recommended ───────────────────────────────────────────────────────────
   @Get('recommended')
-  @ApiOperation({ summary: 'Get recommended study materials (public)' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Get recommended study materials (public or personalized)' })
   getRecommended(
+    @Request() req: { user?: { id: string } },
     @Query('category') category?: string,
     @Query('examId') examId?: string,
     @Query('courseId') courseId?: string,
@@ -129,6 +135,7 @@ export class StudyMaterialsController {
     @Query('limit') limit?: string,
   ) {
     return this.studyMaterialsService.getRecommended({
+      userId: req.user?.id,
       category,
       examId,
       courseId,
@@ -237,6 +244,15 @@ export class StudyMaterialsController {
     return this.studyMaterialsService.getHistory(req.user.id);
   }
 
+  // ── My Purchases ──────────────────────────────────────────────────────────
+  @Get('my-purchases')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current student purchased premium study materials' })
+  getMyPurchases(@Request() req: { user: { id: string } }) {
+    return this.studyMaterialsService.getMyPurchases(req.user.id);
+  }
+
   // ── List ──────────────────────────────────────────────────────────────────
   @Get()
   @ApiOperation({
@@ -316,8 +332,135 @@ export class StudyMaterialsController {
     return this.studyMaterialsService.softDelete(id, req.user.id);
   }
 
-  // ── Increment Download Counter ───────────────────────────────────────────
+  // ── Upload Material File ──────────────────────────────────────────────────
+  @Post('upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload actual study material document/file' })
+  uploadFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.studyMaterialsService.uploadFile(file);
+  }
+
+  // ── Upload Preview Resource ───────────────────────────────────────────────
+  @Post('upload-preview')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload preview resource for premium study material' })
+  uploadPreviewFile(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.studyMaterialsService.uploadPreviewFile(file);
+  }
+
+  // ── Upload Thumbnail Image ────────────────────────────────────────────────
+  @Post('upload-thumbnail')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload thumbnail image for study material' })
+  uploadThumbnail(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    return this.studyMaterialsService.uploadThumbnail(file);
+  }
+
+  // ── Access & Entitlement Check ───────────────────────────────────────────
+  @Get(':id/access')
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Check entitlement and access rules for a study material' })
+  checkAccess(
+    @Param('id') id: string,
+    @Request() req: { user?: { id: string } },
+  ) {
+    return this.studyMaterialsService.checkAccess(id, req.user?.id);
+  }
+
+  // ── Secure Preview Stream ────────────────────────────────────────────────
+  @Get(':id/preview')
+  @ApiOperation({ summary: 'Stream study material preview document or public file' })
+  async getPreview(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const { filePath, fileName, mimeType } =
+      await this.studyMaterialsService.getPreviewFile(id);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.sendFile(filePath);
+  }
+
+  // ── Secure Authenticated Download Stream ─────────────────────────────────
+  @Get(':id/download')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Secure authenticated download for study material' })
+  async downloadFile(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+    @Res() res: Response,
+  ) {
+    const { filePath, fileName, mimeType } =
+      await this.studyMaterialsService.getDownloadFile(id, req.user.id);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.sendFile(filePath);
+  }
+
+  // ── Create Purchase Order ────────────────────────────────────────────────
+  @Post(':id/purchase-order')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create purchase order for premium study material with optional coupon',
+  })
+  createPurchaseOrder(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+    @Body() body: { couponCode?: string },
+  ) {
+    return this.studyMaterialsService.createPurchaseOrder(
+      id,
+      req.user.id,
+      body?.couponCode,
+    );
+  }
+
+  // ── Verify Payment & Activate Entitlement ────────────────────────────────
+  @Post(':id/verify-payment')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify Razorpay payment and unlock premium study material' })
+  verifyPayment(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+    @Body()
+    body: {
+      orderId: string;
+      paymentId: string;
+      signature: string;
+      internalPaymentId?: string;
+    },
+  ) {
+    return this.studyMaterialsService.verifyPurchasePayment(
+      id,
+      req.user.id,
+      body,
+    );
+  }
+
+  // ── Increment Download Counter (Tracking fallback) ───────────────────────
   @Post(':id/download')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Track download count for a study material' })
   incrementDownload(
     @Param('id') id: string,
@@ -328,6 +471,7 @@ export class StudyMaterialsController {
 
   // ── Increment View Counter ───────────────────────────────────────────────
   @Post(':id/view')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Track view count for a study material' })
   incrementView(
     @Param('id') id: string,
