@@ -1,11 +1,13 @@
 import {
   Injectable,
   Inject,
+  Optional,
   forwardRef,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DataScopeService } from '../auth/data-scope.service';
@@ -14,7 +16,14 @@ import { UpdateApplicationStatusDto } from './dto/update-application-status.dto'
 import { UpdateApplicationDto } from './dto/update-application.dto';
 import { ApplicationQueryDto } from './dto/application-query.dto';
 import { createPaginatedResponse } from '../common/dto/paginated-response.dto';
-import { ApplicationStatus, PaymentStatus, PaymentType, PaymentMethod } from '@prisma/client';
+import {
+  ApplicationStatus,
+  PaymentStatus,
+  PaymentType,
+  PaymentMethod,
+  NotificationType,
+  NotificationPriority,
+} from '@prisma/client';
 
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -26,12 +35,11 @@ import {
   SaveApplicationDeclarationsDto,
 } from './dto/application-workflow.dto';
 import {
-  CANONICAL_DECLARATIONS,
-  PersistedDeclarationItem,
   DeclarationValidationResult,
   normalizeDeclarations,
   validateCanonicalDeclarations,
 } from './application-declarations.constants';
+
 import {
   ClaimReviewDto,
   ApproveAdmissionDto,
@@ -46,9 +54,16 @@ import { IdGeneratorService } from '../common/id-generator.service';
 import { LiveSyncService } from '../events/live-sync.service';
 import { GeographyService } from '../organization/geography.service';
 import { CouponService } from '../coupons/coupon.service';
+import { ApplicationFeeEligibilityService } from './services/application-fee-eligibility.service';
+import { PaymentGatewayService } from '../payments/gateways/payment-gateway.service';
+import { LeadRoutingService } from '../lead/lead-routing.service';
+import { ConsentService } from '../legal/consent.service';
 
 @Injectable()
-export class ApplicationService {
+export class ApplicationService implements OnModuleInit {
+  private applicationFeeEligibilityService!: ApplicationFeeEligibilityService;
+  private paymentGatewayService!: PaymentGatewayService;
+
   constructor(
     private prisma: PrismaService,
     private dataScopeService: DataScopeService,
@@ -60,7 +75,41 @@ export class ApplicationService {
     private geographyService: GeographyService,
     @Inject(forwardRef(() => CouponService))
     private couponsService: CouponService,
-  ) {}
+    @Inject(forwardRef(() => LeadRoutingService))
+    private leadRoutingService: LeadRoutingService,
+    @Optional()
+    @Inject(forwardRef(() => ApplicationFeeEligibilityService))
+    applicationFeeEligibilityService?: ApplicationFeeEligibilityService,
+    @Optional()
+    @Inject(forwardRef(() => PaymentGatewayService))
+    paymentGatewayService?: PaymentGatewayService,
+    @Optional()
+    @Inject(forwardRef(() => ConsentService))
+    private consentService?: ConsentService,
+  ) {
+    this.applicationFeeEligibilityService =
+      applicationFeeEligibilityService ||
+      new ApplicationFeeEligibilityService(this.prisma, this.couponsService);
+    this.paymentGatewayService =
+      paymentGatewayService || new PaymentGatewayService();
+  }
+
+  async onModuleInit() {
+    try {
+      // Auto-heal any legacy draft applications that were mistakenly marked with COMPLETED paymentStatus
+      await this.prisma.application.updateMany({
+        where: {
+          status: { in: ['DRAFT', 'NEW', 'READY_TO_SUBMIT'] },
+          paymentStatus: PaymentStatus.COMPLETED,
+        },
+        data: {
+          paymentStatus: PaymentStatus.PENDING,
+        },
+      });
+    } catch {
+      // ignore in environments where tables may be initializing
+    }
+  }
 
   private async generateApplicationId(): Promise<string> {
     return this.idGenerator.generateApplicationId();
@@ -186,22 +235,79 @@ export class ApplicationService {
 
     // Target college ID is explicitly OPTIONAL. If not chosen by student, it remains null.
 
-    // 3. Resolve Counselor
-    let assignedCounselorId = user.assignedCounselorId;
-    if (!assignedCounselorId) {
-      const activeCounselor = await this.prisma.user.findFirst({
-        where: {
-          role: { in: ['COUNSELOR', 'SENIOR_COUNSELOR'] },
-          isActive: true,
-        },
-        orderBy: { createdAt: 'asc' },
+    // 3. Resolve Counselor: Preserve existing counselor if user already has one; DO NOT assign random counselor
+    const assignedCounselorId = user.assignedCounselorId || null;
+
+    // Resolve Submitted Geographic Data strictly from the Application Form (Separate from Profile)
+    const submittedState = (
+      dto.state ||
+      (dto as any).formData?.personalInfo?.state ||
+      (dto as any).formData?.address?.state ||
+      user.profile?.state ||
+      user.state ||
+      ''
+    ).trim();
+
+    const submittedDistrict = (
+      dto.district ||
+      (dto as any).formData?.personalInfo?.district ||
+      (dto as any).formData?.address?.district ||
+      user.profile?.district ||
+      user.profile?.city ||
+      ''
+    ).trim();
+
+    let resolvedStateId: string | null = dto.stateId || null;
+    let resolvedStateName: string | null = submittedState || null;
+
+    if (resolvedStateId) {
+      const stateObj = await this.prisma.state.findUnique({
+        where: { id: resolvedStateId },
       });
-      if (activeCounselor) {
-        assignedCounselorId = activeCounselor.id;
-        await this.prisma.user.update({
-          where: { id: userId },
-          data: { assignedCounselorId: activeCounselor.id },
-        });
+      if (stateObj) {
+        resolvedStateName = stateObj.name;
+      } else {
+        resolvedStateId = null;
+      }
+    }
+
+    if (!resolvedStateId && submittedState) {
+      const stateObj = await this.prisma.state.findFirst({
+        where: { name: { equals: submittedState, mode: 'insensitive' } },
+      });
+      if (stateObj) {
+        resolvedStateId = stateObj.id;
+        resolvedStateName = stateObj.name;
+      }
+    }
+
+    let resolvedDistrictId: string | null = dto.districtId || null;
+    let resolvedDistrictName: string | null = submittedDistrict || null;
+
+    if (resolvedDistrictId) {
+      const districtObj = await this.prisma.district.findUnique({
+        where: { id: resolvedDistrictId },
+      });
+      if (districtObj) {
+        resolvedDistrictName = districtObj.name;
+        if (!resolvedStateId) {
+          resolvedStateId = districtObj.stateId;
+        }
+      } else {
+        resolvedDistrictId = null;
+      }
+    }
+
+    if (resolvedStateId && !resolvedDistrictId && submittedDistrict) {
+      const districtObj = await this.prisma.district.findFirst({
+        where: {
+          stateId: resolvedStateId,
+          name: { equals: submittedDistrict, mode: 'insensitive' },
+        },
+      });
+      if (districtObj) {
+        resolvedDistrictId = districtObj.id;
+        resolvedDistrictName = districtObj.name;
       }
     }
 
@@ -233,25 +339,12 @@ export class ApplicationService {
       if (offering) targetOfferingId = offering.id;
     }
 
-    // 4. Enforce 3 Free Applications Rule
-    const validApplicationsCount = await this.prisma.application.count({
-      where: {
-        userId,
-        status: {
-          notIn: [ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN],
-        },
-      },
-    });
+    // 4. Draft applications start in DRAFT status with PENDING payment status.
+    // Free quota eligibility is authoritatively evaluated upon submission.
+    const initialPaymentStatus = PaymentStatus.PENDING;
+    const initialRemarks = 'Application draft created';
 
-    const isFreeAllowance = validApplicationsCount < 3;
-    const initialPaymentStatus = isFreeAllowance
-      ? PaymentStatus.COMPLETED
-      : PaymentStatus.PENDING;
-    const allowanceRemarks = isFreeAllowance
-      ? `Free Application Allowance (Valid Application ${validApplicationsCount + 1} of 3)`
-      : `Paid Application (Valid Application ${validApplicationsCount + 1} - Exceeds 3-application free quota)`;
-
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Build initial structured formData from apply-now DTO
       const initialFormData = {
         personalInfo: {
@@ -260,8 +353,10 @@ export class ApplicationService {
           email: dto.email || user.email || '',
           parentMobile: dto.parentMobile || '',
           parentEmail: dto.parentEmail || '',
-          state: dto.state || '',
-          district: dto.district || '',
+          state: resolvedStateName || dto.state || '',
+          stateId: resolvedStateId || dto.stateId || '',
+          district: resolvedDistrictName || dto.district || '',
+          districtId: resolvedDistrictId || dto.districtId || '',
           pincode: dto.pincode || '',
         },
         academicInfo: {
@@ -294,12 +389,16 @@ export class ApplicationService {
               : '',
         },
         address: {
-          state: dto.state || '',
-          district: dto.district || '',
+          state: resolvedStateName || dto.state || '',
+          stateId: resolvedStateId || dto.stateId || '',
+          district: resolvedDistrictName || dto.district || '',
+          districtId: resolvedDistrictId || dto.districtId || '',
           pincode: dto.pincode || '',
         },
-        communicationState: dto.state || '',
-        communicationDistrict: dto.district || '',
+        communicationState: resolvedStateName || dto.state || '',
+        communicationDistrict: resolvedDistrictName || dto.district || '',
+        communicationStateId: resolvedStateId || dto.stateId || '',
+        communicationDistrictId: resolvedDistrictId || dto.districtId || '',
         communicationPincode: dto.pincode || '',
         preferences: {
           preferredCollege: dto.preferredCollege || dto.collegeName || null,
@@ -325,8 +424,8 @@ export class ApplicationService {
           admissionYear: dto.admissionYear || new Date().getFullYear(),
           formData: initialFormData,
           remarks: dto.remarks
-            ? `${dto.remarks} | ${allowanceRemarks}`
-            : allowanceRemarks,
+            ? `${dto.remarks} | ${initialRemarks}`
+            : initialRemarks,
         },
         include: {
           college: true,
@@ -339,7 +438,7 @@ export class ApplicationService {
         },
       });
 
-      // Create Payment Ledger Entry
+      // Create Initial Payment Intent Ledger Entry (Pending)
       await tx.payment.create({
         data: {
           applicationId: app.id,
@@ -347,13 +446,13 @@ export class ApplicationService {
           collegeId: targetCollegeId,
           courseId: targetCourseId,
           counselorId: assignedCounselorId || null,
-          paymentType: PaymentType.REGISTRATION_FEE,
-          amount: isFreeAllowance ? 0 : 500,
+          paymentType: PaymentType.APPLICATION_FEE,
+          amount: 1500,
           currency: 'INR',
-          status: initialPaymentStatus,
-          notes: allowanceRemarks,
-          paidAt: isFreeAllowance ? new Date() : null,
-          paidAmount: isFreeAllowance ? 0 : 0,
+          status: PaymentStatus.PENDING,
+          notes: initialRemarks,
+          paidAt: null,
+          paidAmount: 0,
         },
       });
 
@@ -364,7 +463,7 @@ export class ApplicationService {
           userId,
           action: 'CREATED',
           newStatus: app.status,
-          remarks: allowanceRemarks,
+          remarks: initialRemarks,
         },
       });
 
@@ -414,6 +513,59 @@ export class ApplicationService {
         data: app,
       };
     });
+
+    // 5. Post-Submission: Create Application Lead in CRM pipeline and execute Geographic Routing
+    try {
+      const cleanMobile = (dto.mobile || user.mobile || '').trim().replace(/\D/g, '').slice(-10);
+      const cleanEmail = (dto.email || user.email || '').trim().toLowerCase() || null;
+
+      const applicationLead = await this.prisma.lead.create({
+        data: {
+          fullName: dto.fullName || user.fullName || 'Applicant',
+          mobile: cleanMobile || user.mobile || 'N/A',
+          email: cleanEmail,
+          state: resolvedStateName,
+          stateId: resolvedStateId,
+          district: resolvedDistrictName,
+          districtId: resolvedDistrictId,
+          city: resolvedDistrictName,
+          collegeId: targetCollegeId,
+          courseId: targetCourseId,
+          branchId: targetBranchId,
+          educationLevel: dto.educationLevel,
+          stream: dto.stream,
+          passingYear:
+            typeof dto.passingYear === 'number'
+              ? dto.passingYear
+              : parseInt(String(dto.passingYear), 10) || null,
+          source: 'WEBSITE',
+          status: 'NEW',
+          priority: 'HOT',
+          preferredCourse: result.application.course?.name || dto.courseName,
+          preferredCollege: result.application.college?.name || dto.collegeName,
+          assignedCounselorId: assignedCounselorId || null,
+          remarks: `Application ${applicationId} submitted for ${result.application.college?.name || 'College'} - ${result.application.course?.name || 'Course'}. Location: ${resolvedStateName || 'N/A'}, ${resolvedDistrictName || 'N/A'}.`,
+        },
+      });
+
+      // Authoritative Geographic Routing strictly based on Application Form's State + District
+      await this.leadRoutingService.routeLead(applicationLead.id);
+    } catch (routingErr: unknown) {
+      const errStr = routingErr instanceof Error ? routingErr.message : String(routingErr);
+      await this.prisma.auditLog
+        .create({
+          data: {
+            userId,
+            action: 'APPLICATION_ROUTING_FAILED',
+            entity: 'Application',
+            entityId: result.application.id,
+            newValue: JSON.stringify({ error: errStr }),
+          },
+        })
+        .catch(() => {});
+    }
+
+    return result;
   }
 
   async findAll(query: ApplicationQueryDto, currentUserId?: string) {
@@ -530,7 +682,7 @@ export class ApplicationService {
         college: true,
         course: true,
         branch: { select: { id: true, name: true, code: true, slug: true } },
-        counselor: { select: { id: true, fullName: true, email: true } },
+        counselor: { select: { id: true, fullName: true, designation: true, avatar: true } },
         payments: true,
         receipts: true,
         timeline: {
@@ -620,11 +772,11 @@ export class ApplicationService {
           select: {
             id: true,
             fullName: true,
-            email: true,
-            mobile: true,
             avatar: true,
+            designation: true,
+            qualification: true,
             counselorProfile: {
-              select: { designation: true, department: true, experience: true },
+              select: { designation: true, department: true, qualification: true, experience: true },
             },
           },
         },
@@ -1357,29 +1509,36 @@ export class ApplicationService {
    * Authoritative calculation of user's free application submissions quota (First 3 Free Rule).
    */
   async getApplicationQuota(userId: string) {
-    const submittedCount = await this.prisma.application.count({
-      where: {
-        userId,
-        status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW, ApplicationStatus.DOCUMENTS_VERIFIED, ApplicationStatus.APPROVED, ApplicationStatus.ADMISSION_CONFIRMED] },
-      },
-    });
-
-    const totalAllowedFree = 3;
-    const freeRemaining = Math.max(0, totalAllowedFree - submittedCount);
-    const isNextFree = freeRemaining > 0;
-    const applicationFeeAmount = 1500;
-
+    const eligibility = await this.applicationFeeEligibilityService.getEligibility(userId);
     return {
-      totalAllowedFree,
-      submittedCount,
-      freeRemaining,
-      isNextFree,
-      applicationFeeAmount,
-      currency: 'INR',
-      message: isNextFree
-        ? `${freeRemaining} free application${freeRemaining > 1 ? 's' : ''} remaining`
-        : 'Your 3 free applications quota has been used.',
+      totalAllowedFree: eligibility.freeApplicationsLimit,
+      submittedCount: eligibility.freeApplicationsUsed,
+      freeRemaining: eligibility.freeApplicationsRemaining,
+      isNextFree: eligibility.isWithinFreeQuota,
+      applicationFeeAmount: eligibility.baseFee,
+      currency: eligibility.currency,
+      message: eligibility.message,
+      freeApplicationsLimit: eligibility.freeApplicationsLimit,
+      freeApplicationsUsed: eligibility.freeApplicationsUsed,
+      freeApplicationsRemaining: eligibility.freeApplicationsRemaining,
+      applicationFeeApplicable: eligibility.applicationFeeApplicable,
     };
+  }
+
+  /**
+   * Application-specific fee summary with authoritative fee, free quota, and coupon discount.
+   */
+  async getApplicationFeeSummary(id: string, actorUser: IUser, couponCode?: string) {
+    const app = await this.prisma.application.findUnique({
+      where: { id },
+    });
+    if (!app) {
+      throw new NotFoundException(`Application ${id} not found.`);
+    }
+    const ctx = await this.dataScopeService.resolveDataScope(actorUser.id);
+    this.dataScopeService.enforceApplicationScope(ctx, app);
+
+    return this.applicationFeeEligibilityService.getEligibility(app.userId, app.id, couponCode);
   }
 
   /**
@@ -1573,7 +1732,7 @@ export class ApplicationService {
   }
 
   /**
-   * Authoritative Payment Initiation & Order Generation for Application Fee
+   * Authoritative Payment Initiation & Order Generation for Application Fee (Razorpay official integration)
    */
   async initiatePayment(id: string, actorUser: IUser, dto: import('./dto/application-workflow.dto').InitiatePaymentDto) {
     const app = await this.prisma.application.findUnique({
@@ -1590,12 +1749,36 @@ export class ApplicationService {
       throw new NotFoundException(`Application ${id} not found`);
     }
 
-    // IDOR Protection
+    // IDOR Protection: authenticated student = application owner
     const ctx = await this.dataScopeService.resolveDataScope(actorUser.id);
     this.dataScopeService.enforceApplicationScope(ctx, app);
 
-    if (app.status === 'SUBMITTED' || app.status === 'UNDER_REVIEW' || app.status === 'APPROVED' || app.status === 'ADMISSION_CONFIRMED') {
-      throw new BadRequestException('Application has already been submitted.');
+    if (app.status === 'CANCELLED' || app.status === 'WITHDRAWN' || app.status === 'REJECTED') {
+      throw new BadRequestException(`Application is ${app.status.toLowerCase()} and cannot accept payment.`);
+    }
+
+    // Only throw if genuinely completed payment exists or settled under free quota
+    const existingPaid = await this.prisma.payment.findFirst({
+      where: {
+        applicationId: app.id,
+        paymentType: PaymentType.APPLICATION_FEE,
+        status: PaymentStatus.COMPLETED,
+      },
+    });
+
+    const isFreeSettled =
+      (app.formData as any)?.submittedSnapshot?.quota?.isFreeSubmission === true ||
+      app.remarks?.includes('Free Applications Quota');
+
+    if (
+      existingPaid ||
+      (app.status !== 'DRAFT' &&
+        app.status !== 'NEW' &&
+        app.status !== 'READY_TO_SUBMIT' &&
+        app.paymentStatus === PaymentStatus.COMPLETED &&
+        isFreeSettled)
+    ) {
+      throw new BadRequestException('Application fee has already been paid for this application.');
     }
 
     if (!app.college && app.collegeId) {
@@ -1623,77 +1806,260 @@ export class ApplicationService {
       app.formData = updatedFormData;
     }
 
-    // Readiness check
-    const progress = await this.getApplicationProgress(id, actorUser);
-    if (!progress.isOfferingActive) {
-      throw new BadRequestException('This program is no longer accepting applications.');
-    }
+    // Readiness check (only if application is in DRAFT state; submitted applications have already passed validation)
+    if (app.status === 'DRAFT') {
+      const progress = await this.getApplicationProgress(id, actorUser);
+      if (!progress.isOfferingActive) {
+        throw new BadRequestException('This program is no longer accepting applications.');
+      }
 
-    if (!progress.isReadyToSubmit) {
-      throw new BadRequestException(
-        `Application is incomplete: ${progress.missingRequirements.join('; ')}`,
-      );
-    }
-
-    // 3 Free Applications Quota Check
-    const priorSubmissions = await this.prisma.application.count({
-      where: {
-        userId: app.userId,
-        status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW, ApplicationStatus.DOCUMENTS_VERIFIED, ApplicationStatus.APPROVED, ApplicationStatus.ADMISSION_CONFIRMED] },
-        id: { not: app.id },
-      },
-    });
-
-    const isWithinFreeQuota = priorSubmissions < 3;
-    const baseFee = 1500;
-    let payableAmount = isWithinFreeQuota ? 0 : baseFee;
-    let discount = isWithinFreeQuota ? baseFee : 0;
-    let appliedCoupon: any = null;
-
-    if (!isWithinFreeQuota && dto.couponCode) {
-      const couponRes = await this.couponsService.validateCoupon({
-        code: dto.couponCode.trim().toUpperCase(),
-        transactionAmount: baseFee,
-        applicableScope: 'APPLICATION_FEE',
-        collegeId: app.collegeId || undefined,
-        courseId: app.courseId,
-      });
-
-      if (couponRes.valid) {
-        discount = couponRes.discountAmount || 0;
-        payableAmount = Math.max(0, couponRes.finalAmount ?? (baseFee - discount));
-        appliedCoupon = {
-          id: couponRes.couponId,
-          code: couponRes.code || dto.couponCode.trim().toUpperCase(),
-          discount,
-          payable: payableAmount,
-        };
-      } else {
-        throw new BadRequestException(couponRes.message || 'Invalid coupon code');
+      if (!progress.isReadyToSubmit) {
+        throw new BadRequestException(
+          `Application is incomplete: ${progress.missingRequirements.join('; ')}`,
+        );
       }
     }
 
-    let publicAppNum = app.applicationNumber || app.applicationId || app.id;
+    // Authoritative Quota & Fee Calculation via ApplicationFeeEligibilityService
+    const eligibility = await this.applicationFeeEligibilityService.getEligibility(
+      app.userId,
+      app.id,
+      dto.couponCode,
+    );
 
-    // CASE A / B: Zero amount
-    if (payableAmount === 0) {
+    const publicAppNum = app.applicationNumber || app.applicationId || app.id;
+
+    // Authoritative Action-Based Payment Legal Consent (Requirement 11 & 12)
+    let paymentPolicies = dto.acceptedPolicies;
+    if (this.consentService) {
+      if ((!paymentPolicies || paymentPolicies.length === 0) && (dto.paymentTermsAccepted || dto.termsAccepted)) {
+        const payReqs = await this.consentService.getActionRequirements('PAYMENT');
+        paymentPolicies = payReqs.policies.map((p) => ({
+          policyId: p.id,
+          policyType: p.policyType,
+          policyVersion: p.version,
+        }));
+      }
+
+      const payConsentValidation = await this.consentService.validateActionConsent(
+        'PAYMENT',
+        paymentPolicies,
+      );
+      if (!payConsentValidation.isValid) {
+        throw new BadRequestException({
+          code: 'PAYMENT_CONSENT_REQUIRED',
+          message: `Payment confirmation requires accepting mandatory payment policies: ${payConsentValidation.missingPolicies.join(', ')}`,
+          missing: payConsentValidation.missingPolicies,
+        });
+      }
+    }
+
+    // CASE A / B: Zero amount (Free Quota or 100% Coupon) -> Atomically settle in database without opening gateway
+    if (eligibility.isZeroAmount) {
+      const now = new Date();
+      const receiptNumber = `REC-${now.getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      const effectiveTxnId = eligibility.isWithinFreeQuota
+        ? `TXN_FREE_${now.getTime()}_${app.id.slice(-6)}`
+        : `TXN_COUPON_${now.getTime()}_${app.id.slice(-6)}`;
+
+      const zeroSettlementResult = await this.prisma.$transaction(async (tx) => {
+        // Record coupon redemption if coupon applied
+        if (eligibility.appliedCoupon && eligibility.appliedCoupon.id) {
+          await tx.couponRedemption.create({
+            data: {
+              couponId: eligibility.appliedCoupon.id,
+              userId: app.userId,
+              transactionId: app.id,
+              transactionType: 'APPLICATION_FEE',
+              originalAmount: eligibility.baseFee,
+              discountAmount: eligibility.discountAmount,
+              finalAmount: 0,
+              status: 'REDEEMED',
+            },
+          });
+          await tx.coupon.update({
+            where: { id: eligibility.appliedCoupon.id },
+            data: { currentUsageCount: { increment: 1 } },
+          });
+        }
+
+        // Find or create payment record
+        const existingPayment = await tx.payment.findFirst({
+          where: {
+            applicationId: app.id,
+            userId: app.userId,
+            paymentType: PaymentType.APPLICATION_FEE,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        let paymentRecord;
+        if (existingPayment) {
+          paymentRecord = await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              amount: eligibility.baseFee,
+              discountAmount: eligibility.discountAmount,
+              paidAmount: 0,
+              pendingAmount: 0,
+              status: PaymentStatus.COMPLETED,
+              paidAt: now,
+              paymentMethod: eligibility.isWithinFreeQuota ? PaymentMethod.CUSTOM : PaymentMethod.CUSTOM,
+              transactionId: effectiveTxnId,
+              receiptNumber,
+              remarks: eligibility.isWithinFreeQuota
+                ? 'Application fee settled under Free Applications Quota'
+                : `Application fee settled with 100% coupon ${eligibility.appliedCoupon?.code || ''}`,
+            },
+          });
+        } else {
+          paymentRecord = await tx.payment.create({
+            data: {
+              applicationId: app.id,
+              userId: app.userId,
+              collegeId: app.collegeId,
+              courseId: app.courseId,
+              counselorId: app.counselorId || null,
+              amount: eligibility.baseFee,
+              discountAmount: eligibility.discountAmount,
+              paidAmount: 0,
+              pendingAmount: 0,
+              paymentType: PaymentType.APPLICATION_FEE,
+              paymentMethod: PaymentMethod.CUSTOM,
+              status: PaymentStatus.COMPLETED,
+              transactionId: effectiveTxnId,
+              receiptNumber,
+              paidAt: now,
+              remarks: eligibility.isWithinFreeQuota
+                ? 'Application fee settled under Free Applications Quota'
+                : `Application fee settled with 100% coupon ${eligibility.appliedCoupon?.code || ''}`,
+            },
+          });
+        }
+
+        // Canonical Receipt Record
+        if (app.collegeId) {
+          const existingReceipt = await tx.receipt.findFirst({
+            where: {
+              OR: [
+                { paymentId: paymentRecord.id },
+                { applicationId: app.id, status: 'VALID' },
+              ],
+            },
+          });
+          if (!existingReceipt) {
+            await tx.receipt.create({
+              data: {
+                receiptNumber,
+                paymentId: paymentRecord.id,
+                applicationId: app.id,
+                studentId: app.userId,
+                collegeId: app.collegeId,
+                paidAmount: 0,
+                paymentMethod: eligibility.isWithinFreeQuota ? 'FREE_QUOTA' : 'COUPON',
+                transactionReference: effectiveTxnId,
+                status: 'VALID',
+                issuedAt: now,
+                remarks: eligibility.isWithinFreeQuota
+                  ? 'Zero rupee receipt issued under Free Applications Quota'
+                  : `Zero rupee receipt issued under 100% coupon discount (${eligibility.appliedCoupon?.code || ''})`,
+              },
+            });
+          }
+        }
+
+        // Update Application paymentStatus
+        const updatedApp = await tx.application.update({
+          where: { id: app.id },
+          data: {
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+
+        await tx.applicationTimeline.create({
+          data: {
+            applicationId: app.id,
+            userId: actorUser.id,
+            action: 'APPLICATION_PAYMENT_COMPLETED',
+            remarks: eligibility.isWithinFreeQuota
+              ? `Application fee settled under Free Applications Quota (₹0)`
+              : `Application fee waived with 100% coupon ${eligibility.appliedCoupon?.code || ''} (Receipt: ${receiptNumber}, ₹0)`,
+          },
+        });
+
+        return { paymentRecord, updatedApp, receiptNumber, transactionId: effectiveTxnId };
+      });
+
+      if (this.consentService && paymentPolicies && paymentPolicies.length > 0) {
+        await this.consentService.recordConsent(
+          app.userId,
+          {
+            actionContext: 'PAYMENT',
+            applicationId: app.id,
+            paymentId: zeroSettlementResult.paymentRecord.id,
+            acceptedPolicies: paymentPolicies,
+          },
+          { ipAddress: (actorUser as any)?.ipAddress },
+        );
+      }
+
       return {
         success: true,
         payableAmount: 0,
-        baseFee,
-        discount,
+        baseFee: eligibility.baseFee,
+        discount: eligibility.discountAmount,
+        discountAmount: eligibility.discountAmount,
         isZeroAmount: true,
-        isWithinFreeQuota,
-        appliedCoupon,
+        isWithinFreeQuota: eligibility.isWithinFreeQuota,
+        appliedCoupon: eligibility.appliedCoupon,
         applicationNumber: publicAppNum,
-        message: '₹0 payment applied.',
+        currency: 'INR',
+        beneficiary: 'Swayam Admission',
+        beneficiaryType: 'SWAYAM',
+        message: eligibility.message,
+        receiptNumber: zeroSettlementResult.receiptNumber,
+        paymentId: zeroSettlementResult.paymentRecord.id,
+        paymentStatus: PaymentStatus.COMPLETED,
+        transactionId: zeroSettlementResult.transactionId,
       };
     }
 
-    // CASE C: > 0 Payable amount -> create/update payment order & set application status to PAYMENT_PENDING
-    const timestamp = Date.now();
-    const orderId = `ORD-${app.id.slice(-6)}-${timestamp}`;
-    const transactionId = `TXN-${app.id.slice(-6)}-${timestamp}`;
+    // CASE C: > 0 Payable amount -> create official Razorpay order & set application status to PAYMENT_PENDING
+    const authoritativePayableAmount = eligibility.finalPayableAmount;
+
+    if (authoritativePayableAmount > 0) {
+      if (dto.paymentTermsAccepted !== true || dto.paymentPrivacyAccepted !== true) {
+        throw new BadRequestException(
+          'Please accept the Payment Terms & Conditions and Privacy Policy before proceeding to payment.',
+        );
+      }
+    }
+
+    // Duplicate completed payment check
+    const completedPayment = await this.prisma.payment.findFirst({
+      where: {
+        applicationId: app.id,
+        userId: app.userId,
+        paymentType: PaymentType.APPLICATION_FEE,
+        status: PaymentStatus.COMPLETED,
+      },
+    });
+    if (completedPayment) {
+      throw new ConflictException('Payment for this application is already completed.');
+    }
+
+    const gatewayOrder = await this.paymentGatewayService.createOrder('razorpay', {
+      amount: authoritativePayableAmount,
+      currency: 'INR',
+      receiptId: `RCP_APP_${app.id.slice(-8)}`,
+      metadata: {
+        applicationId: app.id,
+        applicationNumber: publicAppNum,
+        userId: app.userId,
+        paymentType: 'APPLICATION_FEE',
+        beneficiary: 'Swayam Admission',
+      },
+    });
 
     const existingPendingPayment = await this.prisma.payment.findFirst({
       where: {
@@ -1710,17 +2076,26 @@ export class ApplicationService {
       paymentRecord = await this.prisma.payment.update({
         where: { id: existingPendingPayment.id },
         data: {
-          amount: baseFee,
-          discountAmount: discount,
-          pendingAmount: payableAmount,
-          orderId,
-          transactionId,
+          amount: eligibility.baseFee,
+          discountAmount: eligibility.discountAmount,
+          pendingAmount: authoritativePayableAmount,
+          orderId: gatewayOrder.orderId,
+          gatewayOrderId: gatewayOrder.orderId,
+          paymentDestination: 'PLATFORM',
+          paymentMode: 'GATEWAY',
+          gateway: 'Razorpay',
           collegeId: app.collegeId,
           courseId: app.courseId,
           counselorId: app.counselorId || null,
-          remarks: appliedCoupon
-            ? `Application fee ₹${payableAmount} with coupon ${appliedCoupon.code}`
-            : `Application fee ₹${payableAmount}`,
+          metadata: {
+            couponCode: eligibility.appliedCoupon?.code || null,
+            couponDiscount: eligibility.discountAmount,
+            beneficiary: 'Swayam Admission',
+            beneficiaryType: 'SWAYAM',
+          },
+          remarks: eligibility.appliedCoupon
+            ? `Application fee ₹${authoritativePayableAmount} with coupon ${eligibility.appliedCoupon.code}`
+            : `Application fee ₹${authoritativePayableAmount}`,
         },
       });
     } else {
@@ -1733,41 +2108,341 @@ export class ApplicationService {
           courseId: app.courseId,
           counselorId: app.counselorId || null,
           paymentType: PaymentType.APPLICATION_FEE,
-          amount: baseFee,
-          discountAmount: discount,
+          paymentDestination: 'PLATFORM',
+          paymentMode: 'GATEWAY',
+          gateway: 'Razorpay',
+          amount: eligibility.baseFee,
+          discountAmount: eligibility.discountAmount,
           paidAmount: 0,
-          pendingAmount: payableAmount,
-          orderId,
-          transactionId,
+          pendingAmount: authoritativePayableAmount,
+          orderId: gatewayOrder.orderId,
+          gatewayOrderId: gatewayOrder.orderId,
           status: PaymentStatus.PENDING,
           verificationStatus: 'PENDING',
-          remarks: appliedCoupon
-            ? `Application fee ₹${payableAmount} with coupon ${appliedCoupon.code}`
-            : `Application fee ₹${payableAmount}`,
+          metadata: {
+            couponCode: eligibility.appliedCoupon?.code || null,
+            couponDiscount: eligibility.discountAmount,
+            beneficiary: 'Swayam Admission',
+            beneficiaryType: 'SWAYAM',
+          },
+          remarks: eligibility.appliedCoupon
+            ? `Application fee ₹${authoritativePayableAmount} with coupon ${eligibility.appliedCoupon.code}`
+            : `Application fee ₹${authoritativePayableAmount}`,
         },
       });
     }
 
+    // Preserve SUBMITTED (or higher) status; only set status to PAYMENT_PENDING if application was still a draft
+    const targetStatus =
+      app.status === ApplicationStatus.DRAFT ||
+      app.status === ApplicationStatus.NEW ||
+      app.status === ApplicationStatus.READY_TO_SUBMIT
+        ? ApplicationStatus.PAYMENT_PENDING
+        : app.status;
+
     await this.prisma.application.update({
       where: { id },
       data: {
-        status: ApplicationStatus.PAYMENT_PENDING,
+        status: targetStatus,
         paymentStatus: PaymentStatus.PENDING,
+      },
+    });
+
+    if (this.consentService && paymentPolicies && paymentPolicies.length > 0) {
+      await this.consentService.recordConsent(
+        app.userId,
+        {
+          actionContext: 'PAYMENT',
+          applicationId: app.id,
+          paymentId: paymentRecord.id,
+          acceptedPolicies: paymentPolicies,
+        },
+        { ipAddress: (actorUser as any)?.ipAddress },
+      );
+    }
+
+    await this.auditService.logAction({
+      userId: actorUser.id,
+      action: 'APPLICATION_PAYMENT_INITIATED',
+      entity: 'Application',
+      entityId: app.id,
+      newValue: {
+        orderId: gatewayOrder.orderId,
+        payableAmount: authoritativePayableAmount,
+        baseFee: eligibility.baseFee,
+        discount: eligibility.discountAmount,
+      },
+    });
+
+    const keyId =
+      (gatewayOrder.metadata?.keyId as string) ||
+      process.env.RAZORPAY_KEY_ID ||
+      'rzp_test_placeholder';
+
+    return {
+      success: true,
+      payableAmount: authoritativePayableAmount,
+      baseFee: eligibility.baseFee,
+      discount: eligibility.discountAmount,
+      discountAmount: eligibility.discountAmount,
+      isZeroAmount: false,
+      isWithinFreeQuota: false,
+      orderId: gatewayOrder.orderId,
+      transactionId: gatewayOrder.orderId,
+      paymentId: paymentRecord.id,
+      keyId,
+      currency: 'INR',
+      beneficiary: 'Swayam Admission',
+      beneficiaryType: 'SWAYAM',
+      appliedCoupon: eligibility.appliedCoupon,
+      applicationNumber: publicAppNum,
+    };
+  }
+
+  /**
+   * Authoritative Server-side Cryptographic Signature Verification & Application Payment Settlement
+   */
+  async verifyPayment(
+    id: string,
+    actorUser: IUser,
+    dto: import('./dto/application-workflow.dto').VerifyApplicationPaymentDto,
+  ) {
+    const app = await this.prisma.application.findUnique({
+      where: { id },
+      include: {
+        user: { select: { id: true, fullName: true, email: true, mobile: true } },
+        college: true,
+        course: true,
+      },
+    });
+
+    if (!app) {
+      throw new NotFoundException(`Application ${id} not found`);
+    }
+
+    // IDOR Protection: Student A cannot verify or access Student B's application payment
+    const ctx = await this.dataScopeService.resolveDataScope(actorUser.id);
+    this.dataScopeService.enforceApplicationScope(ctx, app);
+
+    if (!dto.razorpayPaymentId || !dto.razorpaySignature) {
+      throw new BadRequestException('Payment ID and Signature are required for verification.');
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        applicationId: app.id,
+        userId: app.userId,
+        paymentType: PaymentType.APPLICATION_FEE,
+        ...(dto.paymentId ? { id: dto.paymentId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment intent record not found for this application.');
+    }
+
+    // Idempotency check: if already completed, return existing receipt
+    if (payment.status === PaymentStatus.COMPLETED) {
+      return {
+        success: true,
+        status: 'COMPLETED',
+        paymentId: payment.id,
+        receiptNumber: payment.receiptNumber,
+        transactionId: payment.transactionId || payment.gatewayTransactionId,
+        amount: payment.paidAmount || payment.amount,
+        alreadyCompleted: true,
+        applicationId: app.id,
+        applicationNumber: app.applicationNumber || app.applicationId,
+      };
+    }
+
+    const orderIdToVerify = dto.razorpayOrderId || payment.gatewayOrderId || payment.orderId || '';
+
+    // Authoritative Server-side Cryptographic Signature Verification
+    const isSigValid = await this.paymentGatewayService.verifySignature('razorpay', {
+      orderId: orderIdToVerify,
+      paymentId: dto.razorpayPaymentId,
+      signature: dto.razorpaySignature,
+    });
+
+    if (!isSigValid) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.FAILED,
+          remarks: 'Razorpay cryptographic signature verification failed.',
+        },
+      });
+
+      await this.auditService.logAction({
+        userId: actorUser.id,
+        action: 'APPLICATION_PAYMENT_FAILED',
+        entity: 'Payment',
+        entityId: payment.id,
+        newValue: { razorpayPaymentId: dto.razorpayPaymentId, reason: 'SIGNATURE_MISMATCH' },
+      });
+
+      throw new BadRequestException('Payment signature verification failed. Tampering detected.');
+    }
+
+    const now = new Date();
+    const receiptNumber =
+      payment.receiptNumber ||
+      `REC-${now.getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const finalAmountPaid = payment.pendingAmount > 0 ? payment.pendingAmount : payment.amount;
+
+    const updatedPayment = await this.prisma.$transaction(async (tx) => {
+      // 1. Update Payment status to COMPLETED
+      const p = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.COMPLETED,
+          paidAmount: finalAmountPaid,
+          pendingAmount: 0,
+          paidAt: now,
+          transactionId: dto.razorpayPaymentId,
+          gatewayTransactionId: dto.razorpayPaymentId,
+          gatewaySignature: dto.razorpaySignature,
+          verificationStatus: 'VERIFIED',
+          verifiedAt: now,
+          receiptNumber,
+          remarks: 'Payment verified and captured via official Razorpay checkout.',
+        },
+      });
+
+      // 2. Update Application paymentStatus
+      await tx.application.update({
+        where: { id: app.id },
+        data: {
+          paymentStatus: PaymentStatus.COMPLETED,
+        },
+      });
+
+      // 2b. Canonical Receipt Record
+      if (app.collegeId) {
+        const existingReceipt = await tx.receipt.findFirst({
+          where: {
+            OR: [
+              { paymentId: payment.id },
+              { applicationId: app.id, status: 'VALID' },
+            ],
+          },
+        });
+        if (!existingReceipt) {
+          await tx.receipt.create({
+            data: {
+              receiptNumber,
+              paymentId: payment.id,
+              applicationId: app.id,
+              studentId: app.userId,
+              collegeId: app.collegeId,
+              paidAmount: finalAmountPaid,
+              paymentMethod: 'RAZORPAY',
+              transactionReference: dto.razorpayPaymentId,
+              status: 'VALID',
+              issuedAt: now,
+              remarks: `Application fee receipt for ₹${finalAmountPaid}`,
+            },
+          });
+        }
+      }
+
+      // 2c. Timeline entry for payment completion
+      await tx.applicationTimeline.create({
+        data: {
+          applicationId: app.id,
+          userId: actorUser.id,
+          action: 'APPLICATION_PAYMENT_COMPLETED',
+          remarks: `Application fee payment verified (Receipt: ${receiptNumber}, ₹${finalAmountPaid})`,
+        },
+      });
+
+      // 3. Atomically consume coupon if recorded in payment metadata
+      const couponCode = (payment.metadata as any)?.couponCode;
+      if (couponCode) {
+        const coupon = await tx.coupon.findUnique({
+          where: { code: couponCode },
+        });
+        if (coupon) {
+          await tx.couponRedemption.create({
+            data: {
+              couponId: coupon.id,
+              userId: app.userId,
+              transactionId: app.id,
+              transactionType: 'APPLICATION_FEE',
+              originalAmount: payment.amount,
+              discountAmount: payment.discountAmount,
+              finalAmount: finalAmountPaid,
+              status: 'REDEEMED',
+            },
+          });
+          await tx.coupon.update({
+            where: { id: coupon.id },
+            data: { currentUsageCount: { increment: 1 } },
+          });
+        }
+      }
+
+      // 4. Financial Ledger Entry (Platform Revenue)
+      try {
+        await tx.financialLedger.create({
+          data: {
+            entryType: 'CREDIT',
+            accountType: 'PLATFORM_REVENUE',
+            amount: finalAmountPaid,
+            description: `Application Fee captured via Razorpay for ${app.applicationNumber || app.applicationId}`,
+            referenceNo: dto.razorpayPaymentId,
+            paymentId: payment.id,
+            createdById: actorUser.id,
+          },
+        });
+      } catch (_err) {
+        // Ledger table optional or logging
+      }
+
+      return p;
+    });
+
+    // 5. In-app Persistent Notification
+    try {
+      await this.notificationsService.createNotification({
+        userId: app.userId,
+        type: NotificationType.PAYMENT,
+        priority: NotificationPriority.HIGH,
+        title: 'Application Fee Paid',
+        message: `Your application fee for application ${app.applicationNumber || app.applicationId} has been successfully received.`,
+        relatedPaymentId: updatedPayment.id,
+      });
+    } catch (_e) {
+      // Non-blocking notification
+    }
+
+    await this.auditService.logAction({
+      userId: actorUser.id,
+      action: 'APPLICATION_PAYMENT_VERIFIED',
+      entity: 'Payment',
+      entityId: updatedPayment.id,
+      newValue: {
+        applicationId: app.id,
+        applicationNumber: app.applicationNumber || app.applicationId,
+        transactionId: dto.razorpayPaymentId,
+        amount: finalAmountPaid,
+        receiptNumber,
       },
     });
 
     return {
       success: true,
-      payableAmount,
-      baseFee,
-      discount,
-      isZeroAmount: false,
-      isWithinFreeQuota,
-      orderId,
-      transactionId,
-      paymentId: paymentRecord.id,
-      appliedCoupon,
-      applicationNumber: publicAppNum,
+      status: 'COMPLETED',
+      paymentId: updatedPayment.id,
+      receiptNumber,
+      transactionId: dto.razorpayPaymentId,
+      amount: finalAmountPaid,
+      applicationId: app.id,
+      applicationNumber: app.applicationNumber || app.applicationId,
+      collegeName: app.college?.name,
+      courseName: app.course?.name,
     };
   }
 
@@ -1795,12 +2470,29 @@ export class ApplicationService {
 
     // Idempotent Double-Submission Protection
     if (app.status === 'SUBMITTED' || app.status === 'UNDER_REVIEW' || app.status === 'APPROVED') {
+      const eligibility = await this.applicationFeeEligibilityService.getEligibility(
+        app.userId,
+        app.id,
+      );
+      const isFeeSettled =
+        app.paymentStatus === PaymentStatus.COMPLETED ||
+        eligibility.isAlreadyPaid ||
+        eligibility.isZeroAmount;
+
       return {
         success: true,
         isExistingSubmission: true,
-        message: 'Application has already been submitted',
+        message: isFeeSettled
+          ? 'Application has already been submitted.'
+          : 'Application has already been submitted. Please proceed to pay the application fee.',
         applicationNumber: app.applicationNumber || app.applicationId,
         submittedAt: app.submittedAt,
+        status: app.status,
+        paymentStatus: app.paymentStatus,
+        paymentRequired: !isFeeSettled,
+        payableAmount: isFeeSettled ? 0 : eligibility.finalPayableAmount,
+        baseFee: eligibility.baseFee,
+        isWithinFreeQuota: eligibility.isWithinFreeQuota,
         data: app,
       };
     }
@@ -1817,15 +2509,11 @@ export class ApplicationService {
     const existingDec = currentFormData.declaration || {};
     const existingItems = existingDec.items;
 
-    // Merge incoming DTO flags / declaration payload
     const incomingDec = dto.declaration || {
       privacyAccepted: dto.privacyPolicyAccepted ?? existingDec.privacyAccepted,
       termsAccepted: dto.termsAccepted ?? existingDec.termsAccepted,
       termsVersion: dto.termsVersion || existingDec.termsVersion || 'v2.0',
       privacyVersion: dto.policyVersion || existingDec.privacyVersion || 'v1.2',
-      declarationAccepted: dto.declarationAccepted ?? dto.studentDeclarationAccepted ?? existingDec.declarationAccepted,
-      verificationConsent: dto.verificationConsent ?? existingDec.verificationConsent,
-      communicationConsent: dto.communicationConsent ?? existingDec.communicationConsent,
     };
 
     const normalizedDec = normalizeDeclarations(incomingDec, actorUser.id, existingItems);
@@ -1859,6 +2547,31 @@ export class ApplicationService {
     app.formData = updatedFormData;
     app.declarationAccepted = true;
     app.declarationAcceptedAt = app.declarationAcceptedAt || new Date();
+
+    // Authoritative Action-Based Consent validation (Requirement 8 & 19)
+    let appSubmissionPolicies = dto.acceptedPolicies;
+    if (this.consentService) {
+      if ((!appSubmissionPolicies || appSubmissionPolicies.length === 0) && declValidation.isValid) {
+        const appReqs = await this.consentService.getActionRequirements('APPLICATION_SUBMISSION');
+        appSubmissionPolicies = appReqs.policies.map((p) => ({
+          policyId: p.id,
+          policyType: p.policyType,
+          policyVersion: p.version,
+        }));
+      }
+
+      const appConsentValidation = await this.consentService.validateActionConsent(
+        'APPLICATION_SUBMISSION',
+        appSubmissionPolicies,
+      );
+      if (!appConsentValidation.isValid) {
+        throw new BadRequestException({
+          code: 'LEGAL_CONSENT_REQUIRED',
+          message: `Application submission requires accepting mandatory legal policies: ${appConsentValidation.missingPolicies.join(', ')}`,
+          missing: appConsentValidation.missingPolicies,
+        });
+      }
+    }
 
     // Auto-heal archived course before submission check if active equivalent exists
     if (app.course && app.course.status === 'ARCHIVED' && app.collegeId) {
@@ -1921,54 +2634,20 @@ export class ApplicationService {
       );
     }
 
-    // 3 Free Applications Authoritative Rule Check
-    const priorSubmissions = await this.prisma.application.count({
-      where: {
-        userId: app.userId,
-        status: { in: [ApplicationStatus.SUBMITTED, ApplicationStatus.UNDER_REVIEW, ApplicationStatus.DOCUMENTS_VERIFIED, ApplicationStatus.APPROVED, ApplicationStatus.ADMISSION_CONFIRMED] },
-        id: { not: app.id },
-      },
-    });
+    // Authoritative Eligibility & Fee Verification via ApplicationFeeEligibilityService
+    const eligibility = await this.applicationFeeEligibilityService.getEligibility(
+      app.userId,
+      app.id,
+      dto.couponCode,
+    );
 
-    const isWithinFreeQuota = priorSubmissions < 3;
-    let appliedCoupon: any = null;
-    const baseFee = 1500;
-    let payableAmount = isWithinFreeQuota ? 0 : baseFee;
-
-    if (!isWithinFreeQuota) {
-      if (dto.couponCode) {
-        const couponRes = await this.couponsService.validateCoupon({
-          code: dto.couponCode.trim().toUpperCase(),
-          transactionAmount: baseFee,
-          applicableScope: 'APPLICATION_FEE',
-          collegeId: app.collegeId || undefined,
-          courseId: app.courseId,
-        });
-
-        if (couponRes.valid) {
-          const disc = couponRes.discountAmount || 0;
-          payableAmount = Math.max(0, couponRes.finalAmount ?? (baseFee - disc));
-          appliedCoupon = {
-            id: couponRes.couponId,
-            code: couponRes.code || dto.couponCode.trim().toUpperCase(),
-            discount: disc,
-            payable: payableAmount,
-          };
-        }
-      }
-
-      const isPaidOrWaived = payableAmount === 0 || !!dto.paymentTransactionId || !!dto.paymentReference || !!dto.paymentId;
-
-      if (!isPaidOrWaived) {
-        throw new BadRequestException({
-          code: 'APPLICATION_FEE_REQUIRED',
-          message: 'Payment was not completed. Your application remains pending payment.',
-          grossAmount: baseFee,
-          payableAmount,
-          feeTypeCode: 'APPLICATION_FEE',
-        });
-      }
-    }
+    const isWithinFreeQuota = eligibility.isWithinFreeQuota;
+    const baseFee = eligibility.baseFee;
+    const payableAmount = eligibility.finalPayableAmount;
+    const appliedCoupon = eligibility.appliedCoupon;
+    const isFeeSettled = eligibility.isZeroAmount || eligibility.isAlreadyPaid;
+    const paymentRequired = !isFeeSettled;
+    const targetPaymentStatus = isFeeSettled ? PaymentStatus.COMPLETED : PaymentStatus.PENDING;
 
     let publicAppNum = app.applicationNumber;
     if (!publicAppNum || publicAppNum.startsWith('SA-')) {
@@ -1978,7 +2657,7 @@ export class ApplicationService {
     const now = new Date();
     const activeFormData: any = (app.formData as object) || {};
 
-    // 5. Build Immutable Submitted Snapshot (Requirement 3 - Data Snapshot Rule)
+    // 5. Build Immutable Submitted Snapshot
     const submittedSnapshot = {
       submittedAt: now.toISOString(),
       applicationId: id,
@@ -2028,20 +2707,18 @@ export class ApplicationService {
         termsVersion: dto.termsVersion || 'v2.0',
         privacyPolicyAccepted: dto.privacyPolicyAccepted ?? true,
         privacyPolicyVersion: 'v1.2',
-        studentDeclarationAccepted: dto.studentDeclarationAccepted ?? true,
-        verificationConsent: dto.verificationConsent ?? true,
-        communicationConsent: dto.communicationConsent ?? true,
         acceptedAt: now.toISOString(),
       },
       quota: {
         isFreeSubmission: isWithinFreeQuota,
-        priorSubmissions,
+        priorSubmissions: eligibility.freeApplicationsUsed,
         appliedCoupon,
+        paymentRequired,
       },
     };
 
     const finalFormData = {
-      ...currentFormData,
+      ...updatedFormData,
       submittedSnapshot,
       lastSubmittedAt: now.toISOString(),
     };
@@ -2049,8 +2726,8 @@ export class ApplicationService {
     let receiptNumber = `REC-${now.getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const submittedApp = await this.prisma.$transaction(async (tx) => {
-      // If coupon was applied, atomically record redemption
-      if (appliedCoupon && appliedCoupon.id) {
+      // If coupon was applied and 100% discount, atomically record redemption
+      if (appliedCoupon && appliedCoupon.id && isFeeSettled && payableAmount === 0) {
         await tx.couponRedemption.create({
           data: {
             couponId: appliedCoupon.id,
@@ -2058,8 +2735,8 @@ export class ApplicationService {
             transactionId: app.id,
             transactionType: 'APPLICATION_FEE',
             originalAmount: baseFee,
-            discountAmount: appliedCoupon.discount,
-            finalAmount: appliedCoupon.payable,
+            discountAmount: appliedCoupon.discountAmount,
+            finalAmount: appliedCoupon.finalAmount,
             status: 'REDEEMED',
           },
         });
@@ -2069,7 +2746,7 @@ export class ApplicationService {
         });
       }
 
-      // Check if existing pending payment intent was created
+      // Check if existing payment record exists
       let paymentRecord: any = null;
       if (dto.paymentId) {
         paymentRecord = await tx.payment.findFirst({
@@ -2087,86 +2764,142 @@ export class ApplicationService {
         });
       }
 
-      let payment;
-      const effectiveTxnId = dto.paymentTransactionId || paymentRecord?.transactionId || `TXN_SETTLED_${now.getTime()}_${app.id.slice(-6)}`;
-
-      if (paymentRecord) {
-        payment = await tx.payment.update({
-          where: { id: paymentRecord.id },
-          data: {
-            amount: baseFee,
-            discountAmount: baseFee - payableAmount,
-            paidAmount: payableAmount,
-            pendingAmount: 0,
-            status: PaymentStatus.COMPLETED,
-            paidAt: now,
-            paymentMethod:
-              isWithinFreeQuota || (appliedCoupon && payableAmount === 0)
-                ? PaymentMethod.CUSTOM
-                : (dto.paymentMethod && Object.values(PaymentMethod).includes(dto.paymentMethod as any))
-                ? (dto.paymentMethod as PaymentMethod)
-                : PaymentMethod.UPI,
-            transactionId: effectiveTxnId,
-            receiptNumber,
-            remarks: isWithinFreeQuota
-              ? 'Application fee settled under 3 Free Applications Quota'
-              : payableAmount === 0
-              ? `Application fee settled with 100% coupon ${appliedCoupon?.code || ''}`
-              : `Application fee paid ₹${payableAmount}`,
-          },
-        });
-      } else {
-        payment = await tx.payment.create({
-          data: {
-            applicationId: app.id,
-            userId: app.userId,
-            collegeId: app.collegeId,
-            courseId: app.courseId,
-            counselorId: app.counselorId || null,
-            amount: baseFee,
-            discountAmount: baseFee - payableAmount,
-            paidAmount: payableAmount,
-            pendingAmount: 0,
-            paymentType: PaymentType.APPLICATION_FEE,
-            paymentMethod:
-              isWithinFreeQuota || (appliedCoupon && payableAmount === 0)
-                ? PaymentMethod.CUSTOM
-                : (dto.paymentMethod && Object.values(PaymentMethod).includes(dto.paymentMethod as any))
-                ? (dto.paymentMethod as PaymentMethod)
-                : PaymentMethod.UPI,
-            status: PaymentStatus.COMPLETED,
-            transactionId: effectiveTxnId,
-            receiptNumber,
-            paidAt: now,
-            remarks: isWithinFreeQuota
-              ? 'Application fee settled under 3 Free Applications Quota'
-              : payableAmount === 0
-              ? `Application fee settled with 100% coupon ${appliedCoupon?.code || ''}`
-              : `Application fee paid ₹${payableAmount}`,
-          },
-        });
+      if (paymentRecord?.receiptNumber) {
+        receiptNumber = paymentRecord.receiptNumber;
       }
 
-      if (app.collegeId) {
-        await tx.receipt.create({
-          data: {
-            receiptNumber,
-            paymentId: payment.id,
-            applicationId: app.id,
-            studentId: app.userId,
-            collegeId: app.collegeId,
-            paidAmount: payableAmount,
-            paymentMethod: isWithinFreeQuota ? 'FREE_QUOTA' : appliedCoupon && payableAmount === 0 ? 'COUPON' : (dto.paymentMethod || 'UPI'),
-            transactionReference: effectiveTxnId,
-            status: 'VALID',
-            issuedAt: now,
-            remarks: isWithinFreeQuota
-              ? 'Zero rupee receipt issued under 3 Free Applications Quota'
-              : payableAmount === 0
-              ? `Zero rupee receipt issued under coupon discount (${appliedCoupon?.code || ''})`
-              : `Application fee receipt for ₹${payableAmount}`,
+      const effectiveTxnId =
+        dto.paymentTransactionId ||
+        paymentRecord?.transactionId ||
+        (isWithinFreeQuota
+          ? `TXN_FREE_${now.getTime()}_${app.id.slice(-6)}`
+          : `TXN_SETTLED_${now.getTime()}_${app.id.slice(-6)}`);
+
+      let payment: any = null;
+
+      if (isFeeSettled) {
+        // Fee waived or completed
+        if (paymentRecord) {
+          payment = await tx.payment.update({
+            where: { id: paymentRecord.id },
+            data: {
+              amount: baseFee,
+              discountAmount: baseFee - payableAmount,
+              paidAmount: payableAmount,
+              pendingAmount: 0,
+              status: PaymentStatus.COMPLETED,
+              paidAt: now,
+              paymentMethod:
+                isWithinFreeQuota || (appliedCoupon && payableAmount === 0)
+                  ? PaymentMethod.CUSTOM
+                  : (dto.paymentMethod && Object.values(PaymentMethod).includes(dto.paymentMethod as any))
+                  ? (dto.paymentMethod as PaymentMethod)
+                  : PaymentMethod.UPI,
+              transactionId: effectiveTxnId,
+              receiptNumber,
+              remarks: isWithinFreeQuota
+                ? 'Application fee settled under 3 Free Applications Quota'
+                : payableAmount === 0
+                ? `Application fee settled with 100% coupon ${appliedCoupon?.code || ''}`
+                : `Application fee paid ₹${payableAmount}`,
+            },
+          });
+        } else {
+          payment = await tx.payment.create({
+            data: {
+              applicationId: app.id,
+              userId: app.userId,
+              collegeId: app.collegeId,
+              courseId: app.courseId,
+              counselorId: app.counselorId || null,
+              amount: baseFee,
+              discountAmount: baseFee - payableAmount,
+              paidAmount: payableAmount,
+              pendingAmount: 0,
+              paymentType: PaymentType.APPLICATION_FEE,
+              paymentMethod:
+                isWithinFreeQuota || (appliedCoupon && payableAmount === 0)
+                  ? PaymentMethod.CUSTOM
+                  : (dto.paymentMethod && Object.values(PaymentMethod).includes(dto.paymentMethod as any))
+                  ? (dto.paymentMethod as PaymentMethod)
+                  : PaymentMethod.UPI,
+              status: PaymentStatus.COMPLETED,
+              transactionId: effectiveTxnId,
+              receiptNumber,
+              paidAt: now,
+              remarks: isWithinFreeQuota
+                ? 'Application fee settled under 3 Free Applications Quota'
+                : payableAmount === 0
+                ? `Application fee settled with 100% coupon ${appliedCoupon?.code || ''}`
+                : `Application fee paid ₹${payableAmount}`,
+            },
+          });
+        }
+
+        // Canonical receipt for zero-fee or settled submission
+        const existingReceipt = await tx.receipt.findFirst({
+          where: {
+            OR: [
+              { paymentId: payment.id },
+              { applicationId: app.id, status: 'VALID' },
+            ],
           },
         });
+
+        if (!existingReceipt && app.collegeId) {
+          await tx.receipt.create({
+            data: {
+              receiptNumber,
+              paymentId: payment.id,
+              applicationId: app.id,
+              studentId: app.userId,
+              collegeId: app.collegeId,
+              paidAmount: payableAmount,
+              paymentMethod: isWithinFreeQuota ? 'FREE_QUOTA' : appliedCoupon && payableAmount === 0 ? 'COUPON' : (dto.paymentMethod || 'UPI'),
+              transactionReference: effectiveTxnId,
+              status: 'VALID',
+              issuedAt: now,
+              remarks: isWithinFreeQuota
+                ? 'Zero rupee receipt issued under 3 Free Applications Quota'
+                : payableAmount === 0
+                ? `Zero rupee receipt issued under coupon discount (${appliedCoupon?.code || ''})`
+                : `Application fee receipt for ₹${payableAmount}`,
+            },
+          });
+        }
+      } else {
+        // Payment is required: update or create PENDING payment record
+        if (paymentRecord) {
+          payment = await tx.payment.update({
+            where: { id: paymentRecord.id },
+            data: {
+              amount: baseFee,
+              discountAmount: baseFee - payableAmount,
+              paidAmount: 0,
+              pendingAmount: payableAmount,
+              status: PaymentStatus.PENDING,
+              remarks: `Pending application fee payment of ₹${payableAmount}`,
+            },
+          });
+        } else {
+          payment = await tx.payment.create({
+            data: {
+              applicationId: app.id,
+              userId: app.userId,
+              collegeId: app.collegeId,
+              courseId: app.courseId,
+              counselorId: app.counselorId || null,
+              amount: baseFee,
+              discountAmount: baseFee - payableAmount,
+              paidAmount: 0,
+              pendingAmount: payableAmount,
+              paymentType: PaymentType.APPLICATION_FEE,
+              paymentMethod: PaymentMethod.UPI,
+              status: PaymentStatus.PENDING,
+              remarks: `Pending application fee payment of ₹${payableAmount}`,
+            },
+          });
+        }
       }
 
       const updated = await tx.application.update({
@@ -2175,7 +2908,7 @@ export class ApplicationService {
           applicationNumber: publicAppNum,
           formData: finalFormData,
           status: 'SUBMITTED',
-          paymentStatus: PaymentStatus.COMPLETED,
+          paymentStatus: targetPaymentStatus,
           submittedAt: now,
           submittedByActorId: actorUser.id,
           declarationAccepted: true,
@@ -2187,7 +2920,7 @@ export class ApplicationService {
           college: true,
           course: true,
           branch: true,
-          counselor: { select: { id: true, fullName: true, email: true } },
+          counselor: { select: { id: true, fullName: true, designation: true, avatar: true } },
         },
       });
 
@@ -2198,12 +2931,26 @@ export class ApplicationService {
           action: 'APPLICATION_SUBMITTED',
           oldStatus: app.status,
           newStatus: 'SUBMITTED',
-          remarks: `Explicit submission confirmed by ${actorUser.role} (${actorUser.fullName})`,
+          remarks: isFeeSettled
+            ? `Application submitted successfully (${isWithinFreeQuota ? '3 Free Applications Quota' : 'Fee Settled'})`
+            : `Application submitted successfully. Application fee payment of ₹${payableAmount} required.`,
         },
       });
 
       return updated;
     });
+
+    if (this.consentService && appSubmissionPolicies && appSubmissionPolicies.length > 0) {
+      await this.consentService.recordConsent(
+        app.userId,
+        {
+          actionContext: 'APPLICATION_SUBMISSION',
+          applicationId: app.id,
+          acceptedPolicies: appSubmissionPolicies,
+        },
+        { ipAddress: (actorUser as any)?.ipAddress },
+      );
+    }
 
     // Real-time synchronization event
     this.liveSync.publishEvent(
@@ -2213,6 +2960,8 @@ export class ApplicationService {
         applicationNumber: publicAppNum,
         userId: app.userId,
         status: 'SUBMITTED',
+        paymentStatus: targetPaymentStatus,
+        paymentRequired,
       },
       app.userId,
     );
@@ -2228,15 +2977,25 @@ export class ApplicationService {
         targetUserId: app.userId,
         applicationNumber: publicAppNum,
         submittedAt: now.toISOString(),
+        paymentRequired,
+        payableAmount,
       },
     });
+
+    const userMessage = isFeeSettled
+      ? isWithinFreeQuota
+        ? 'Application submitted successfully. No application fee is required for this submission.'
+        : 'Application submitted successfully.'
+      : 'Application submitted successfully. Please proceed to pay the application fee.';
 
     // Post-Commit Notifications
     await this.notificationsService.createNotification({
       userId: app.userId,
       type: 'APPLICATION',
       title: 'Application Submitted! 🎉',
-      message: `Your application (${publicAppNum}) for ${app.college?.name} - ${app.course?.name} has been submitted successfully.`,
+      message: isFeeSettled
+        ? `Your application (${publicAppNum}) for ${app.college?.name} - ${app.course?.name} has been submitted successfully.`
+        : `Your application (${publicAppNum}) for ${app.college?.name} - ${app.course?.name} has been submitted successfully. Please complete the application fee payment.`,
       actionUrl: `/dashboard?tab=applications`,
       metadata: { applicationId: id, applicationNumber: publicAppNum },
     });
@@ -2253,17 +3012,21 @@ export class ApplicationService {
 
     return {
       success: true,
-      message: 'Application submitted successfully',
+      message: userMessage,
       applicationNumber: publicAppNum,
       submittedAt: now,
       status: 'SUBMITTED',
-      receiptNumber,
-      payableAmount,
+      paymentStatus: targetPaymentStatus,
+      paymentRequired,
+      receiptNumber: isFeeSettled ? receiptNumber : null,
+      payableAmount: isFeeSettled ? 0 : payableAmount,
+      baseFee,
       isWithinFreeQuota,
       appliedCoupon,
       data: submittedApp,
     };
   }
+
 
   /**
    * Authoritative Application Declarations Getter
@@ -2328,9 +3091,6 @@ export class ApplicationService {
       privacyVersion: dto.privacyVersion || 'v1.2',
       termsAccepted: dto.termsAccepted,
       termsVersion: dto.termsVersion || 'v2.0',
-      declarationAccepted: dto.declarationAccepted,
-      verificationConsent: dto.verificationConsent,
-      communicationConsent: dto.communicationConsent,
     };
 
     const normalizedDec = normalizeDeclarations(rawDec, actorUser.id, existingItems);

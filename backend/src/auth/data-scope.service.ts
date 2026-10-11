@@ -100,6 +100,14 @@ export class DataScopeService {
           where: { status: 'ACTIVE' },
           include: { state: true, district: true },
         },
+        positionAssignments: {
+          where: { status: 'ACTIVE' },
+          include: {
+            position: {
+              include: { state: true, district: true },
+            },
+          },
+        },
       },
     });
 
@@ -124,7 +132,7 @@ export class DataScopeService {
     if (lockedRole) {
       return {
         userId: user.id,
-        userEmail: user.email,
+        userEmail: user.email || undefined,
         userRole: user.role,
         roles: assignedRoles.map((r) => ({
           id: r.id,
@@ -324,16 +332,35 @@ export class DataScopeService {
       }
     }
 
-    // Districts / Cities
+    // Active Position Assignments
+    for (const pa of (user.positionAssignments || [])) {
+      if (pa.position?.state) {
+        statesSet.add(pa.position.state.name.trim());
+        stateIdsSet.add(pa.position.state.id);
+      }
+      if (pa.position?.district) {
+        districtsSet.add(pa.position.district.name.trim());
+        districtIdsSet.add(pa.position.district.id);
+      }
+    }
+
+    // Districts / Cities (supporting multiple comma-separated districts and assignedDistricts)
     if (user.city) districtsSet.add(user.city.trim());
     if (user.profile?.district) districtsSet.add(user.profile.district.trim());
     if (user.profile?.city) districtsSet.add(user.profile.city.trim());
-    if (user.counselorProfile?.district)
-      districtsSet.add(user.counselorProfile.district.trim());
+    if (user.counselorProfile?.district) {
+      const parts = user.counselorProfile.district.split(',').map((d) => d.trim()).filter(Boolean);
+      for (const p of parts) districtsSet.add(p);
+    }
+    if (Array.isArray((user.counselorProfile as any)?.assignedDistricts)) {
+      for (const d of (user.counselorProfile as any).assignedDistricts) {
+        if (d) districtsSet.add(String(d).trim());
+      }
+    }
 
     return {
       userId: user.id,
-      userEmail: user.email,
+      userEmail: user.email || undefined,
       userRole: user.role,
       roles: assignedRoles.map((r) => ({
         id: r.id,
@@ -552,7 +579,11 @@ export class DataScopeService {
         case 'DISTRICT':
           if (ctx.districts.length > 0) {
             conditions.push({
-              city: { in: ctx.districts, mode: 'insensitive' },
+              OR: [
+                { district: { in: ctx.districts, mode: 'insensitive' } },
+                { city: { in: ctx.districts, mode: 'insensitive' } },
+                ...((ctx.districtIds?.length ?? 0) > 0 ? [{ districtId: { in: ctx.districtIds } }] : []),
+              ],
             });
           }
           break;
@@ -562,6 +593,7 @@ export class DataScopeService {
             OR: [
               { assignedCounselorId: ctx.userId },
               { assignedSeniorCounselorId: ctx.userId },
+              { assignedPosition: { assignments: { some: { userId: ctx.userId, status: 'ACTIVE' } } } },
             ],
           });
           break;
@@ -791,6 +823,11 @@ export class DataScopeService {
                       district: { in: ctx.districts, mode: 'insensitive' },
                     },
                   },
+                  {
+                    profile: {
+                      city: { in: ctx.districts, mode: 'insensitive' },
+                    },
+                  },
                 ],
               },
             });
@@ -802,6 +839,8 @@ export class DataScopeService {
             OR: [
               { counselorId: ctx.userId },
               { user: { assignedCounselorId: ctx.userId } },
+              { user: { assignedLeads: { some: { assignedCounselorId: ctx.userId } } } },
+              { user: { assignedLeads: { some: { assignedSeniorCounselorId: ctx.userId } } } },
             ],
           });
           break;

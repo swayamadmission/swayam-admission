@@ -143,6 +143,33 @@ export interface TelemetryMetrics {
   };
 }
 
+export interface BrandContactSettings {
+  brandName: string;
+  mainTagline: string;
+  brandPromise: string;
+  primaryAudience: string;
+  primaryColor: string;
+  accentColor: string;
+  generalEmail: string;
+  admissionEmail: string;
+  supportEmail: string;
+  contactNumber1: string;
+  contactNumber2: string;
+  whatsappNumber: string;
+  websiteUrl: string;
+  instagramUrl: string;
+  facebookUrl: string;
+  youtubeUrl: string;
+  linkedinUrl: string;
+  xUrl: string;
+  githubUrl: string;
+  redditUrl: string;
+  telegramUrl: string;
+  discordUrl: string;
+  socialHandle: string;
+  updatedAt?: string;
+}
+
 export interface SystemSetting {
   id?: string;
   platformName?: string;
@@ -424,6 +451,14 @@ export const settingsApi = {
   }) => api.post("/settings/config/import", data),
 
   getTelemetryMetrics: () => api.get("/settings/telemetry"),
+
+  // ── Centralized Brand & Contact Settings Master ──
+  getBrandContact: () => api.get<BrandContactSettings>("/settings/brand-contact"),
+  updateBrandContact: (data: Partial<BrandContactSettings>) =>
+    api.patch<{ success: boolean; message: string; data: BrandContactSettings }>(
+      "/settings/brand-contact",
+      data
+    ),
 
   // ── Existing / Legacy Setting Endpoints ──
   getPublicSettings: () => api.get("/settings/public"),

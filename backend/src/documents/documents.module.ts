@@ -12,6 +12,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthModule } from '../auth/auth.module';
 import { SettingsModule } from '../settings/settings.module';
 
+import { LegalModule } from '../legal/legal.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -20,6 +22,7 @@ import { SettingsModule } from '../settings/settings.module';
     NotificationsModule,
     AuthModule,
     SettingsModule,
+    LegalModule,
   ],
   providers: [
     DocumentsService,

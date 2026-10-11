@@ -830,9 +830,22 @@ export class LeadService {
         where: { userId: user.id },
         data: { counselorId },
       });
+
+      // Auto-resolve any pending counselor request support tickets for this student
+      await tx.supportTicket.updateMany({
+        where: {
+          userId: user.id,
+          category: 'COUNSELOR_REQUEST',
+          status: 'OPEN',
+        },
+        data: {
+          status: 'RESOLVED',
+          updatedAt: new Date(),
+        },
+      });
     }
 
-    return { updatedLead, counselorAssignment, leadAssignment };
+    return { updatedLead, counselorAssignment, leadAssignment, user };
   }
 
   /**
@@ -880,6 +893,27 @@ export class LeadService {
           category: 'LEAD',
         },
       });
+
+      // Notify student applicant about their assigned counselor
+      const studentUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ mobile: lead.mobile }, ...(lead.email ? [{ email: lead.email }] : [])],
+        },
+      });
+
+      if (studentUser) {
+        await this.prisma.notification.create({
+          data: {
+            userId: studentUser.id,
+            receiverId: studentUser.id,
+            title: 'Counselor Assigned! 🎉',
+            message: `${counselor.fullName} has been assigned as your personal educational counselor to guide your admissions journey.`,
+            type: 'APPLICATION',
+            priority: 'HIGH',
+            category: 'ADMISSION',
+          },
+        }).catch(() => {});
+      }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Post-commit side effect failed for lead ${id}: ${errorMsg}`);
@@ -1075,26 +1109,34 @@ export class LeadService {
   async getSeniorCounselorQueue(query: LeadQueryDto, seniorCounselorId: string) {
     const ctx = await this.dataScopeService.resolveDataScope(seniorCounselorId);
     
-    const baseWhere: any = {
-      isDeleted: false,
-      OR: [
-        { assignedSeniorCounselorId: seniorCounselorId },
-        this.dataScopeService.buildLeadScopeFilter(ctx),
-      ],
-    };
+    const conditions: any[] = [
+      { isDeleted: false },
+      {
+        OR: [
+          { assignedSeniorCounselorId: seniorCounselorId },
+          this.dataScopeService.buildLeadScopeFilter(ctx),
+        ],
+      },
+    ];
 
     if (query.status) {
-      baseWhere.status = query.status;
+      conditions.push({ status: query.status });
     }
 
     if (query.search) {
-      baseWhere.OR = [
-        { fullName: { contains: query.search, mode: 'insensitive' } },
-        { mobile: { contains: query.search, mode: 'insensitive' } },
-        { email: { contains: query.search, mode: 'insensitive' } },
-        { preferredCourse: { contains: query.search, mode: 'insensitive' } },
-      ];
+      conditions.push({
+        OR: [
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { mobile: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+          { preferredCourse: { contains: query.search, mode: 'insensitive' } },
+          { state: { contains: query.search, mode: 'insensitive' } },
+          { district: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const baseWhere: any = { AND: conditions };
 
     const page = Math.max(1, Number(query.page || 1));
     const limit = Math.max(1, Number(query.limit || 10));
@@ -1262,21 +1304,38 @@ export class LeadService {
     const ctx = await this.dataScopeService.resolveDataScope(seniorCounselorId);
     const scopeFilter = this.dataScopeService.buildLeadScopeFilter(ctx);
 
-    const baseWhere: any = {
-      isDeleted: false,
-      OR: [{ assignedSeniorCounselorId: seniorCounselorId }, scopeFilter],
-      assignedCounselor: {
-        OR: [
-          { isActive: false },
-          { status: { not: 'ACTIVE' } },
-          {
-            counselorProfile: {
-              employmentStatus: { in: ['RESIGNED', 'DISABLED', 'SUSPENDED', 'LOCKED', 'INACTIVE'] },
-            },
-          },
-        ],
+    const conditions: any[] = [
+      { isDeleted: false },
+      {
+        OR: [{ assignedSeniorCounselorId: seniorCounselorId }, scopeFilter],
       },
-    };
+      {
+        assignedCounselor: {
+          OR: [
+            { isActive: false },
+            { status: { not: 'ACTIVE' } },
+            {
+              counselorProfile: {
+                employmentStatus: { in: ['RESIGNED', 'DISABLED', 'SUSPENDED', 'LOCKED', 'INACTIVE'] },
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    if (query.status) conditions.push({ status: query.status });
+    if (query.search) {
+      conditions.push({
+        OR: [
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { mobile: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const baseWhere: any = { AND: conditions };
 
     const page = Math.max(1, Number(query.page || 1));
     const limit = Math.max(1, Number(query.limit || 10));
@@ -1311,19 +1370,23 @@ export class LeadService {
    * Counselor: Get MY STUDENTS Queue
    */
   async getCounselorStudentsQueue(query: LeadQueryDto, counselorId: string) {
-    const baseWhere: any = {
-      isDeleted: false,
-      assignedCounselorId: counselorId,
-    };
+    const conditions: any[] = [
+      { isDeleted: false },
+      { assignedCounselorId: counselorId },
+    ];
 
-    if (query.status) baseWhere.status = query.status;
+    if (query.status) conditions.push({ status: query.status });
     if (query.search) {
-      baseWhere.OR = [
-        { fullName: { contains: query.search, mode: 'insensitive' } },
-        { mobile: { contains: query.search, mode: 'insensitive' } },
-        { email: { contains: query.search, mode: 'insensitive' } },
-      ];
+      conditions.push({
+        OR: [
+          { fullName: { contains: query.search, mode: 'insensitive' } },
+          { mobile: { contains: query.search, mode: 'insensitive' } },
+          { email: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const baseWhere: any = { AND: conditions };
 
     const page = Math.max(1, Number(query.page || 1));
     const limit = Math.max(1, Number(query.limit || 10));

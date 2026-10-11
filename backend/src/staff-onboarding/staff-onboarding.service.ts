@@ -1119,7 +1119,7 @@ export class StaffOnboardingService {
 
     const isCurrentValid = await bcryptLib.compare(
       dto.currentPassword,
-      user.password,
+      user.password || '',
     );
 
     if (!isCurrentValid) {

@@ -12,6 +12,7 @@ import { studyMaterialsApi, StudyMaterial, StudyMaterialQueryParams, resolveThum
 import { useAuth as useAuthContext } from "../../context/AuthContext";
 import ErrorState from "./ui/ErrorState";
 import { StudyMaterialPurchaseModal } from "./StudyMaterialPurchaseModal";
+import PageBannerSlider from "./common/PageBannerSlider";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -815,7 +816,7 @@ function MaterialDetailModal({
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export default function StudyMaterialsPage() {
-  const { isLoggedIn } = useAuthContext();
+  const { isLoggedIn, user } = useAuthContext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -985,6 +986,17 @@ export default function StudyMaterialsPage() {
       return;
     }
 
+    if (!user?.phoneVerified && !user?.mobileVerified) {
+      window.dispatchEvent(
+        new CustomEvent("swayam:open-mobile-verification", {
+          detail: {
+            reason: "Mobile verification is required before downloading study materials.",
+          },
+        })
+      );
+      return;
+    }
+
     // Free material: download directly through streaming endpoint
     if (!m.premium) {
       try {
@@ -993,6 +1005,19 @@ export default function StudyMaterialsPage() {
         studyMaterialsApi.trackDownload(m.id);
         queryClient.invalidateQueries({ queryKey: ["study_materials"] });
       } catch (err: any) {
+        if (
+          err?.response?.data?.code === "MOBILE_VERIFICATION_REQUIRED" ||
+          err?.response?.data?.message?.toLowerCase()?.includes("mobile")
+        ) {
+          window.dispatchEvent(
+            new CustomEvent("swayam:open-mobile-verification", {
+              detail: {
+                reason: "Mobile verification is required before downloading study materials.",
+              },
+            })
+          );
+          return;
+        }
         alert(err.response?.data?.message || "Failed to download file.");
       } finally {
         setDownloadingId(null);
@@ -1012,7 +1037,20 @@ export default function StudyMaterialsPage() {
         // Not entitled -> Open purchase flow
         setPurchaseModalMaterial(m);
       }
-    } catch {
+    } catch (err: any) {
+      if (
+        err?.response?.data?.code === "MOBILE_VERIFICATION_REQUIRED" ||
+        err?.response?.data?.message?.toLowerCase()?.includes("mobile")
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("swayam:open-mobile-verification", {
+            detail: {
+              reason: "Mobile verification is required before purchasing or downloading study materials.",
+            },
+          })
+        );
+        return;
+      }
       setPurchaseModalMaterial(m);
     } finally {
       setDownloadingId(null);
@@ -1051,6 +1089,9 @@ export default function StudyMaterialsPage() {
 
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh" }}>
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="STUDY_MATERIALS_TOP" />
+
       {/* Hero Section */}
       <div
         className="relative overflow-hidden py-14 px-4"
@@ -1105,6 +1146,9 @@ export default function StudyMaterialsPage() {
         <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-white/5" />
         <div className="absolute -bottom-10 -right-10 w-60 h-60 rounded-full bg-white/5" />
       </div>
+
+      {/* Top Banner Slot */}
+      <PageBannerSlider slot="STUDY_MATERIALS_TOP" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Navigation Tabs */}

@@ -41,7 +41,11 @@ export interface AuthUser {
 export interface LoginResponse {
   message: string;
   access_token: string;
+  refresh_token?: string;
+  accessToken?: string;
   refreshToken?: string;
+  mustChangePassword?: boolean;
+  position?: any;
   user: AuthUser;
 }
 
@@ -56,6 +60,15 @@ export const authApi = {
 
   signup: (data: SignupPayload) =>
     api.post<SignupResponse>("/auth/signup", data),
+
+  refreshToken: (refreshToken: string) =>
+    api.post<LoginResponse>("/auth/refresh", { refreshToken, refresh_token: refreshToken }),
+
+  logout: (refreshToken?: string) =>
+    api.post("/auth/logout", { refreshToken, refresh_token: refreshToken }),
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>("/auth/forgot-password", { email }),
 
   getMe: () =>
     api.get<AuthUser>("/users/me"),

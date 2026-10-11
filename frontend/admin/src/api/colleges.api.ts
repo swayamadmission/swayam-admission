@@ -18,6 +18,7 @@ export interface College {
   fullDescription?: string;
   logo?: string;
   banner?: string;
+  brochureUrl?: string;
   establishedYear?: number;
   ownership?: string;
   type?: string;
@@ -280,6 +281,11 @@ export interface BulkValidationPreviewRow {
   coursesCount: number;
   status: string;
   errors: string[];
+  mediaStatus?: {
+    logo: 'VALID' | 'MISSING' | 'INVALID';
+    banner: 'VALID' | 'MISSING' | 'INVALID';
+    brochure: 'VALID' | 'MISSING' | 'INVALID';
+  };
   sanitizedData?: any;
 }
 
@@ -354,6 +360,9 @@ export const collegesApi = {
     return api.patch<College>(`/colleges/${id}/publish`, { publish: isPublish, status: isPublish ? "PUBLISHED" : "DRAFT" });
   },
 
+  setFeaturedStatus: (id: string, featured: boolean) =>
+    api.patch<College>(`/colleges/${id}`, { featured }),
+
   // Bulk Import
   downloadTemplate: async (format: 'csv' | 'xlsx' = 'xlsx') => {
     const res = await api.get(`/colleges/bulk/template`, {
@@ -396,6 +405,23 @@ export const collegesApi = {
 
   deleteCourse: (courseId: string) =>
     api.delete(`/colleges/courses/${courseId}`),
+
+  // Media & Uploads
+  uploadMedia: (
+    collegeId: string,
+    file: File,
+    type: 'logo' | 'banner' | 'brochure' | 'gallery',
+    extra?: { caption?: string; isCover?: boolean },
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    if (extra?.caption) formData.append('caption', extra.caption);
+    if (extra?.isCover !== undefined) formData.append('isCover', String(extra.isCover));
+    return api.post<{ success: boolean; url: string; type: string }>(`/colleges/${collegeId}/media`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 
   // Gallery
   addGalleryImage: (collegeId: string, data: { imageUrl: string; caption?: string; sortOrder?: number; isCover?: boolean }) =>

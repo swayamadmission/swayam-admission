@@ -1,6 +1,7 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { SaveCollegeDto } from './dto/save-college.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -20,6 +21,33 @@ export class UsersController {
   @Patch('me/profile')
   updateProfile(@CurrentUser() user: IUser, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateProfile(user.id, dto);
+  }
+
+  @Get('me/shortlist')
+  getShortlist(@CurrentUser() user: IUser) {
+    return this.usersService.getShortlist(user.id);
+  }
+
+  @Get('me/shortlist/ids')
+  getShortlistIds(@CurrentUser() user: IUser) {
+    return this.usersService.getShortlistIds(user.id);
+  }
+
+  @Post('me/shortlist')
+  addToShortlist(@CurrentUser() user: IUser, @Body() body: SaveCollegeDto) {
+    const targetId = body.collegeId || body.itemId || '';
+    return this.usersService.addToShortlist(user.id, targetId);
+  }
+
+  @Delete('me/shortlist/:id')
+  removeFromShortlist(@CurrentUser() user: IUser, @Param('id') id: string) {
+    return this.usersService.removeFromShortlist(user.id, id);
+  }
+
+  @Post('me/shortlist/toggle')
+  toggleShortlist(@CurrentUser() user: IUser, @Body() body: SaveCollegeDto) {
+    const targetId = body.collegeId || body.itemId || '';
+    return this.usersService.toggleShortlist(user.id, targetId);
   }
 
   @Get()

@@ -15,6 +15,9 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Upload,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi, College } from "../../api/colleges.api";
@@ -61,6 +64,7 @@ export default function CollegeFormModal({ isOpen, onClose, college }: CollegeFo
 
   // Study material link draft
   const [materialLinkInput, setMaterialLinkInput] = useState("");
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
 
   // Load complete college record if editing
   useEffect(() => {
@@ -255,6 +259,43 @@ export default function CollegeFormModal({ isOpen, onClose, college }: CollegeFo
       isCover: i === index,
     }));
     setFormData((prev) => ({ ...prev, gallery: updated }));
+  };
+
+  const handleMediaUpload = async (
+    file: File,
+    type: "logo" | "banner" | "brochure" | "gallery",
+  ) => {
+    if (!college?.id) {
+      alert("Please save the college record first before uploading files directly.");
+      return;
+    }
+    try {
+      setUploadingField(type);
+      const res = await collegesApi.uploadMedia(college.id, file, type);
+      if (res.data?.url) {
+        if (type === "logo") setFormData((prev) => ({ ...prev, logo: res.data.url }));
+        if (type === "banner") setFormData((prev) => ({ ...prev, banner: res.data.url }));
+        if (type === "brochure") setFormData((prev) => ({ ...prev, brochureUrl: res.data.url }));
+        if (type === "gallery") {
+          setFormData((prev) => ({
+            ...prev,
+            gallery: [
+              ...(prev.gallery || []),
+              {
+                imageUrl: res.data.url,
+                caption: file.name.replace(/\.[^/.]+$/, ""),
+                isCover: false,
+                sortOrder: prev.gallery?.length || 0,
+              },
+            ],
+          }));
+        }
+      }
+    } catch (err: any) {
+      alert("Failed to upload media: " + (err.response?.data?.message || err.message || "Unknown error"));
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   const handleAddCourse = () => {
@@ -509,6 +550,29 @@ export default function CollegeFormModal({ isOpen, onClose, college }: CollegeFo
                       </div>
                     </div>
 
+                    {/* Featured College on Homepage Toggle */}
+                    <div className="flex items-center justify-between p-3.5 bg-[#E8F3EC]/70 border border-[#A7D7B5]/70 rounded-2xl">
+                      <div>
+                        <div className="text-xs font-bold text-[#4A7B5B] flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#F0AE1A]" />
+                          Featured College on Homepage
+                        </div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">
+                          Enable to spotlight this institution in the "Popular Colleges" section on the Swayam Admission Home Page.
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          name="featured"
+                          checked={Boolean(formData.featured)}
+                          onChange={handleChange}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4A7B5B]"></div>
+                      </label>
+                    </div>
+
                     <div>
                       <label className="block font-semibold text-gray-700 mb-1 text-xs">Short Description</label>
                       <textarea
@@ -733,24 +797,106 @@ export default function CollegeFormModal({ isOpen, onClose, college }: CollegeFo
                         />
                       </div>
                       <div>
-                        <label className="block font-semibold text-gray-700 mb-1">Logo URL</label>
-                        <input
-                          name="logo"
-                          value={formData.logo || ""}
-                          onChange={handleChange}
-                          className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] focus:border-[#4A7B5B] outline-none text-sm"
-                          placeholder="https://"
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block font-semibold text-gray-700">Logo URL</label>
+                          <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                            <Upload className="w-3 h-3" />
+                            {uploadingField === "logo" ? "Uploading..." : "Upload / Replace"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingField === "logo"}
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "logo");
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            name="logo"
+                            value={formData.logo || ""}
+                            onChange={handleChange}
+                            className="flex-1 h-10 px-3 rounded-xl border border-[#E2E8F0] focus:border-[#4A7B5B] outline-none text-sm"
+                            placeholder="https://"
+                          />
+                          {formData.logo && (
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-gray-200 p-1 shrink-0 overflow-hidden flex items-center justify-center">
+                              <img src={formData.logo} alt="Logo" className="w-full h-full object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block font-semibold text-gray-700">Brochure URL</label>
+                          <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                            <Upload className="w-3 h-3" />
+                            {uploadingField === "brochure" ? "Uploading..." : "Upload / Replace"}
+                            <input
+                              type="file"
+                              accept=".pdf,image/*"
+                              disabled={uploadingField === "brochure"}
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "brochure");
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            name="brochureUrl"
+                            value={formData.brochureUrl || ""}
+                            onChange={handleChange}
+                            className="flex-1 h-10 px-3 rounded-xl border border-[#E2E8F0] focus:border-[#4A7B5B] outline-none text-sm"
+                            placeholder="https://.../brochure.pdf"
+                          />
+                          {formData.brochureUrl && (
+                            <a
+                              href={formData.brochureUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="h-10 px-2.5 rounded-xl border border-[#A7D7B5] bg-[#E8F3EC] text-[#4A7B5B] flex items-center gap-1 text-xs font-bold hover:bg-[#d5ebd9] shrink-0"
+                              title="Preview Stored Brochure"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" /> View
+                            </a>
+                          )}
+                        </div>
                       </div>
                       <div className="sm:col-span-2">
-                        <label className="block font-semibold text-gray-700 mb-1">Cover / Banner Image URL</label>
-                        <input
-                          name="banner"
-                          value={formData.banner || ""}
-                          onChange={handleChange}
-                          className="w-full h-10 px-3 rounded-xl border border-[#E2E8F0] focus:border-[#4A7B5B] outline-none text-sm"
-                          placeholder="https://"
-                        />
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block font-semibold text-gray-700">Cover / Banner Image URL</label>
+                          <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                            <Upload className="w-3 h-3" />
+                            {uploadingField === "banner" ? "Uploading..." : "Upload / Replace Banner"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={uploadingField === "banner"}
+                              className="hidden"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "banner");
+                              }}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            name="banner"
+                            value={formData.banner || ""}
+                            onChange={handleChange}
+                            className="flex-1 h-10 px-3 rounded-xl border border-[#E2E8F0] focus:border-[#4A7B5B] outline-none text-sm"
+                            placeholder="https://"
+                          />
+                          {formData.banner && (
+                            <div className="w-16 h-10 rounded-xl bg-slate-50 border border-gray-200 overflow-hidden shrink-0">
+                              <img src={formData.banner} alt="Banner" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1235,13 +1381,28 @@ export default function CollegeFormModal({ isOpen, onClose, college }: CollegeFo
                         />
                         Set as Featured Cover Photo
                       </label>
-                      <button
-                        type="button"
-                        onClick={handleAddGalleryImage}
-                        className="px-4 py-2 bg-[#E8F3EC] hover:bg-[#d5ebd9] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4A7B5B]/30"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add Image
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <label className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-gray-200 cursor-pointer">
+                          <Upload className="w-3.5 h-3.5" />
+                          {uploadingField === "gallery" ? "Uploading..." : "Upload from File"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={uploadingField === "gallery"}
+                            className="hidden"
+                            onChange={(e) => {
+                              if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "gallery");
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddGalleryImage}
+                          className="px-4 py-2 bg-[#E8F3EC] hover:bg-[#d5ebd9] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#4A7B5B]/30"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Image URL
+                        </button>
+                      </div>
                     </div>
                   </div>
 

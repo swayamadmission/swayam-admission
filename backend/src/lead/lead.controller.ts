@@ -171,6 +171,13 @@ export class LeadController {
     );
   }
 
+  @Post(':id/retry-routing')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('lead.assign')
+  retryRouting(@Param('id') id: string) {
+    return this.leadRoutingService.routeLead(id);
+  }
+
   @Post(':id/reassign')
   @UseGuards(JwtAuthGuard, PermissionGuard)
   @Permissions('lead.assign')

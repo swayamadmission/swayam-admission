@@ -36,6 +36,7 @@ import {
 } from "../../constants/academic.constants";
 import { referralApi } from "../../api/referral.api";
 import { useAuth as useAuthContext } from "../../context/AuthContext";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 
 const STEPS = [
   { num: 1, label: "Basic Info", icon: User },
@@ -48,8 +49,13 @@ export default function ApplyNowPage() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { user, isLoggedIn } = useAuthContext();
+  const { settings } = usePublicSettings();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const whatsappNum = settings.whatsappNumber || settings.whatsappPhone || "6284308664";
+  const cleanWhatsapp = whatsappNum.replace(/\D/g, "");
+  const whatsappHref = `https://wa.me/91${cleanWhatsapp.slice(-10)}`;
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [createdApplication, setCreatedApplication] = useState<any>(null);
   const [referralInfo, setReferralInfo] = useState<{
@@ -1514,7 +1520,7 @@ export default function ApplyNowPage() {
                         to={`/dashboard?tab=applications&appId=${createdApplication.id}`}
                         className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl transition-all shadow-md font-bold text-sm"
                       >
-                        <ArrowRight size={16} /> Continue Application (Submit & Pay)
+                        <ArrowRight size={16} /> Continue Application (Review & Submit)
                       </Link>
                     ) : (
                       <Link
@@ -1534,7 +1540,7 @@ export default function ApplyNowPage() {
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-1">
                     <a
-                      href="https://wa.me/919000000000"
+                      href={whatsappHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl transition-all shadow-sm text-xs font-semibold"

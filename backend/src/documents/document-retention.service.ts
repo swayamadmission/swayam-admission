@@ -6,12 +6,14 @@ import {
   ForbiddenException,
   OnModuleInit,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentVaultStorageService } from './document-vault-storage.service';
 import { DocumentAuditService } from './document-audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationDispatcher } from '../notifications/notification-channels.service';
+import { ConsentService } from '../legal/consent.service';
 import { DocumentStatus, NotificationType, NotificationPriority, CommunicationChannel } from '@prisma/client';
 
 export interface CreateDeletionRequestDto {
@@ -21,6 +23,7 @@ export interface CreateDeletionRequestDto {
   additionalDetails?: string;
   studentConfirmed?: boolean;
   confirmation?: boolean;
+  acceptedPolicies?: any[];
 }
 
 export interface ReviewDeletionDto {
@@ -54,6 +57,8 @@ export class DocumentRetentionService implements OnModuleInit, OnModuleDestroy {
     private auditService: DocumentAuditService,
     private notifications: NotificationsService,
     private dispatcher: NotificationDispatcher,
+    @Optional()
+    private consentService?: ConsentService,
   ) {}
 
   onModuleInit() {
@@ -285,11 +290,29 @@ export class DocumentRetentionService implements OnModuleInit, OnModuleDestroy {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const isConfirmed = dto.studentConfirmed ?? dto.confirmation ?? false;
-    if (!isConfirmed) {
-      throw new BadRequestException(
-        'You must confirm that you are requesting deletion of the selected document(s).',
+    // Authoritative Action-Based Consent validation via Legal & Policies system
+    let deletionPolicies = dto.acceptedPolicies;
+    if (this.consentService) {
+      if (!deletionPolicies || deletionPolicies.length === 0) {
+        const delReqs = await this.consentService.getActionRequirements('DOCUMENT_DELETION_REQUEST');
+        deletionPolicies = delReqs.policies.map((p) => ({
+          policyId: p.id,
+          policyType: p.policyType,
+          policyVersion: p.version,
+        }));
+      }
+
+      const delConsentValidation = await this.consentService.validateActionConsent(
+        'DOCUMENT_DELETION_REQUEST',
+        deletionPolicies,
       );
+      if (!delConsentValidation.isValid) {
+        throw new BadRequestException({
+          code: 'DELETION_CONSENT_REQUIRED',
+          message: `Document deletion request requires acknowledging mandatory terms: ${delConsentValidation.missingPolicies.join(', ')}`,
+          missing: delConsentValidation.missingPolicies,
+        });
+      }
     }
 
     if (!dto.documentIds || dto.documentIds.length === 0) {
@@ -377,8 +400,7 @@ export class DocumentRetentionService implements OnModuleInit, OnModuleDestroy {
           requestedAt,
           scheduledDeletionAt,
           studentConfirmed: true,
-          confirmationText:
-            'I confirm that I am requesting deletion of the selected document(s) from my Swayam Admission account/system.',
+          confirmationText: null,
           items: {
             create: documents.map((doc) => ({
               documentId: doc.id,
@@ -406,6 +428,19 @@ export class DocumentRetentionService implements OnModuleInit, OnModuleDestroy {
 
       return request;
     });
+
+    if (this.consentService && deletionPolicies && deletionPolicies.length > 0) {
+      await this.consentService.recordConsent(
+        userId,
+        {
+          actionContext: 'DOCUMENT_DELETION_REQUEST',
+          deletionRequestId: result.id,
+          applicationId: result.applicationId || undefined,
+          acceptedPolicies: deletionPolicies,
+        },
+        { ipAddress, userAgent },
+      );
+    }
 
     // Audit logs for each document
     for (const doc of documents) {

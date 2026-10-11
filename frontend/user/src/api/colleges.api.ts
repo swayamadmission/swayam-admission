@@ -8,6 +8,7 @@ export interface College {
   fullDescription?: string;
   logo?: string;
   banner?: string;
+  brochureUrl?: string;
   img?: string;
   establishedYear?: number;
   ownership?: string;
@@ -123,6 +124,7 @@ export interface CollegeQueryParams {
   placementMin?: number;
   ownership?: string;
   hostel?: boolean;
+  status?: string;
 }
 
 export const collegesApi = {

@@ -118,6 +118,22 @@ export class ValidateCouponDto {
   @IsOptional()
   @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentRequestId?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentDestination?: string;
+
+  @IsOptional()
+  @IsString()
+  routingMode?: string;
+
+  @IsOptional()
+  @IsString()
+  beneficiary?: string;
 }
 
 export class RedeemCouponDto {

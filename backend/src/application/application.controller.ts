@@ -48,6 +48,20 @@ export class ApplicationController {
     return this.applicationService.getApplicationQuota(user.id);
   }
 
+  @Get('eligibility')
+  getEligibility(@CurrentUser() user: IUser) {
+    return this.applicationService.getApplicationQuota(user.id);
+  }
+
+  @Get(':id/fee-summary')
+  getFeeSummary(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Query('couponCode') couponCode?: string,
+  ) {
+    return this.applicationService.getApplicationFeeSummary(id, user, couponCode);
+  }
+
   @Get('me')
   findMyApplications(@CurrentUser() user: IUser) {
     return this.applicationService.findMyApplications(user.id);
@@ -162,6 +176,15 @@ export class ApplicationController {
     @Body() dto: import('./dto/application-workflow.dto').InitiatePaymentDto,
   ) {
     return this.applicationService.initiatePayment(id, user, dto);
+  }
+
+  @Post(':id/verify-payment')
+  verifyPayment(
+    @Param('id') id: string,
+    @CurrentUser() user: IUser,
+    @Body() dto: import('./dto/application-workflow.dto').VerifyApplicationPaymentDto,
+  ) {
+    return this.applicationService.verifyPayment(id, user, dto);
   }
 
   @Post(':id/submit')

@@ -7,7 +7,6 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 
 export class CreateFaqDto {
   @IsString()
@@ -19,6 +18,10 @@ export class CreateFaqDto {
   @IsOptional()
   @IsString()
   slug?: string;
+
+  @IsOptional()
+  @IsString()
+  customSlug?: string;
 
   @IsString()
   category: string;
@@ -47,6 +50,14 @@ export class CreateFaqDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  createdBy?: string;
+
+  @IsOptional()
+  @IsString()
+  updatedBy?: string;
 
   // Entity Relations
   @IsOptional()

@@ -36,6 +36,10 @@ export class CreateCollegeDto {
   @IsString()
   banner?: string;
 
+  @IsOptional()
+  @IsString()
+  brochureUrl?: string;
+
   // Identity
   @IsOptional()
   @Type(() => Number)

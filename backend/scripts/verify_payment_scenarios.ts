@@ -87,10 +87,6 @@ async function runScenarios() {
     privacyVersion: 'v1.2',
     termsAccepted: true,
     termsVersion: 'v2.0',
-    declarationAccepted: true,
-    authenticityAccepted: true,
-    verificationConsent: true,
-    communicationConsent: true,
     acceptedAt: new Date().toISOString(),
   };
 

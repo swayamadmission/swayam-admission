@@ -108,12 +108,27 @@ export const documentsApi = {
   getChecklist: (params?: { applicationId?: string; collegeId?: string; courseId?: string }) =>
     api.get<DynamicChecklistResponse>("/documents/checklist", { params }),
 
-  upload: (type: string, file: File, applicationId?: string, title?: string) => {
+  upload: (
+    type: string,
+    file: File,
+    applicationId?: string,
+    title?: string,
+    options?: {
+      consentAccepted?: boolean;
+      acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>;
+    }
+  ) => {
     const formData = new FormData();
     formData.append("type", type);
     formData.append("file", file);
     if (applicationId) formData.append("applicationId", applicationId);
     if (title) formData.append("title", title);
+    if (options?.consentAccepted !== undefined) {
+      formData.append("consentAccepted", String(options.consentAccepted));
+    }
+    if (options?.acceptedPolicies) {
+      formData.append("acceptedPolicies", JSON.stringify(options.acceptedPolicies));
+    }
     return api.post("/documents/upload", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
@@ -121,9 +136,22 @@ export const documentsApi = {
     });
   },
 
-  replace: (id: string, file: File) => {
+  replace: (
+    id: string,
+    file: File,
+    options?: {
+      consentAccepted?: boolean;
+      acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>;
+    }
+  ) => {
     const formData = new FormData();
     formData.append("file", file);
+    if (options?.consentAccepted !== undefined) {
+      formData.append("consentAccepted", String(options.consentAccepted));
+    }
+    if (options?.acceptedPolicies) {
+      formData.append("acceptedPolicies", JSON.stringify(options.acceptedPolicies));
+    }
     return api.post(`/documents/${id}/replace`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
@@ -148,16 +176,11 @@ export const documentsApi = {
     reason: string;
     additionalDetails?: string;
     applicationId?: string;
-    confirmation?: boolean;
-    studentConfirmed?: boolean;
+    acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>;
   }) =>
     api.post<{ success: boolean; data: DeletionRequest; message: string }>(
       "/documents/deletion-requests",
-      {
-        ...data,
-        confirmation: true,
-        studentConfirmed: true,
-      },
+      data,
     ),
 
   getMyDeletionRequests: () =>

@@ -49,6 +49,8 @@ import { SettingsModule } from '../settings/settings.module';
     TemplateEngineService,
     CommunicationCampaignService,
     NotificationDispatcher,
+    EmailChannel,
+    WhatsAppChannel,
   ],
 })
 export class NotificationsModule implements OnModuleInit {

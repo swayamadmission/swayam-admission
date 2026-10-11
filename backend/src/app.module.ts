@@ -44,6 +44,12 @@ import { StudyMaterialsModule } from './study-materials/study-materials.module';
 import { SearchModule } from './search/search.module';
 import { CommonController } from './common/common.controller';
 import { EducationFinanceModule } from './education-finance/education-finance.module';
+import { ChatModule } from './chat/chat.module';
+import { TestimonialsModule } from './testimonials/testimonials.module';
+import { ContactModule } from './contact/contact.module';
+import { BannersModule } from './banners/banners.module';
+import { LegalModule } from './legal/legal.module';
+import { HrModule } from './hr/hr.module';
 
 @Module({
   imports: [
@@ -52,6 +58,7 @@ import { EducationFinanceModule } from './education-finance/education-finance.mo
     }),
     AuthModule,
     UsersModule,
+    HrModule,
     StudentsModule,
     CounselorsModule,
     DashboardsModule,
@@ -91,6 +98,11 @@ import { EducationFinanceModule } from './education-finance/education-finance.mo
     StudyMaterialsModule,
     SearchModule,
     EducationFinanceModule,
+    ChatModule,
+    TestimonialsModule,
+    ContactModule,
+    BannersModule,
+    LegalModule,
   ],
   controllers: [AppController, CommonController],
   providers: [AppService],

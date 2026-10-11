@@ -207,13 +207,31 @@ export const applicationsApi = {
       draftData?: Record<string, any>;
     }
   ) => api.patch(`/applications/${id}/draft`, data),
+  getEligibility: () =>
+    api.get<ApplicationQuotaResponse>('/applications/eligibility'),
+  getFeeSummary: (id: string, couponCode?: string) =>
+    api.get<any>(`/applications/${id}/fee-summary`, { params: { couponCode } }),
   initiatePayment: (
     id: string,
     data?: {
       couponCode?: string;
       declaration?: Record<string, any>;
+      financialAssistance?: Record<string, any>;
+      paymentTermsAccepted?: boolean;
+      paymentPrivacyAccepted?: boolean;
+      paymentMethod?: string;
+      acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>;
     }
   ) => api.post(`/applications/${id}/initiate-payment`, data),
+  verifyPayment: (
+    id: string,
+    data: {
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+      razorpayOrderId?: string;
+      paymentId?: string;
+    }
+  ) => api.post(`/applications/${id}/verify-payment`, data),
   submitApplication: (
     id: string,
     declarationAccepted: boolean,
@@ -224,7 +242,8 @@ export const applicationsApi = {
     additionalData?: Record<string, any>,
     declaration?: Record<string, any>,
     paymentId?: string,
-    orderId?: string
+    orderId?: string,
+    acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>
   ) =>
     api.post(`/applications/${id}/submit`, {
       declarationAccepted,
@@ -234,6 +253,7 @@ export const applicationsApi = {
       paymentReference,
       paymentId,
       orderId,
+      acceptedPolicies,
       ...(declaration ? { declaration } : {}),
       ...(additionalData || {}),
     }),

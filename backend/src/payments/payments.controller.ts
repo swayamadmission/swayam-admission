@@ -11,7 +11,12 @@ import {
   Req,
   Res,
   Header,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { extname } from 'path';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
@@ -29,6 +34,8 @@ import type { Request, Response } from 'express';
 import { PaymentGovernanceService } from './services/payment-governance.service';
 import { InvoiceService } from './services/invoice.service';
 import { ReconciliationService } from './services/reconciliation.service';
+import { FeeCalculationService } from './services/fee-calculation.service';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('payments')
 @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -38,7 +45,37 @@ export class PaymentsController {
     private readonly governanceService: PaymentGovernanceService,
     private readonly invoiceService: InvoiceService,
     private readonly reconciliationService: ReconciliationService,
+    private readonly feeCalculationService: FeeCalculationService,
+    private readonly storageService: StorageService,
   ) {}
+
+  @Post('calculate-fee')
+  calculateFee(
+    @CurrentUser() user: IUser,
+    @Body() dto: { paymentRequestId: string; couponCode?: string },
+  ) {
+    return this.feeCalculationService.calculateForPaymentRequest({
+      paymentRequestId: dto.paymentRequestId,
+      studentId: user.id,
+      couponCode: dto.couponCode,
+    });
+  }
+
+  @Post('razorpay/verify')
+  verifyRazorpay(
+    @CurrentUser() user: IUser,
+    @Body() dto: any,
+  ) {
+    return this.paymentsService.verifyRazorpayPayment(user.id, dto);
+  }
+
+  @Post('checkout/verify')
+  verifyCheckoutAlias(
+    @CurrentUser() user: IUser,
+    @Body() dto: any,
+  ) {
+    return this.paymentsService.verifyRazorpayPayment(user.id, dto);
+  }
 
   @Get('governance-kpis')
   @Permissions('payment.view')
@@ -156,6 +193,11 @@ export class PaymentsController {
   @Get('requests/my')
   getMyPaymentRequests(@CurrentUser() user: IUser) {
     return this.governanceService.getStudentPaymentRequests(user.id);
+  }
+
+  @Get('requests/:id')
+  getPaymentRequestById(@Param('id') id: string, @CurrentUser() user: IUser) {
+    return this.governanceService.getPaymentRequestById(id, user);
   }
 
   @Get('college-config/:collegeId')
@@ -307,6 +349,46 @@ export class PaymentsController {
   @Post('upload-proof')
   uploadProof(@CurrentUser() user: IUser, @Body() dto: any) {
     return this.paymentsService.uploadPaymentProof(user.id, dto.paymentId, dto);
+  }
+
+  @Post('proof/upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 }, // 1 MB (1024 KB) max
+      fileFilter: (_req, file, callback) => {
+        const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
+        const ext = extname(file.originalname).toLowerCase();
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedExts.includes(ext) && !allowedMimes.includes(file.mimetype)) {
+          return callback(
+            new BadRequestException(
+              'Unsupported file format. Please upload JPG, JPEG, PNG, or WEBP images only.',
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+    }),
+  )
+  async uploadProofScreenshot(
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Payment screenshot file is required.');
+    }
+    if (file.size > 1024 * 1024) {
+      throw new BadRequestException(
+        'File size exceeds the maximum allowed limit of 1 MB (1024 KB).',
+      );
+    }
+    const fileUrl = await this.storageService.uploadFile(file, 'payment-proofs');
+    return {
+      status: 'success',
+      url: fileUrl,
+      fileName: file.originalname,
+      fileSize: file.size,
+    };
   }
 
   @Post('verify-proof')

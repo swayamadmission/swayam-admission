@@ -35,7 +35,7 @@ export function ErrorState({
     IconComponent = WifiOff;
     iconBg = "bg-amber-50 text-amber-600";
     if (!displayTitle) displayTitle = "Connection Issue";
-    if (!displayMessage) displayMessage = "Unable to connect to Swayam server. Please check your internet connection and try again.";
+    if (!displayMessage) displayMessage = "Unable to connect to the Swayam Admission server. Please try again.";
   } else if (errorType === "FORBIDDEN" || status === 403) {
     IconComponent = ShieldAlert;
     iconBg = "bg-purple-50 text-purple-600";

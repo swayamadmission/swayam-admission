@@ -47,11 +47,37 @@ export const paymentsApi = {
   getPaymentDetails: (id: string) =>
     api.get(`/payments/${id}`),
 
-  createOrder: (data: { applicationId?: string; collegeId?: string; courseId?: string; amount: number; paymentMode?: string; paymentType?: string; paymentMethod?: string; remarks?: string }) =>
-    api.post("/payments/create-order", data),
+  createOrder: (data: {
+    paymentRequestId?: string;
+    couponCode?: string;
+    applicationId?: string;
+    collegeId?: string;
+    courseId?: string;
+    amount?: number;
+    paymentMode?: string;
+    paymentType?: string;
+    paymentMethod?: string;
+    remarks?: string;
+  }) => api.post("/payments/create-order", data),
 
   uploadProof: (data: { paymentId: string; requestId?: string; proofDocument: string; utrNumber: string; transactionReference?: string; paidAmount?: number; remarks?: string }) =>
     api.post("/payments/upload-proof", data),
+
+  uploadProofScreenshot: (file: File, onProgress?: (percent: number) => void) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return api.post("/payments/proof/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    });
+  },
 
   payInstallment: (data: { paymentId?: string; applicationId?: string; amount: number; installmentNumber: number; totalInstallments: number; paymentMethod?: string }) =>
     api.post("/payments/installment", data),
@@ -74,6 +100,17 @@ export const paymentsApi = {
   acceptTerms: (data: { paymentRequestId?: string; paymentId?: string; acceptedTerms: boolean }) =>
     api.post("/payments/terms-accept", data),
 
+  calculatePayable: (data: { paymentRequestId: string; couponCode?: string }) =>
+    api.post("/payments/calculate-fee", data),
+
+  verifyRazorpayPayment: (data: {
+    paymentId?: string;
+    paymentRequestId?: string;
+    orderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }) => api.post("/payments/razorpay/verify", data),
+
   submitManualProof: (data: {
     paymentRequestId: string;
     paymentAllocationId?: string;
@@ -85,4 +122,7 @@ export const paymentsApi = {
     paymentMethod?: string;
     remarks?: string;
   }) => api.post("/payments/student/submit-proof", data),
+
+  getReceiptUrl: (paymentId: string) => `/payments/${paymentId}/receipt`,
+  getInvoiceUrl: (paymentId: string) => `/payments/${paymentId}/invoice`,
 };

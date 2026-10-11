@@ -18,6 +18,8 @@ import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { RefundPaymentDto } from './dto/refund-payment.dto';
 import { InstallmentPaymentDto } from './dto/installment-payment.dto';
 import { PaymentQueryDto } from './dto/payment-query.dto';
+import { FeeCalculationService } from './services/fee-calculation.service';
+import { CouponService } from '../coupons/coupon.service';
 import {
   PaymentStatus,
   ApplicationStatus,
@@ -35,6 +37,8 @@ export class PaymentsService {
     private readonly documentService: PaymentDocumentService,
     private readonly journeyService: JourneyService,
     private readonly dataScopeService: DataScopeService,
+    private readonly feeCalculationService: FeeCalculationService,
+    private readonly couponService: CouponService,
   ) {}
 
   async getStats(currentUserId?: string) {
@@ -1520,16 +1524,222 @@ export class PaymentsService {
   }
 
   async createPaymentOrder(userId: string, dto: any) {
+    let authoritativeAmount: number;
+    let paymentRequestId: string | null = null;
+    let calcResult: any = null;
+
+    if (dto.paymentRequestId) {
+      calcResult = await this.feeCalculationService.calculateForPaymentRequest({
+        paymentRequestId: dto.paymentRequestId,
+        studentId: userId,
+        couponCode: dto.couponCode,
+      });
+
+      if (calcResult.isPaid) {
+        throw new BadRequestException(
+          'This payment request has already been paid.',
+        );
+      }
+      if (calcResult.isExpired) {
+        throw new BadRequestException('This payment request has expired.');
+      }
+      if (calcResult.status === 'CANCELLED') {
+        throw new BadRequestException(
+          'This payment request has been cancelled.',
+        );
+      }
+
+      paymentRequestId = dto.paymentRequestId;
+      authoritativeAmount = calcResult.finalPayableAmount;
+
+      // Duplicate payment protection: check if active pending payment exists for this request
+      const existingPending = await this.prisma.payment.findFirst({
+        where: {
+          requestId: paymentRequestId,
+          userId,
+          status: PaymentStatus.PENDING,
+          amount: authoritativeAmount,
+          createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) },
+        },
+        include: { college: true, course: true, collegeBank: true },
+      });
+
+      if (existingPending && existingPending.gatewayOrderId) {
+        return {
+          success: true,
+          message: 'Active payment order retrieved',
+          payment: existingPending,
+          orderId: existingPending.gatewayOrderId,
+          amount: authoritativeAmount,
+          currency: 'INR',
+          keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+          beneficiary: calcResult.beneficiary,
+          beneficiaryType: calcResult.beneficiaryType,
+          couponDiscount: calcResult.couponDiscount,
+          finalPayableAmount: authoritativeAmount,
+        };
+      }
+    } else {
+      authoritativeAmount = Number(dto.amount || 0);
+      if (authoritativeAmount <= 0) {
+        throw new BadRequestException(
+          'Payment amount must be greater than zero.',
+        );
+      }
+    }
+
+    if (authoritativeAmount === 0) {
+      // ZERO-PAYMENT WORKFLOW: 100% concession, waiver, or discount
+      const timestamp = Date.now().toString().slice(-6);
+      const transactionId = `TXN-ZERO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const orderId = `ZERO-${Date.now()}`;
+      const receiptNumber = `SA-REC-${new Date().getFullYear()}-${timestamp}`;
+      const invoiceNumber = `SA-INV-${new Date().getFullYear()}-${timestamp}`;
+      const collegeId = calcResult?.collegeId || dto.collegeId;
+
+      const payment = await this.prisma.$transaction(async (tx) => {
+        const p = await tx.payment.create({
+          data: {
+            userId,
+            studentId: userId,
+            applicationId: dto.applicationId,
+            collegeId,
+            courseId: calcResult?.courseId || dto.courseId,
+            counselorId: dto.counselorId,
+            requestId: paymentRequestId,
+            transactionId,
+            orderId,
+            gatewayOrderId: orderId,
+            receiptNumber,
+            invoiceNumber,
+            amount: calcResult?.grossAmount || 0,
+            paidAmount: 0,
+            pendingAmount: 0,
+            discountAmount: calcResult?.discountAmount || 0,
+            scholarshipAmount: calcResult?.scholarshipAmount || 0,
+            paymentType:
+              (calcResult?.feeHead as any) ||
+              dto.paymentType ||
+              'REGISTRATION_FEE',
+            paymentMethod: 'UPI',
+            paymentMode: 'GATEWAY',
+            paymentDestination: 'PLATFORM',
+            gateway: 'Waiver',
+            status: PaymentStatus.COMPLETED,
+            verificationStatus: 'VERIFIED',
+            paidAt: new Date(),
+            verifiedAt: new Date(),
+            remarks:
+              dto.remarks ||
+              'Zero-payment completed: 100% discount / scholarship concession',
+            metadata: {
+              couponCode: dto.couponCode || null,
+              couponDiscount: calcResult?.couponDiscount || 0,
+              isZeroPayment: true,
+              beneficiary: calcResult?.beneficiary || 'Swayam Admission',
+              beneficiaryType: calcResult?.beneficiaryType || 'SWAYAM',
+              routingMode: 'PLATFORM_GATEWAY',
+            },
+          },
+          include: {
+            college: true,
+            course: true,
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                mobile: true,
+              },
+            },
+          },
+        });
+
+        if (paymentRequestId) {
+          await tx.paymentRequest.update({
+            where: { id: paymentRequestId },
+            data: {
+              status: 'PAID',
+              dueAmount: 0,
+              paidAmount: calcResult?.grossAmount || 0,
+            },
+          });
+        }
+
+        if (calcResult?.appliedCoupon?.id) {
+          await tx.couponRedemption.create({
+            data: {
+              couponId: calcResult.appliedCoupon.id,
+              userId,
+              transactionId: p.id,
+              transactionType: 'PAYMENT',
+              originalAmount: calcResult.grossAmount,
+              discountAmount: calcResult.couponDiscount,
+              finalAmount: 0,
+              status: 'REDEEMED',
+            },
+          });
+          await tx.coupon.update({
+            where: { id: calcResult.appliedCoupon.id },
+            data: { currentUsageCount: { increment: 1 } },
+          });
+        }
+
+        try {
+          await tx.financialLedger.create({
+            data: {
+              paymentId: p.id,
+              entryType: 'CREDIT',
+              accountType: 'DISCOUNT_EXPENSE',
+              amount: calcResult?.grossAmount || 0,
+              description: `100% Fee concession/discount applied for request ${paymentRequestId}`,
+              referenceNo: transactionId,
+              createdById: userId,
+            },
+          });
+        } catch (ledgerErr) {
+          console.warn('Ledger creation warning for zero payment:', ledgerErr);
+        }
+
+        return p;
+      });
+
+      return {
+        success: true,
+        isZeroPayment: true,
+        message:
+          'Payment completed successfully (100% concession/discount applied).',
+        payment,
+        orderId,
+        amount: 0,
+        currency: 'INR',
+        receiptNumber: payment.receiptNumber,
+        invoiceNumber: payment.invoiceNumber,
+        beneficiary: calcResult?.beneficiary || 'Swayam Admission',
+        beneficiaryType: calcResult?.beneficiaryType || 'SWAYAM',
+        couponDiscount: calcResult?.couponDiscount || 0,
+        finalPayableAmount: 0,
+      };
+    }
+
+    const gateway = dto.gateway || 'razorpay';
+    const gatewayOrder = await this.gatewayService.createOrder(gateway, {
+      amount: authoritativeAmount,
+      currency: 'INR',
+      receiptId: `RCP-${Date.now()}`,
+    });
+
     const timestamp = Date.now().toString().slice(-6);
     const transactionId = `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const orderId = `ORD-${Date.now()}`;
+    const orderId = gatewayOrder.orderId || `ORD-${Date.now()}`;
     const receiptNumber = `RCP-${new Date().getFullYear()}-${timestamp}`;
     const invoiceNumber = `INV-${new Date().getFullYear()}-${timestamp}`;
 
     let collegeBankId = dto.collegeBankId;
-    if (!collegeBankId && dto.collegeId) {
+    const collegeId = calcResult?.collegeId || dto.collegeId;
+    if (!collegeBankId && collegeId) {
       const defaultBank = await this.prisma.collegeBankAccount.findFirst({
-        where: { collegeId: dto.collegeId, isActive: true },
+        where: { collegeId, isActive: true },
         orderBy: { isDefault: 'desc' },
       });
       if (defaultBank) collegeBankId = defaultBank.id;
@@ -1540,29 +1750,46 @@ export class PaymentsService {
         userId,
         studentId: userId,
         applicationId: dto.applicationId,
-        collegeId: dto.collegeId,
-        courseId: dto.courseId,
+        collegeId,
+        courseId: calcResult?.courseId || dto.courseId,
         counselorId: dto.counselorId,
         collegeBankId,
+        requestId: paymentRequestId,
         transactionId,
         orderId,
+        gatewayOrderId: gatewayOrder.orderId,
         receiptNumber,
         invoiceNumber,
-        amount: dto.amount,
-        paidAmount:
-          dto.paymentMode === 'DIRECT_COLLEGE' ? dto.paidAmount || 0 : 0,
-        pendingAmount: dto.amount,
-        paymentType: dto.paymentType || 'REGISTRATION_FEE',
+        amount: authoritativeAmount,
+        paidAmount: 0,
+        pendingAmount: authoritativeAmount,
+        discountAmount: calcResult?.discountAmount || 0,
+        scholarshipAmount: calcResult?.scholarshipAmount || 0,
+        paymentType:
+          (calcResult?.feeHead as any) ||
+          dto.paymentType ||
+          'REGISTRATION_FEE',
         paymentMethod: dto.paymentMethod || 'UPI',
-        paymentMode: dto.paymentMode || 'GATEWAY',
-        gateway:
-          dto.gateway ||
-          (dto.paymentMode === 'DIRECT_COLLEGE'
-            ? 'Direct Bank Transfer'
-            : 'Razorpay'),
+        paymentMode:
+          calcResult?.beneficiaryType === 'COLLEGE' &&
+          dto.paymentMode === 'DIRECT_COLLEGE'
+            ? 'DIRECT_COLLEGE'
+            : 'GATEWAY',
+        paymentDestination:
+          calcResult?.beneficiaryType === 'COLLEGE'
+            ? 'DIRECT_COLLEGE'
+            : 'PLATFORM',
+        gateway: 'Razorpay',
         status: PaymentStatus.PENDING,
         verificationStatus: 'PENDING',
         remarks: dto.remarks || 'Payment order generated',
+        metadata: {
+          couponCode: dto.couponCode || null,
+          couponDiscount: calcResult?.couponDiscount || 0,
+          beneficiary: calcResult?.beneficiary || 'Swayam Admission',
+          beneficiaryType: calcResult?.beneficiaryType || 'SWAYAM',
+          routingMode: calcResult?.routingMode || 'PLATFORM_GATEWAY',
+        },
       },
       include: {
         college: true,
@@ -1583,7 +1810,430 @@ export class PaymentsService {
       success: true,
       message: 'Payment order generated successfully',
       payment,
+      orderId: gatewayOrder.orderId,
+      amount: authoritativeAmount,
+      currency: 'INR',
+      keyId:
+        (gatewayOrder.metadata?.keyId as string) ||
+        process.env.RAZORPAY_KEY_ID ||
+        'rzp_test_placeholder',
+      beneficiary: calcResult?.beneficiary || 'Swayam Admission',
+      beneficiaryType: calcResult?.beneficiaryType || 'SWAYAM',
+      couponDiscount: calcResult?.couponDiscount || 0,
+      finalPayableAmount: authoritativeAmount,
     };
+  }
+
+  async verifyRazorpayPayment(
+    userId: string,
+    dto: {
+      paymentId?: string;
+      orderId?: string;
+      razorpayPaymentId: string;
+      razorpaySignature: string;
+      paymentRequestId?: string;
+    },
+  ) {
+    if (!dto.razorpayPaymentId || !dto.razorpaySignature) {
+      throw new BadRequestException(
+        'Payment ID and Signature are required for verification.',
+      );
+    }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: {
+        OR: [
+          ...(dto.paymentId ? [{ id: dto.paymentId }] : []),
+          ...(dto.orderId
+            ? [{ orderId: dto.orderId }, { gatewayOrderId: dto.orderId }]
+            : []),
+          ...(dto.paymentRequestId
+            ? [{ requestId: dto.paymentRequestId }]
+            : []),
+        ],
+      },
+      include: { request: true, college: true, application: true },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(
+        'Payment record not found for verification.',
+      );
+    }
+
+    if (payment.userId !== userId) {
+      throw new ForbiddenException(
+        'You are not authorized to verify this payment.',
+      );
+    }
+
+    const orderIdToVerify =
+      dto.orderId || payment.gatewayOrderId || payment.orderId || '';
+    const isSigValid = await this.gatewayService.verifySignature('razorpay', {
+      orderId: orderIdToVerify,
+      paymentId: dto.razorpayPaymentId,
+      signature: dto.razorpaySignature,
+    });
+
+    if (!isSigValid) {
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.FAILED,
+          remarks: 'Razorpay cryptographic signature verification failed.',
+        },
+      });
+
+      await this.audit.logAction({
+        userId,
+        action: 'PAYMENT_SIGNATURE_MISMATCH',
+        entity: 'Payment',
+        entityId: payment.id,
+        newValue: { razorpayPaymentId: dto.razorpayPaymentId },
+      });
+
+      throw new BadRequestException(
+        'Payment signature verification failed. Tampering detected.',
+      );
+    }
+
+    if (
+      payment.status === PaymentStatus.COMPLETED ||
+      payment.status === PaymentStatus.SUCCESS
+    ) {
+      return {
+        success: true,
+        status: 'COMPLETED',
+        paymentId: payment.id,
+        receiptNumber: payment.receiptNumber,
+        invoiceNumber: payment.invoiceNumber,
+        amount: payment.paidAmount || payment.amount,
+        alreadyCompleted: true,
+      };
+    }
+
+    const updatedPayment = await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const updated = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.COMPLETED,
+          paidAmount: payment.amount,
+          pendingAmount: 0,
+          paidAt: now,
+          transactionId: dto.razorpayPaymentId,
+          gatewayTransactionId: dto.razorpayPaymentId,
+          gatewaySignature: dto.razorpaySignature,
+          verificationStatus: 'VERIFIED',
+          verifiedAt: now,
+          remarks: 'Payment verified and captured via Razorpay checkout.',
+        },
+      });
+
+      if (payment.requestId) {
+        await tx.paymentRequest.update({
+          where: { id: payment.requestId },
+          data: {
+            status: 'PAID',
+            paidAmount: payment.amount,
+            dueAmount: 0,
+          },
+        });
+      }
+
+      if (payment.applicationId) {
+        await tx.application.update({
+          where: { id: payment.applicationId },
+          data: {
+            paymentStatus: PaymentStatus.COMPLETED,
+          },
+        });
+      }
+
+      try {
+        await tx.financialLedger.create({
+          data: {
+            entryType: 'CREDIT',
+            accountType:
+              payment.paymentDestination === 'PLATFORM'
+                ? 'PLATFORM_REVENUE'
+                : 'COLLEGE_ESCROW',
+            amount: payment.amount,
+            description: `Payment captured for ${payment.paymentType} via Razorpay`,
+            referenceNo: dto.razorpayPaymentId,
+            paymentId: payment.id,
+            createdById: userId,
+          },
+        });
+      } catch (ledgerErr) {
+        console.warn('Ledger notice:', ledgerErr);
+      }
+
+      return updated;
+    });
+
+    try {
+      const metadata = payment.metadata as any;
+      if (metadata?.couponCode) {
+        await this.couponService.redeemCoupon(
+          {
+            code: metadata.couponCode,
+            transactionAmount: payment.amount,
+            transactionType: 'PAYMENT',
+            applicableScope: payment.paymentType as string,
+            collegeId: payment.collegeId || undefined,
+            courseId: payment.courseId || undefined,
+          },
+          userId,
+        );
+      }
+    } catch (couponErr) {
+      console.warn('Coupon redemption notice:', couponErr);
+    }
+
+    try {
+      await this.notifications.createNotification({
+        userId,
+        type: NotificationType.PAYMENT,
+        priority: NotificationPriority.HIGH,
+        title: 'Payment Successful! 🎉',
+        message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} has been verified. Receipt: ${payment.receiptNumber || payment.id}`,
+        relatedPaymentId: payment.id,
+      });
+    } catch (notifErr) {
+      console.warn('Notification notice:', notifErr);
+    }
+
+    await this.audit.logAction({
+      userId,
+      action: 'PAYMENT_VERIFIED',
+      entity: 'Payment',
+      entityId: payment.id,
+      newValue: {
+        status: PaymentStatus.COMPLETED,
+        razorpayPaymentId: dto.razorpayPaymentId,
+      },
+    });
+
+    return {
+      success: true,
+      status: 'COMPLETED',
+      paymentId: updatedPayment.id,
+      receiptNumber: updatedPayment.receiptNumber,
+      invoiceNumber: updatedPayment.invoiceNumber,
+      amount: updatedPayment.paidAmount,
+      payment: updatedPayment,
+    };
+  }
+
+  async handleRazorpayWebhook(
+    rawBody: string,
+    payload: any,
+    signature: string,
+    eventIdHeader?: string,
+  ) {
+    const webhookSecret =
+      process.env.RAZORPAY_WEBHOOK_SECRET ||
+      'rzp_webhook_secret_swayam_admission_2026';
+
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    try {
+      const generatedBuf = Buffer.from(expectedSignature, 'utf8');
+      const signatureBuf = Buffer.from(signature, 'utf8');
+      if (
+        generatedBuf.length !== signatureBuf.length ||
+        !crypto.timingSafeEqual(generatedBuf, signatureBuf)
+      ) {
+        throw new BadRequestException(
+          'Invalid webhook signature verification failed.',
+        );
+      }
+    } catch {
+      throw new BadRequestException(
+        'Invalid webhook signature verification failed.',
+      );
+    }
+
+    const event = payload?.event;
+    const eventId =
+      eventIdHeader ||
+      payload?.id ||
+      `evt_${event}_${payload?.payload?.payment?.entity?.id || Date.now()}`;
+
+    const existingAudit = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'WEBHOOK_PROCESSED',
+        entityId: eventId,
+      },
+    });
+
+    if (existingAudit) {
+      return { status: 'already_processed', eventId };
+    }
+
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const paymentEntity = payload?.payload?.payment?.entity;
+      const orderEntity = payload?.payload?.order?.entity;
+      const orderId = paymentEntity?.order_id || orderEntity?.id;
+      const txnId = paymentEntity?.id;
+
+      if (orderId) {
+        const payment = await this.prisma.payment.findFirst({
+          where: {
+            OR: [{ orderId }, { gatewayOrderId: orderId }],
+          },
+        });
+
+        if (payment && payment.status !== PaymentStatus.COMPLETED) {
+          await this.prisma.$transaction(async (tx) => {
+            const now = new Date();
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: PaymentStatus.COMPLETED,
+                paidAmount: payment.amount,
+                pendingAmount: 0,
+                paidAt: now,
+                transactionId: txnId || payment.transactionId,
+                gatewayTransactionId: txnId,
+                verificationStatus: 'VERIFIED',
+                verifiedAt: now,
+                remarks:
+                  'Payment verified and captured via Razorpay webhook.',
+              },
+            });
+
+            if (payment.requestId) {
+              await tx.paymentRequest.update({
+                where: { id: payment.requestId },
+                data: {
+                  status: 'PAID',
+                  paidAmount: payment.amount,
+                  dueAmount: 0,
+                },
+              });
+            }
+
+            if (payment.applicationId) {
+              await tx.application.update({
+                where: { id: payment.applicationId },
+                data: {
+                  paymentStatus: PaymentStatus.COMPLETED,
+                },
+              });
+            }
+
+            try {
+              await tx.financialLedger.create({
+                data: {
+                  entryType: 'CREDIT',
+                  accountType:
+                    payment.paymentDestination === 'PLATFORM'
+                      ? 'PLATFORM_REVENUE'
+                      : 'COLLEGE_ESCROW',
+                  amount: payment.amount,
+                  description: `Payment captured via Webhook for ${payment.paymentType}`,
+                  referenceNo: txnId || orderId,
+                  paymentId: payment.id,
+                  createdById: payment.userId,
+                },
+              });
+            } catch (err) {
+              console.warn('Webhook ledger notice:', err);
+            }
+          });
+
+          try {
+            await this.notifications.createNotification({
+              userId: payment.userId,
+              type: NotificationType.PAYMENT,
+              priority: NotificationPriority.HIGH,
+              title: 'Payment Confirmed! 🎉',
+              message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} has been confirmed. Receipt: ${payment.receiptNumber || payment.id}`,
+              relatedPaymentId: payment.id,
+            });
+          } catch (notifErr) {
+            console.warn('Webhook notification notice:', notifErr);
+          }
+        }
+      }
+    } else if (event === 'payment.failed') {
+      const paymentEntity = payload?.payload?.payment?.entity;
+      const orderId = paymentEntity?.order_id;
+      if (orderId) {
+        const payment = await this.prisma.payment.findFirst({
+          where: {
+            OR: [{ orderId }, { gatewayOrderId: orderId }],
+          },
+        });
+        if (payment && payment.status === PaymentStatus.PENDING) {
+          await this.prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              status: PaymentStatus.FAILED,
+              remarks:
+                paymentEntity?.error_description ||
+                'Payment failed on provider.',
+            },
+          });
+        }
+      }
+    } else if (event === 'refund.processed') {
+      const refundEntity = payload?.payload?.refund?.entity;
+      const paymentId = refundEntity?.payment_id;
+      if (paymentId) {
+        const payment = await this.prisma.payment.findFirst({
+          where: {
+            OR: [
+              { transactionId: paymentId },
+              { gatewayTransactionId: paymentId },
+            ],
+          },
+        });
+        if (payment) {
+          const refundAmount =
+            Number(refundEntity?.amount || 0) / 100;
+          await this.prisma.$transaction(async (tx) => {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: {
+                status: PaymentStatus.REFUNDED,
+                refundAmount: refundAmount || payment.paidAmount,
+                remarks: 'Refund processed via Razorpay.',
+              },
+            });
+            await tx.financialLedger.create({
+              data: {
+                entryType: 'DEBIT',
+                accountType:
+                  payment.paymentDestination === 'PLATFORM'
+                    ? 'PLATFORM_REVENUE'
+                    : 'COLLEGE_ESCROW',
+                amount: refundAmount || payment.paidAmount,
+                description: `Refund processed for payment ${payment.id}`,
+                referenceNo: refundEntity?.id || `REF-${Date.now()}`,
+                paymentId: payment.id,
+                createdById: payment.userId,
+              },
+            });
+          });
+        }
+      }
+    }
+
+    await this.audit.logAction({
+      userName: 'SYSTEM_RAZORPAY_WEBHOOK',
+      action: 'WEBHOOK_PROCESSED',
+      entity: 'PaymentWebhook',
+      entityId: eventId,
+      newValue: { event, eventId },
+    });
+
+    return { status: 'success', event, eventId };
   }
 
   async uploadPaymentProof(

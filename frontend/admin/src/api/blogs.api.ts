@@ -116,10 +116,13 @@ export const blogsApi = {
     api.patch(`/blogs/${id}`, data),
 
   publish: (id: string) =>
-    api.patch(`/blogs/${id}`, { status: "PUBLISHED" }),
+    api.patch(`/blogs/${id}/publish`),
 
   unpublish: (id: string) =>
-    api.patch(`/blogs/${id}`, { status: "UNPUBLISHED" }),
+    api.patch(`/blogs/${id}/unpublish`),
+
+  toggleFeatured: (id: string, featured?: boolean) =>
+    api.patch(`/blogs/${id}/feature`, { featured }),
 
   delete: (id: string) =>
     api.delete(`/blogs/${id}`),

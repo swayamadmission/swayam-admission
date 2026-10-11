@@ -61,6 +61,16 @@ export default function CollegeDetailDrawer({
     },
   });
 
+  // Toggle Featured on Homepage mutation
+  const featuredMutation = useMutation({
+    mutationFn: (featured: boolean) =>
+      collegesApi.setFeaturedStatus(college!.id, featured),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_colleges"] });
+      queryClient.invalidateQueries({ queryKey: ["college_detail", college?.id] });
+    },
+  });
+
   if (!isOpen || !college) return null;
 
   const isPublished = college.status === "PUBLISHED";
@@ -174,6 +184,23 @@ export default function CollegeDetailDrawer({
                 ? "Unpublish to Draft"
                 : "Publish Live"}
             </button>
+
+            <button
+              type="button"
+              onClick={() => featuredMutation.mutate(!college.featured)}
+              disabled={featuredMutation.isPending}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                college.featured
+                  ? "bg-[#FEF3C7] text-[#D97706] border-amber-300 hover:bg-amber-100"
+                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {featuredMutation.isPending
+                ? "Updating..."
+                : college.featured
+                ? "⭐ Featured on Homepage"
+                : "☆ Feature on Homepage"}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -185,6 +212,16 @@ export default function CollegeDetailDrawer({
                 className="px-3 py-1.5 rounded-xl text-xs font-medium border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] flex items-center gap-1"
               >
                 <Globe className="w-3.5 h-3.5" /> Website
+              </a>
+            )}
+            {college.brochureUrl && (
+              <a
+                href={college.brochureUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-emerald-300 text-[#4A7B5B] bg-[#E8F3EC] hover:bg-[#d5ebd9] flex items-center gap-1"
+              >
+                <FileText className="w-3.5 h-3.5" /> Brochure
               </a>
             )}
             <button

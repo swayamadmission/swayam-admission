@@ -87,13 +87,16 @@ export class CRMSyncService {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user) return null;
 
-      const mobile = extracted.mobile || user.mobile;
+      const mobile = extracted.mobile || user.mobile || 'N/A';
       const email = extracted.email || user.email;
 
       // 1. Find or Create Lead
       let lead = await this.prisma.lead.findFirst({
         where: {
-          OR: [{ mobile }, ...(email ? [{ email }] : [])],
+          OR: [
+            ...(mobile !== 'N/A' ? [{ mobile }] : []),
+            ...(email ? [{ email }] : []),
+          ],
           isDeleted: false,
         },
       });

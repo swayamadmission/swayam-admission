@@ -7,6 +7,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { examsApi } from "../../api/exams.api";
 import { studyMaterialsApi, StudyMaterial } from "../../api/study-materials.api";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 
 import { Cpu, Stethoscope, TrendingUp, Scale } from "lucide-react";
 
@@ -70,6 +71,8 @@ const DEFAULT_DETAIL = {
 
 export default function ExamDetailPage() {
   const { slug } = useParams();
+  const { settings } = usePublicSettings();
+  const phoneNum = settings.contactNumber1 || settings.supportPhone || "6284308664";
   
   const { data: examRes, isLoading } = useQuery({
     queryKey: ["exam", slug],
@@ -486,7 +489,7 @@ export default function ExamDetailPage() {
               <Link to="/apply-now" className="w-full flex items-center justify-center gap-2 py-3 bg-[#4A7B5B] text-white rounded-xl hover:bg-[#3d6b4d] transition-colors mb-3" style={{ fontWeight: 600, fontSize: "14px" }}>
                 Apply Now <ArrowRight size={14} />
               </Link>
-              <a href="tel:+919000000000" className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors" style={{ fontSize: "13px" }}>
+              <a href={`tel:${phoneNum}`} className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors" style={{ fontSize: "13px" }}>
                 <Phone size={13} /> Free Counseling
               </a>
             </div>

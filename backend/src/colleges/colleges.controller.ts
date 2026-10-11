@@ -192,6 +192,35 @@ export class CollegesController {
   }
 
   // =========================================================================
+  // MEDIA MANAGEMENT & FILE UPLOAD
+  // =========================================================================
+
+  @Post(':id/media')
+  @UseGuards(JwtAuthGuard, PermissionGuard)
+  @Permissions('college.edit')
+  @UseInterceptors(FileInterceptor('file'))
+  uploadMedia(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('type') type: 'logo' | 'banner' | 'brochure' | 'gallery',
+    @Body('caption') caption?: string,
+    @Body('isCover') isCover?: string | boolean,
+    @CurrentUser() user?: IUser,
+  ) {
+    if (!file) {
+      throw new BadRequestException('File is required for media upload.');
+    }
+    const coverBool = isCover === true || isCover === 'true';
+    return this.collegesService.uploadMediaFile(
+      id,
+      file,
+      type,
+      { caption, isCover: coverBool },
+      user?.id,
+    );
+  }
+
+  // =========================================================================
   // GALLERY MANAGEMENT
   // =========================================================================
 

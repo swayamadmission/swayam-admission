@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { X, Sparkles, HelpCircle, Layers, Globe, FileText, Plus, Trash2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { FaqDto } from "../../api/faqs.api";
+import { collegesApi } from "../../api/colleges.api";
+import { coursesApi } from "../../api/courses.api";
+import { examsApi } from "../../api/exams.api";
+import { scholarshipsApi } from "../../api/scholarships.api";
+import { blogsApi } from "../../api/blogs.api";
+import { materialsApi } from "../../api/materials.api";
 
 interface FAQFormModalProps {
   isOpen: boolean;
@@ -30,6 +37,50 @@ export default function FAQFormModal({
   isLoading,
 }: FAQFormModalProps) {
   const [activeTab, setActiveTab] = useState<"basic" | "relations" | "seo" | "ai">("basic");
+
+  // Query connected entities for searchable selectors
+  const { data: collegesRes } = useQuery({
+    queryKey: ["admin_faq_entity_colleges"],
+    queryFn: () => collegesApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const { data: coursesRes } = useQuery({
+    queryKey: ["admin_faq_entity_courses"],
+    queryFn: () => coursesApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const { data: examsRes } = useQuery({
+    queryKey: ["admin_faq_entity_exams"],
+    queryFn: () => examsApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const { data: scholarshipsRes } = useQuery({
+    queryKey: ["admin_faq_entity_scholarships"],
+    queryFn: () => scholarshipsApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const { data: blogsRes } = useQuery({
+    queryKey: ["admin_faq_entity_blogs"],
+    queryFn: () => blogsApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const { data: materialsRes } = useQuery({
+    queryKey: ["admin_faq_entity_materials"],
+    queryFn: () => materialsApi.findAll({ limit: 100 }),
+    enabled: isOpen,
+  });
+
+  const colleges = Array.isArray(collegesRes?.data?.data) ? collegesRes.data.data : [];
+  const courses = Array.isArray(coursesRes?.data?.data) ? coursesRes.data.data : [];
+  const exams = Array.isArray(examsRes?.data?.data) ? examsRes.data.data : [];
+  const scholarships = Array.isArray(scholarshipsRes?.data?.data) ? scholarshipsRes.data.data : [];
+  const blogs = Array.isArray(blogsRes?.data?.data) ? blogsRes.data.data : [];
+  const materials = Array.isArray(materialsRes?.data?.data) ? materialsRes.data.data : [];
 
   const [form, setForm] = useState<FaqDto>({
     question: "",
@@ -104,11 +155,36 @@ export default function FAQFormModal({
     }
   }, [initialData, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(form);
+    if (!form.question.trim()) {
+      setActiveTab("basic");
+      return;
+    }
+    if (!form.answer.trim()) {
+      setActiveTab("basic");
+      return;
+    }
+
+    const cleanedPayload: FaqDto = {
+      ...form,
+      question: form.question.trim(),
+      answer: form.answer.trim(),
+      slug: form.slug?.trim() ? form.slug.trim() : undefined,
+      collegeId: form.collegeId?.trim() ? form.collegeId.trim() : undefined,
+      courseId: form.courseId?.trim() ? form.courseId.trim() : undefined,
+      examId: form.examId?.trim() ? form.examId.trim() : undefined,
+      scholarshipId: form.scholarshipId?.trim() ? form.scholarshipId.trim() : undefined,
+      blogId: form.blogId?.trim() ? form.blogId.trim() : undefined,
+      studyMaterialId: form.studyMaterialId?.trim() ? form.studyMaterialId.trim() : undefined,
+      aiSummary: form.aiSummary?.trim() ? form.aiSummary.trim() : undefined,
+      seoTitle: form.seoTitle?.trim() ? form.seoTitle.trim() : undefined,
+      seoDescription: form.seoDescription?.trim() ? form.seoDescription.trim() : undefined,
+      canonicalUrl: form.canonicalUrl?.trim() ? form.canonicalUrl.trim() : undefined,
+      metaRobots: form.metaRobots?.trim() ? form.metaRobots.trim() : undefined,
+    };
+
+    onSubmit(cleanedPayload);
   };
 
   const addTag = () => {
@@ -129,12 +205,32 @@ export default function FAQFormModal({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   const removeKeyword = (kw: string) => {
     setForm({ ...form, keywords: form.keywords?.filter((k) => k !== kw) });
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
@@ -316,6 +412,7 @@ export default function FAQFormModal({
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold"
                   >
                     <option value="PUBLISHED">Published</option>
+                    <option value="PENDING_REVIEW">Pending Review</option>
                     <option value="DRAFT">Draft</option>
                     <option value="ARCHIVED">Archived</option>
                   </select>
@@ -344,69 +441,218 @@ export default function FAQFormModal({
                   <Layers size={16} /> Knowledge Graph Entity Linking
                 </div>
                 <div className="text-blue-700 text-[11px]">
-                  Associate this FAQ with specific entity IDs across Colleges, Courses, Exams, Scholarships, Study Materials, or Blogs.
+                  Associate this FAQ with real database records across Colleges, Courses, Exams, Scholarships, Blogs, or Study Materials.
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">College ID</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. clg_xyz123"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* College Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked College</label>
+                    {form.collegeId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, collegeId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.collegeId || ""}
                     onChange={(e) => setForm({ ...form, collegeId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Course ID</label>
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No College Linked --</option>
+                    {colleges.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.city ? `(${c.city})` : ""}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="e.g. crs_abc456"
+                    placeholder="Or enter custom College ID..."
+                    value={form.collegeId || ""}
+                    onChange={(e) => setForm({ ...form, collegeId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
+                  />
+                </div>
+
+                {/* Course Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked Course</label>
+                    {form.courseId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, courseId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.courseId || ""}
                     onChange={(e) => setForm({ ...form, courseId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Exam ID</label>
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No Course Linked --</option>
+                    {courses.map((crs: any) => (
+                      <option key={crs.id} value={crs.id}>
+                        {crs.name} {crs.college?.name ? `(${crs.college.name})` : ""}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="e.g. exm_789"
+                    placeholder="Or enter custom Course ID..."
+                    value={form.courseId || ""}
+                    onChange={(e) => setForm({ ...form, courseId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
+                  />
+                </div>
+
+                {/* Exam Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked Exam</label>
+                    {form.examId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, examId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.examId || ""}
                     onChange={(e) => setForm({ ...form, examId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Scholarship ID</label>
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No Exam Linked --</option>
+                    {exams.map((ex: any) => (
+                      <option key={ex.id} value={ex.id}>
+                        {ex.examName} {ex.category ? `(${ex.category})` : ""}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="e.g. sch_111"
+                    placeholder="Or enter custom Exam ID..."
+                    value={form.examId || ""}
+                    onChange={(e) => setForm({ ...form, examId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
+                  />
+                </div>
+
+                {/* Scholarship Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked Scholarship</label>
+                    {form.scholarshipId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, scholarshipId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.scholarshipId || ""}
                     onChange={(e) => setForm({ ...form, scholarshipId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Blog ID</label>
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No Scholarship Linked --</option>
+                    {scholarships.map((sch: any) => (
+                      <option key={sch.id} value={sch.id}>
+                        {sch.scholarshipName}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="e.g. blg_222"
+                    placeholder="Or enter custom Scholarship ID..."
+                    value={form.scholarshipId || ""}
+                    onChange={(e) => setForm({ ...form, scholarshipId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
+                  />
+                </div>
+
+                {/* Blog Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked Blog</label>
+                    {form.blogId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, blogId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.blogId || ""}
                     onChange={(e) => setForm({ ...form, blogId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Study Material ID</label>
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No Blog Linked --</option>
+                    {blogs.map((b: any) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title}
+                      </option>
+                    ))}
+                  </select>
                   <input
                     type="text"
-                    placeholder="e.g. mat_333"
+                    placeholder="Or enter custom Blog ID..."
+                    value={form.blogId || ""}
+                    onChange={(e) => setForm({ ...form, blogId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
+                  />
+                </div>
+
+                {/* Study Material Selector */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block font-bold text-gray-700">Linked Study Material</label>
+                    {form.studyMaterialId && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, studyMaterialId: "" })}
+                        className="text-[10px] text-red-500 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <select
                     value={form.studyMaterialId || ""}
                     onChange={(e) => setForm({ ...form, studyMaterialId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  >
+                    <option value="">-- None / No Material Linked --</option>
+                    {materials.map((m: any) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Or enter custom Study Material ID..."
+                    value={form.studyMaterialId || ""}
+                    onChange={(e) => setForm({ ...form, studyMaterialId: e.target.value })}
+                    className="w-full px-3 py-1 bg-white border border-gray-200/80 rounded-lg text-[10px] text-gray-500 font-mono"
                   />
                 </div>
               </div>
@@ -510,11 +756,21 @@ export default function FAQFormModal({
               Cancel
             </button>
             <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                onSubmit({ ...form, status: "DRAFT" });
+              }}
+              className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
+            >
+              Save as Draft
+            </button>
+            <button
               type="submit"
               disabled={isLoading}
               className="px-6 py-2.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white text-xs font-semibold rounded-xl shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50"
             >
-              {isLoading ? "Saving..." : initialData ? "Save Changes" : "Save FAQ"}
+              {isLoading ? "Saving..." : initialData ? "Save & Apply" : "Create FAQ"}
             </button>
           </div>
         </form>

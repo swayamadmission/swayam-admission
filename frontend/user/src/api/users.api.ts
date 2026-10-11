@@ -34,13 +34,26 @@ export const usersApi = {
     api.patch("/users/me/profile", data),
 
   getShortlist: () =>
-    api.get<any[]>("/users/me/shortlist"),
+    api.get<any>("/users/me/shortlist"),
 
-  addToShortlist: (type: string, itemId: string) =>
-    api.post("/users/me/shortlist", { type, itemId }),
+  getShortlistIds: () =>
+    api.get<{ success: boolean; data: string[]; collegeIds: string[] }>("/users/me/shortlist/ids"),
+
+  addToShortlist: (typeOrCollegeId: string, itemId?: string) => {
+    const collegeId = itemId || typeOrCollegeId;
+    return api.post<{ success: boolean; saved: boolean; isSaved: boolean; message: string }>("/users/me/shortlist", {
+      collegeId,
+      itemId: collegeId,
+      type: itemId ? typeOrCollegeId : "COLLEGE",
+    });
+  },
 
   removeFromShortlist: (id: string) =>
-    api.delete(`/users/me/shortlist/${id}`),
+    api.delete<{ success: boolean; saved: boolean; isSaved: boolean; message: string }>(`/users/me/shortlist/${id}`),
+
+  toggleShortlist: (collegeId: string) =>
+    api.post<{ success: boolean; saved: boolean; isSaved: boolean; message: string }>("/users/me/shortlist/toggle", { collegeId }),
+
 
   getRecentlyViewed: () =>
     api.get<any[]>("/users/me/recently-viewed"),

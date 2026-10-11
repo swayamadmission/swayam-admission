@@ -177,8 +177,11 @@ export const studyMaterialsApi = {
       };
     }>(`/study-materials/${id}/access`),
 
-  // Purchase Order (Server authoritative pricing & coupon check)
-  createPurchaseOrder: (id: string, couponCode?: string) =>
+  createPurchaseOrder: (
+    id: string,
+    couponCode?: string,
+    acceptedPolicies?: Array<{ policyId?: string; policyType: string; policyVersion: string }>
+  ) =>
     api.post<{
       unlocked?: boolean;
       alreadyOwned?: boolean;
@@ -194,7 +197,7 @@ export const studyMaterialsApi = {
       finalAmount?: number;
       message?: string;
       materialTitle?: string;
-    }>(`/study-materials/${id}/purchase-order`, { couponCode }),
+    }>(`/study-materials/${id}/purchase-order`, { couponCode, acceptedPolicies }),
 
   // Verify Razorpay signature server-side
   verifyPurchase: (

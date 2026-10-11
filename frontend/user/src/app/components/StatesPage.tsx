@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router";
 import { Search, MapPin, GraduationCap, Users, ArrowRight, ChevronRight, TrendingUp, Building2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 
 export interface StateInfo {
   slug: string;
@@ -263,6 +264,9 @@ export default function StatesPage() {
 
   return (
     <div style={{ backgroundColor: "#F8FAFC" }}>
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="STATES_TOP" />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">

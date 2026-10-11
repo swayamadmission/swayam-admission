@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RoleStatus } from '@prisma/client';
 
 export interface EffectivePermissionsPreview {
   roleId: string;
@@ -281,7 +282,7 @@ export class RoleHierarchyService {
    */
   async getHierarchyTree() {
     const roles = await this.prisma.roleEntity.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, status: RoleStatus.ACTIVE },
       include: {
         permissions: {
           where: { allow: true },

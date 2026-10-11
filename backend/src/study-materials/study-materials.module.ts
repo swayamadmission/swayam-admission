@@ -7,6 +7,7 @@ import { LiveSyncModule } from '../events/live-sync.module';
 import { StorageModule } from '../storage/storage.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { CouponModule } from '../coupons/coupon.module';
+import { LegalModule } from '../legal/legal.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CouponModule } from '../coupons/coupon.module';
     StorageModule,
     PaymentsModule,
     CouponModule,
+    LegalModule,
   ],
   controllers: [StudyMaterialsController],
   providers: [StudyMaterialsService],

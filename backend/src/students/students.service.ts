@@ -221,8 +221,9 @@ export class StudentsService {
             select: {
               id: true,
               fullName: true,
-              email: true,
-              mobile: true,
+              designation: true,
+              qualification: true,
+              avatar: true,
             },
           },
           applications: {
@@ -329,9 +330,9 @@ export class StudentsService {
               select: {
                 id: true,
                 fullName: true,
-                email: true,
-                mobile: true,
                 avatar: true,
+                designation: true,
+                qualification: true,
               },
             },
           },
@@ -353,27 +354,40 @@ export class StudentsService {
     // Lead CRM mapping
     const lead = await this.prisma.lead.findFirst({
       where: {
-        OR: [{ mobile: user.mobile }, { email: user.email }],
+        OR: [
+          ...(user.mobile ? [{ mobile: user.mobile }] : []),
+          ...(user.email ? [{ email: user.email }] : []),
+        ],
       },
       include: {
         assignedCounselor: {
           select: {
             id: true,
             fullName: true,
-            email: true,
-            mobile: true,
             avatar: true,
+            designation: true,
+            qualification: true,
           },
         },
       },
     });
 
-    // Assigned counselor logic
-    const assignedCounselor =
+    // Assigned counselor logic with safe public staff projection
+    const rawCounselor =
       user.applications.find((a) => a.counselor)?.counselor ||
-      lead?.assignedCounselor ||
+      (lead as any)?.assignedCounselor ||
       user.assignedLeads[0]?.assignedCounselor ||
       null;
+
+    const assignedCounselor = rawCounselor
+      ? {
+          id: rawCounselor.id,
+          fullName: rawCounselor.fullName,
+          designation: (rawCounselor as any).designation || 'Senior Educational Counselor',
+          qualification: (rawCounselor as any).qualification || 'Career & Admission Guidance',
+          avatar: rawCounselor.avatar,
+        }
+      : null;
 
     const completionPercentage = this.calculateCompletion(user);
     const { stage, progress } = this.computeJourneyStage(user);
@@ -869,7 +883,7 @@ export class StudentsService {
     const counselor = studentRes.data.assignedCounselor;
 
     const assignments = await this.prisma.counselorAssignment.findMany({
-      where: { lead: { mobile: studentRes.data.mobile } },
+      where: { lead: { mobile: studentRes.data.mobile || '' } },
       include: {
         counselor: {
           select: {
@@ -1091,7 +1105,12 @@ export class StudentsService {
 
       // 3. Update Lead and Counselor Assignment history if matching lead exists
       const lead = await tx.lead.findFirst({
-        where: { OR: [{ mobile: student.mobile }, { email: student.email }] },
+        where: {
+          OR: [
+            ...(student.mobile ? [{ mobile: student.mobile }] : []),
+            ...(student.email ? [{ email: student.email }] : []),
+          ],
+        },
       });
 
       if (lead) {

@@ -12,7 +12,11 @@ import {
   List,
   Sparkles,
   ThumbsUp,
+  CheckCircle2,
+  RotateCcw,
+  Clock,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { faqsApi, FaqQueryParams, FaqDto } from "../../api/faqs.api";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -85,6 +89,33 @@ export default function FAQsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_faqs"] });
       queryClient.invalidateQueries({ queryKey: ["admin_faq_stats"] });
+      toast.success("FAQ duplicated successfully");
+    },
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: (id: string) => faqsApi.publish(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_faq_stats"] });
+      queryClient.invalidateQueries({ queryKey: ["public_faqs"] });
+      toast.success("FAQ published live!");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to publish FAQ");
+    },
+  });
+
+  const unpublishMutation = useMutation({
+    mutationFn: (id: string) => faqsApi.unpublish(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_faq_stats"] });
+      queryClient.invalidateQueries({ queryKey: ["public_faqs"] });
+      toast.success("FAQ returned to draft status.");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to unpublish FAQ");
     },
   });
 
@@ -192,6 +223,97 @@ export default function FAQsPage() {
         </div>
       </div>
 
+      {/* Workflow Tabs: All, Student Questions / FAQ Requests, Published, Drafts, Archived */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedStatus("All");
+            setPage(1);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedStatus === "All"
+              ? "bg-[#4A7B5B] text-white shadow-xs"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          All FAQs ({stats.totalFaqs})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedStatus("PENDING_REVIEW");
+            setPage(1);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
+            selectedStatus === "PENDING_REVIEW"
+              ? "bg-amber-500 text-white shadow-xs"
+              : "bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+          }`}
+        >
+          <Clock size={13} />
+          <span>Student Questions / FAQ Requests</span>
+          {stats.draftFaqs > 0 && (
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${
+                selectedStatus === "PENDING_REVIEW"
+                  ? "bg-white/25 text-white"
+                  : "bg-amber-200 text-amber-900"
+              }`}
+            >
+              Review
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedStatus("PUBLISHED");
+            setPage(1);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            selectedStatus === "PUBLISHED"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          <CheckCircle2 size={13} />
+          <span>Published ({stats.publishedFaqs})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedStatus("DRAFT");
+            setPage(1);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedStatus === "DRAFT"
+              ? "bg-slate-700 text-white shadow-xs"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Drafts
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedStatus("ARCHIVED");
+            setPage(1);
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+            selectedStatus === "ARCHIVED"
+              ? "bg-rose-600 text-white shadow-xs"
+              : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          Archived
+        </button>
+      </div>
+
       {/* Search & Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex flex-col md:flex-row gap-4 justify-between">
         <div className="flex flex-1 flex-col sm:flex-row gap-3">
@@ -242,6 +364,7 @@ export default function FAQsPage() {
           >
             <option value="All">All Statuses</option>
             <option value="PUBLISHED">Published</option>
+            <option value="PENDING_REVIEW">Pending Review</option>
             <option value="DRAFT">Draft</option>
             <option value="ARCHIVED">Archived</option>
           </select>
@@ -284,6 +407,15 @@ export default function FAQsPage() {
           <p className="text-xs text-gray-500 max-w-sm mx-auto">
             Get started by creating your first FAQ item for the platform.
           </p>
+          <button
+            onClick={() => {
+              setEditingFaq(null);
+              setIsFormOpen(true);
+            }}
+            className="mt-2 inline-flex items-center gap-2 bg-[#4A7B5B] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#3d694d] transition-colors shadow-sm"
+          >
+            <Plus size={16} /> Create FAQ
+          </button>
         </div>
       ) : viewMode === "table" ? (
         /* TABLE VIEW */
@@ -335,7 +467,11 @@ export default function FAQsPage() {
                           className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold ${
                             faq.status === "PUBLISHED"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                              : faq.status === "PENDING_REVIEW"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : faq.status === "ARCHIVED"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-slate-50 text-slate-700 border border-slate-200"
                           }`}
                         >
                           {faq.status}
@@ -349,6 +485,25 @@ export default function FAQsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {faq.status === "PUBLISHED" ? (
+                            <button
+                              onClick={() => unpublishMutation.mutate(faq.id)}
+                              title="Unpublish to Draft"
+                              disabled={unpublishMutation.isPending}
+                              className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            >
+                              <RotateCcw size={16} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => publishMutation.mutate(faq.id)}
+                              title="Publish Live"
+                              disabled={publishMutation.isPending}
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            >
+                              <CheckCircle2 size={16} />
+                            </button>
+                          )}
                           <button
                             onClick={() => setInspectFaq(faq)}
                             title="Inspect Details"
@@ -426,9 +581,24 @@ export default function FAQsPage() {
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-bold">
-                    {faq.category}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-[10px] font-bold">
+                      {faq.category}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        faq.status === "PUBLISHED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : faq.status === "PENDING_REVIEW"
+                          ? "bg-amber-50 text-amber-700"
+                          : faq.status === "ARCHIVED"
+                          ? "bg-rose-50 text-rose-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {faq.status}
+                    </span>
+                  </div>
                   <span className="text-[11px] text-gray-400">{faq.views} views</span>
                 </div>
                 <h4 className="font-bold text-gray-900 text-sm line-clamp-2">
@@ -443,7 +613,26 @@ export default function FAQsPage() {
                 <span className="text-[11px] text-emerald-600 font-bold">
                   {faq.helpfulCount || 0} helpful votes
                 </span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 items-center">
+                  {faq.status === "PUBLISHED" ? (
+                    <button
+                      onClick={() => unpublishMutation.mutate(faq.id)}
+                      title="Unpublish"
+                      disabled={unpublishMutation.isPending}
+                      className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg"
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => publishMutation.mutate(faq.id)}
+                      title="Publish"
+                      disabled={publishMutation.isPending}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                    >
+                      <CheckCircle2 size={15} />
+                    </button>
+                  )}
                   <button
                     onClick={() => setInspectFaq(faq)}
                     className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg"

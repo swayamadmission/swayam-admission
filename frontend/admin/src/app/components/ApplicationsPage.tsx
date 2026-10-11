@@ -1,13 +1,14 @@
 import { useState } from "react";
 import {
   Search, Filter, Download, CheckCircle2, Clock, XCircle, FileText, Eye,
-  ChevronRight, AlertCircle, Plus, User, Building2, ShieldAlert, ArrowRight, RotateCcw, AlertTriangle
+  ChevronRight, AlertCircle, Plus, User, Building2, ShieldAlert, ArrowRight, RotateCcw, AlertTriangle, MessageSquare
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { applicationsApi, ApplicationQueryParams } from "../../api/applications.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useLiveSync } from "../../hooks/useLiveSync";
 import ApplicationFormModal from "./ApplicationFormModal";
+import CounselorChatModal from "./CounselorChatModal";
 
 const STAGES = ["All", "SUBMITTED", "UNDER_REVIEW", "CORRECTION_REQUIRED", "APPROVED", "REJECTED"];
 
@@ -47,6 +48,7 @@ export default function ApplicationsPage() {
 
   const [reopenModalApp, setReopenModalApp] = useState<any | null>(null);
   const [reopenReason, setReopenReason] = useState("");
+  const [chatModalApp, setChatModalApp] = useState<any | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -563,6 +565,13 @@ export default function ApplicationsPage() {
                     <User size={13} /> {claimMutation.isPending ? "Claiming..." : "Claim Review Ownership"}
                   </button>
                 )}
+
+                <button
+                  onClick={() => setChatModalApp(selectedApp)}
+                  className="w-full py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <MessageSquare size={13} /> Chat with Applicant
+                </button>
               </div>
 
               {/* Structured Review Checklist */}
@@ -882,6 +891,18 @@ export default function ApplicationsPage() {
             setIsFormModalOpen(false);
             setEditingApp(null);
           }}
+        />
+      )}
+
+      {chatModalApp && (
+        <CounselorChatModal
+          isOpen={!!chatModalApp}
+          onClose={() => setChatModalApp(null)}
+          applicationId={chatModalApp.id}
+          applicationNumber={chatModalApp.applicationNumber}
+          studentName={chatModalApp.user?.fullName}
+          collegeName={chatModalApp.college?.name}
+          courseName={chatModalApp.course?.name}
         />
       )}
     </div>

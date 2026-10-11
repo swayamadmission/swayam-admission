@@ -12,7 +12,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromUrlQueryParameter('token'),
       ]),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'secret',
+      secretOrKey: process.env.JWT_SECRET || 'swayam_super_secret_key',
     });
   }
 

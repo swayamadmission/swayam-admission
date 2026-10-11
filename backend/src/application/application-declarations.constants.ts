@@ -18,24 +18,6 @@ export const CANONICAL_DECLARATIONS: CanonicalDeclaration[] = [
     version: 'v2.0',
     required: true,
   },
-  {
-    type: 'AUTHENTICITY',
-    label: 'Authenticity of Information & Documents',
-    version: 'v1.0',
-    required: true,
-  },
-  {
-    type: 'VERIFICATION_AUTH',
-    label: 'Verification & Institutional Record Check Authorization',
-    version: 'v1.0',
-    required: true,
-  },
-  {
-    type: 'COMMUNICATION_CONSENT',
-    label: 'SMS, Email & WhatsApp Counseling Updates',
-    version: 'v1.0',
-    required: false,
-  },
 ];
 
 export interface PersistedDeclarationItem {
@@ -78,9 +60,6 @@ export function normalizeDeclarations(
   privacyVersion: string;
   termsAccepted: boolean;
   termsVersion: string;
-  declarationAccepted: boolean;
-  verificationConsent: boolean;
-  communicationConsent: boolean;
   acceptedAt: string;
   acceptedBy?: string;
 } {
@@ -155,27 +134,6 @@ export function normalizeDeclarations(
   ]);
   const termsVersion = getVersion('TERMS_CONDITIONS', 'v2.0', ['termsVersion', 'termsAndConditionsVersion']);
 
-  const declarationAccepted = isAccepted('AUTHENTICITY', [
-    'declarationAccepted',
-    'studentDeclarationAccepted',
-    'authenticityAccepted',
-    'authenticity',
-  ]);
-
-  const verificationConsent = isAccepted('VERIFICATION_AUTH', [
-    'verificationConsent',
-    'verificationAccepted',
-    'verification_auth',
-    'verificationAuthConsent',
-  ]);
-
-  const communicationConsent = isAccepted('COMMUNICATION_CONSENT', [
-    'communicationConsent',
-    'communicationAccepted',
-    'communication_consent',
-    'smsWhatsappConsent',
-  ]);
-
   const normalizedItems: PersistedDeclarationItem[] = CANONICAL_DECLARATIONS.map((decl) => {
     let accepted = false;
     let version = decl.version;
@@ -188,15 +146,6 @@ export function normalizeDeclarations(
       case 'TERMS_CONDITIONS':
         accepted = termsAccepted;
         version = termsVersion;
-        break;
-      case 'AUTHENTICITY':
-        accepted = declarationAccepted;
-        break;
-      case 'VERIFICATION_AUTH':
-        accepted = verificationConsent;
-        break;
-      case 'COMMUNICATION_CONSENT':
-        accepted = communicationConsent;
         break;
     }
 
@@ -221,9 +170,6 @@ export function normalizeDeclarations(
     privacyVersion,
     termsAccepted,
     termsVersion,
-    declarationAccepted,
-    verificationConsent,
-    communicationConsent,
     acceptedAt: raw.acceptedAt || now,
     acceptedBy: actorUserId || raw.acceptedBy,
   };
@@ -284,34 +230,16 @@ export function validateCanonicalDeclarations(
         ) {
           isAccepted = true;
         }
-      } else if (canonical.type === 'AUTHENTICITY') {
-        if (
-          declObj.declarationAccepted ||
-          declObj.studentDeclarationAccepted ||
-          declObj.authenticityAccepted
-        ) {
-          isAccepted = true;
-        }
-      } else if (canonical.type === 'VERIFICATION_AUTH') {
-        if (declObj.verificationConsent || declObj.verificationAccepted) {
-          isAccepted = true;
-        }
-      } else if (canonical.type === 'COMMUNICATION_CONSENT') {
-        if (declObj.communicationConsent || declObj.communicationAccepted) {
-          isAccepted = true;
-        }
       }
     }
 
-    // Also support legacy single boolean if all top-level flags might have been marked true together
+    // Also support legacy single boolean if top-level flags were marked true
     if (
       !isAccepted &&
       appDeclarationAccepted &&
       canonical.required &&
-      declObj.declarationAccepted &&
       declObj.privacyAccepted &&
-      declObj.termsAccepted &&
-      declObj.verificationConsent
+      declObj.termsAccepted
     ) {
       isAccepted = true;
     }

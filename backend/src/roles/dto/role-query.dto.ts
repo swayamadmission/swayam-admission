@@ -29,6 +29,11 @@ export class RoleQueryDto {
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
+  includeArchived?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
   isProtected?: boolean;
 
   @IsOptional()

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthorizationService } from './authorization.service';
+import { IdGeneratorService } from '../common/id-generator.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -41,6 +42,13 @@ describe('AuthService', () => {
               isSuperAdmin: false,
               isLocked: false,
             }),
+          },
+        },
+        {
+          provide: IdGeneratorService,
+          useValue: {
+            generateStudentId: jest.fn().mockResolvedValue('STU-12345'),
+            generateRegistrationNumber: jest.fn().mockResolvedValue('REG-2026-12345'),
           },
         },
       ],

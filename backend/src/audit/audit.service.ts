@@ -114,6 +114,29 @@ export class AuditService {
       diff = this.calculateDiff(oldObj, newObj);
     }
 
+    let validUserId: string | null = null;
+    let fallbackUserName = payload.userName || 'System / Guest';
+    if (payload.userId) {
+      try {
+        const userExists = await this.prisma.user.findUnique({
+          where: { id: payload.userId },
+          select: { id: true, fullName: true, email: true },
+        });
+        if (userExists) {
+          validUserId = userExists.id;
+          if (!payload.userName && userExists.fullName) {
+            fallbackUserName = userExists.fullName;
+          }
+        } else {
+          if (!payload.userName) {
+            fallbackUserName = payload.userId;
+          }
+        }
+      } catch {
+        validUserId = null;
+      }
+    }
+
     try {
       return await this.prisma.auditLog.create({
         data: {
@@ -125,13 +148,13 @@ export class AuditService {
           entityType: payload.entityType || payload.entity || null,
           entityId: payload.entityId || null,
           entityName: payload.entityName || null,
-          userId: payload.userId || null,
+          userId: validUserId,
           roleId: payload.roleId || null,
           positionId: payload.positionId || null,
           positionCode: payload.positionCode || null,
           companyEmail: payload.companyEmail || null,
           targetUserId: payload.targetUserId || null,
-          userName: payload.userName || 'System / Guest',
+          userName: fallbackUserName,
           email: payload.email || null,
           avatar: payload.avatar || null,
           ipAddress: payload.ipAddress || '127.0.0.1',

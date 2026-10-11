@@ -77,6 +77,21 @@ export const faqsApi = {
   exportCsv: (params?: FaqQueryParams) =>
     api.get("/faqs/export", { params, responseType: "blob" }),
 
+  publish: (id: string) =>
+    api.post(`/faqs/${id}/publish`),
+
+  unpublish: (id: string) =>
+    api.post(`/faqs/${id}/unpublish`),
+
+  archive: (id: string) =>
+    api.post(`/faqs/${id}/archive`),
+
+  submitForReview: (id: string) =>
+    api.post(`/faqs/${id}/submit-review`),
+
+  answerQuestion: (id: string, data: { answer: string; submitForReview?: boolean; publishNow?: boolean }) =>
+    api.post(`/faqs/${id}/answer`, data),
+
   bulkPublish: (ids: string[]) =>
     api.post("/faqs/bulk/publish", { ids }),
 

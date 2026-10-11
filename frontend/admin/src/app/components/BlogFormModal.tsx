@@ -119,14 +119,39 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
   const [jobRoleInput, setJobRoleInput] = useState("");
   const [higherStudyInput, setHigherStudyInput] = useState("");
   const [docInput, setDocInput] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
+    setFormError(null);
     if (initialData) {
+      const clean = { ...initialData };
+      delete clean.author;
+      delete clean.college;
+      delete clean.course;
+      delete clean.exam;
+      delete clean.scholarship;
+      delete clean.StudyMaterial;
+      delete clean.revisions;
+      delete clean.FAQ;
+      delete clean.savedGuides;
+      delete clean._count;
+
       setForm({
-        ...initialData,
+        ...clean,
+        title: initialData.title || "",
+        slug: initialData.slug || "",
+        excerpt: initialData.excerpt || "",
+        content: initialData.content || "",
+        featuredImage: initialData.featuredImage || initialData.thumbnail || "",
+        thumbnail: initialData.thumbnail || initialData.featuredImage || "",
+        category: initialData.category || "Career Guides",
+        status: initialData.status || "DRAFT",
+        featured: Boolean(initialData.featured),
         guideType: initialData.guideType || "CAREER",
         educationLevel: initialData.educationLevel || "Undergraduate",
         stream: initialData.stream || "Engineering",
+        specialization: initialData.specialization || "",
+        careerPath: initialData.careerPath || "",
         skills: Array.isArray(initialData.skills) ? initialData.skills : [],
         entranceExams: Array.isArray(initialData.entranceExams) ? initialData.entranceExams : [],
         jobRoles: Array.isArray(initialData.jobRoles) ? initialData.jobRoles : [],
@@ -136,6 +161,7 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
         faqs: Array.isArray(initialData.faqs) && initialData.faqs.length > 0 ? initialData.faqs : [{ question: "", answer: "" }],
         tags: Array.isArray(initialData.tags) ? initialData.tags : [],
         seoKeywords: Array.isArray(initialData.seoKeywords) ? initialData.seoKeywords : [],
+        importantTimelines: typeof initialData.importantTimelines === "object" ? (initialData.importantTimelines?.timelines || initialData.importantTimelines?.text || JSON.stringify(initialData.importantTimelines)) : (initialData.importantTimelines || ""),
       });
     } else {
       setForm({
@@ -144,6 +170,7 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
         excerpt: "",
         content: "",
         featuredImage: "",
+        thumbnail: "",
         category: "Career Guides",
         tags: [],
         status: "DRAFT",
@@ -204,15 +231,69 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    if (!form.title || form.title.trim().length < 3) {
+      setFormError("Guide Title is required (minimum 3 characters).");
+      setActiveTab("basic");
+      return;
+    }
+
+    if (!form.content || form.content.trim().length < 10) {
+      setFormError("Main Guide Content is required (minimum 10 characters).");
+      setActiveTab("content");
+      return;
+    }
+
     const cleanTakeaways = (form.keyTakeaways || []).filter((t) => t.trim() !== "");
     const cleanFaqs = (form.faqs || []).filter((f) => f.question.trim() !== "" && f.answer.trim() !== "");
 
-    onSubmit({
+    const payload: any = {
       ...form,
+      title: form.title.trim(),
+      slug: form.slug?.trim() || undefined,
+      excerpt: form.excerpt?.trim() || undefined,
+      content: form.content.trim(),
+      featuredImage: form.featuredImage?.trim() || undefined,
+      thumbnail: form.thumbnail?.trim() || form.featuredImage?.trim() || undefined,
       keyTakeaways: cleanTakeaways,
       faqs: cleanFaqs,
       geoScore: estimatedGeoScore,
-    });
+      collegeId: form.collegeId?.trim() || undefined,
+      courseId: form.courseId?.trim() || undefined,
+      examId: form.examId?.trim() || undefined,
+      scholarshipId: form.scholarshipId?.trim() || undefined,
+      state: form.state?.trim() || undefined,
+      city: form.city?.trim() || undefined,
+      specialization: form.specialization?.trim() || undefined,
+      careerPath: form.careerPath?.trim() || undefined,
+      salaryRange: form.salaryRange?.trim() || undefined,
+      averageSalary: form.averageSalary?.trim() || undefined,
+      growthRate: form.growthRate?.trim() || undefined,
+      govPrivatePaths: form.govPrivatePaths?.trim() || undefined,
+      eligibility: form.eligibility?.trim() || undefined,
+      admissionProcess: form.admissionProcess?.trim() || undefined,
+      applicationProcess: form.applicationProcess?.trim() || undefined,
+      feesInfo: form.feesInfo?.trim() || undefined,
+      counsellingInfo: form.counsellingInfo?.trim() || undefined,
+      scholarshipInfo: form.scholarshipInfo?.trim() || undefined,
+      stateSchemesInfo: form.stateSchemesInfo?.trim() || undefined,
+      importantTimelines: form.importantTimelines?.trim() || undefined,
+      prepGuidance: form.prepGuidance?.trim() || undefined,
+    };
+
+    delete payload.author;
+    delete payload.college;
+    delete payload.course;
+    delete payload.exam;
+    delete payload.scholarship;
+    delete payload.StudyMaterial;
+    delete payload.revisions;
+    delete payload.FAQ;
+    delete payload.savedGuides;
+    delete payload._count;
+
+    onSubmit(payload);
   };
 
   const addTag = () => {
@@ -321,6 +402,15 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
 
         {/* Modal Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+          {formError && (
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold flex items-center justify-between">
+              <span>{formError}</span>
+              <button type="button" onClick={() => setFormError(null)} className="text-rose-500 hover:text-rose-700">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* TAB 1: BASIC DETAILS */}
           {activeTab === "basic" && (
             <div className="space-y-4 text-xs">
@@ -380,13 +470,27 @@ export default function BlogFormModal({ isOpen, onClose, onSubmit, initialData, 
 
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Cover / Featured Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://images.unsplash.com/photo-..."
-                  value={form.featuredImage || ""}
-                  onChange={(e) => setForm({ ...form, featuredImage: e.target.value, thumbnail: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
-                />
+                <div className="flex gap-3 items-start">
+                  <input
+                    type="url"
+                    placeholder="https://images.unsplash.com/photo-..."
+                    value={form.featuredImage || ""}
+                    onChange={(e) => setForm({ ...form, featuredImage: e.target.value, thumbnail: e.target.value })}
+                    className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"
+                  />
+                  {form.featuredImage && (
+                    <div className="w-16 h-10 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 shrink-0">
+                      <img
+                        src={form.featuredImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

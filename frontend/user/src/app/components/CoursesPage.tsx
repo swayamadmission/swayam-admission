@@ -15,6 +15,7 @@ const CATEGORIES = [
 import { useQuery } from "@tanstack/react-query";
 import { coursesApi, CourseQueryParams } from "../../api/courses.api";
 import { useDebounce } from "../../hooks/useDebounce";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 
 const FEE_RANGES = ["All Fees","Under ₹1L","₹1L–₹3L","₹3L–₹5L","Above ₹5L"];
 const DURATIONS = ["All Duration","1 Year","2 Years","3 Years","4+ Years"];
@@ -42,6 +43,9 @@ export default function CoursesPage() {
 
   return (
     <div style={{ backgroundColor: "#F8FAFC" }}>
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="COURSES_TOP" />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">

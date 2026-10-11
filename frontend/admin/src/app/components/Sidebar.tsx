@@ -3,17 +3,18 @@ import {
   LayoutDashboard, Users, UserCheck, GraduationCap, Building2, BookOpen,
   FileText, FolderOpen, Trophy, Library, Rss, Brain, Bell, BarChart3,
   Megaphone, CreditCard, Settings, Shield, Activity, ChevronLeft, ChevronRight,
-  X, LogOut, ChevronDown, Star, HelpCircle, Award, CheckCircle2, Gift, Tag, MapPin
+  X, LogOut, ChevronDown, Star, HelpCircle, Award, CheckCircle2, Gift, Tag, MapPin,
+  Headphones, Image as ImageIcon
 } from "lucide-react";
 import saLogo from "../../assets/SA_logo-removebg-preview.png";
 
 import { usePermissions } from "../../hooks/usePermissions";
 
 export type Page =
-  | "dashboard" | "leads" | "tasks" | "students" | "counselors" | "staff-onboarding" | "colleges" | "college-portal" | "courses"
+  | "dashboard" | "leads" | "tasks" | "students" | "counselors" | "staff-onboarding" | "hr" | "colleges" | "college-portal" | "courses"
   | "applications" | "reporting" | "review-moderation" | "college-rankings" | "documents" | "states" | "exams" | "scholarships" | "materials"
-  | "blogs" | "faqs" | "ai" | "notifications" | "analytics" | "marketing" | "payments" | "referrals" | "coupons" | "fee-catalog"
-  | "settings" | "rbac" | "organization" | "logs" | "support" | "help-support" | "profile";
+  | "banners" | "blogs" | "faqs" | "testimonials" | "contact-management" | "ai" | "notifications" | "analytics" | "marketing" | "payments" | "referrals" | "coupons" | "fee-catalog"
+  | "settings" | "rbac" | "organization" | "logs" | "support" | "help-support" | "profile" | "legal-policies" | "auth-otp";
 
 interface SidebarProps {
   currentPage: Page;
@@ -26,37 +27,45 @@ interface SidebarProps {
 
 const itemPermissions: Record<string, string> = {
   dashboard: "dashboard.view",
-  leads: "lead.view",
-  tasks: "lead.view",
-  students: "student.view",
-  referrals: "lead.view",
-  counselors: "counselor.view",
-  "staff-onboarding": "staff.onboard.view",
-  applications: "application.view",
-  reporting: "application.view",
-  "review-moderation": "roles.view",
-  "college-rankings": "college.view",
-  colleges: "college.view",
-  "college-portal": "college.view",
-  courses: "course.view",
-  states: "organization.view",
-  exams: "exam.view",
-  scholarships: "scholarship.view",
-  materials: "material.view",
-  blogs: "blog.view",
-  faqs: "blog.view",
-  documents: "document.view",
-  ai: "ai.view",
+  leads: "leads.view",
+  tasks: "tasks.view",
+  students: "students.view",
+  referrals: "referrals.view",
+  counselors: "counselors.view",
+  "staff-onboarding": "staff-onboarding.view",
+  hr: "hr.view",
+  applications: "applications.view",
+  reporting: "reporting.view",
+  "review-moderation": "reviews.view",
+  "college-rankings": "college-rankings.view",
+  colleges: "colleges.view",
+  "college-portal": "college-portal.view",
+  courses: "courses.view",
+  states: "states.view",
+  exams: "exams.view",
+  scholarships: "scholarships.view",
+  materials: "study-materials.view",
+  banners: "marketing.view",
+  blogs: "guides.view",
+  faqs: "faqs.view",
+  testimonials: "success-stories.view",
+  "contact-management": "contacts.view",
+  documents: "documents.view",
+  ai: "ai-counselor.view",
   analytics: "analytics.view",
   marketing: "marketing.view",
-  notifications: "notification.view",
-  payments: "payment.view",
-  coupons: "payment.view",
-  rbac: "roles.view",
+  notifications: "notifications.view",
+  payments: "payments.view",
+  "fee-catalog": "fee-catalog.view",
+  coupons: "coupons.view",
+  support: "support.view",
+  "help-support": "support.view",
   organization: "organization.view",
+  rbac: "roles.view",
   settings: "settings.view",
+  "auth-otp": "settings.view",
   logs: "logs.view",
-  support: "dashboard.view",
+  "legal-policies": "roles.view",
   profile: "dashboard.view",
 };
 
@@ -88,6 +97,7 @@ const navGroups: NavGroup[] = [
       { id: "students" as Page, label: "Students", icon: GraduationCap },
       { id: "referrals" as Page, label: "Student Referrals & Rewards", icon: Gift },
       { id: "counselors" as Page, label: "Counselors", icon: UserCheck },
+      { id: "hr" as Page, label: "HR & Recruitment", icon: Users },
       { id: "staff-onboarding" as Page, label: "Staff Onboarding & KYC", icon: Shield },
       { id: "applications" as Page, label: "Applications", icon: FileText },
       { id: "reporting" as Page, label: "Reporting & Enrollment", icon: Award },
@@ -110,8 +120,11 @@ const navGroups: NavGroup[] = [
   {
     label: "Content",
     items: [
+      { id: "banners" as Page, label: "Page Banners & Videos", icon: ImageIcon },
       { id: "blogs" as Page, label: "Career & Admission Guides / CMS", icon: Rss },
       { id: "faqs" as Page, label: "FAQs", icon: FileText },
+      { id: "testimonials" as Page, label: "Success Stories", icon: Star },
+      { id: "contact-management" as Page, label: "Contact Management", icon: Headphones },
       { id: "documents" as Page, label: "Documents", icon: FolderOpen },
     ]
   },
@@ -138,7 +151,9 @@ const navGroups: NavGroup[] = [
     items: [
       { id: "organization" as Page, label: "Organization Structure", icon: Building2 },
       { id: "rbac" as Page, label: "Roles & Permissions", icon: Shield },
+      { id: "legal-policies" as Page, label: "Legal & Policies", icon: Shield },
       { id: "settings" as Page, label: "Settings", icon: Settings },
+      { id: "auth-otp" as Page, label: "Authentication & OTP", icon: Shield },
       { id: "logs" as Page, label: "Activity Logs", icon: Activity },
     ]
   },

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -12,6 +13,7 @@ import { LiveSyncService } from '../events/live-sync.service';
 import { StorageService } from '../storage/storage.service';
 import { CouponService } from '../coupons/coupon.service';
 import { PaymentGatewayService } from '../payments/gateways/payment-gateway.service';
+import { ConsentService } from '../legal/consent.service';
 import { CreateStudyMaterialDto } from './dto/create-study-material.dto';
 import { UpdateStudyMaterialDto } from './dto/update-study-material.dto';
 import { StudyMaterialQueryDto } from './dto/study-material-query.dto';
@@ -30,6 +32,8 @@ export class StudyMaterialsService {
     private readonly storage: StorageService,
     private readonly couponService: CouponService,
     private readonly paymentGatewayService: PaymentGatewayService,
+    @Optional()
+    private readonly consentService?: ConsentService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -963,16 +967,27 @@ export class StudyMaterialsService {
   }
 
   async getFeatured(limit = 8) {
-    const data = await this.prisma.studyMaterial.findMany({
+    const rawData = await this.prisma.studyMaterial.findMany({
       where: { status: 'PUBLISHED', featured: true },
-      orderBy: { downloadCount: 'desc' },
-      take: limit,
+      orderBy: [{ downloadCount: 'desc' }, { createdAt: 'desc' }],
+      take: limit * 2,
       include: {
         course: { select: { id: true, name: true } },
         college: { select: { id: true, name: true } },
         exam: { select: { id: true, examName: true } },
       },
     });
+
+    const seenTitles = new Set<string>();
+    const data = rawData
+      .filter((item) => {
+        const normalized = item.title.trim().toLowerCase();
+        if (seenTitles.has(normalized)) return false;
+        seenTitles.add(normalized);
+        return true;
+      })
+      .slice(0, limit);
+
     return { data, total: data.length };
   }
 
@@ -1174,6 +1189,16 @@ startxref
   }
 
   async getDownloadFile(id: string, userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (user && user.role === 'STUDENT' && !user.phoneVerified) {
+      throw new ForbiddenException({
+        code: 'MOBILE_VERIFICATION_REQUIRED',
+        message: 'Please verify your mobile number before downloading study materials.',
+      });
+    }
+
     const material = await this.prisma.studyMaterial.findUnique({
       where: { id },
     });
@@ -1292,7 +1317,23 @@ startxref
   // PURCHASE ORDER CREATION (Server authoritative pricing & coupon check)
   // ─────────────────────────────────────────────────────────────────────────
 
-  async createPurchaseOrder(id: string, userId: string, couponCode?: string) {
+  async createPurchaseOrder(
+    id: string,
+    userId: string,
+    couponCode?: string,
+    acceptedPolicies?: any[],
+    ipAddress?: string,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (user && user.role === 'STUDENT' && !user.phoneVerified) {
+      throw new ForbiddenException({
+        code: 'MOBILE_VERIFICATION_REQUIRED',
+        message: 'Please verify your mobile number before purchasing study materials.',
+      });
+    }
+
     const material = await this.prisma.studyMaterial.findUnique({
       where: { id },
     });
@@ -1303,6 +1344,31 @@ startxref
       throw new BadRequestException(
         'This material is free and does not require purchase.',
       );
+    }
+
+    // Authoritative Action-Based Legal Consent (Requirement 13 & 19)
+    let purchasePolicies = acceptedPolicies;
+    if (this.consentService) {
+      if (!purchasePolicies || purchasePolicies.length === 0) {
+        const smReqs = await this.consentService.getActionRequirements('STUDY_MATERIAL_PURCHASE');
+        purchasePolicies = smReqs.policies.map((p) => ({
+          policyId: p.id,
+          policyType: p.policyType,
+          policyVersion: p.version,
+        }));
+      }
+
+      const smConsentValidation = await this.consentService.validateActionConsent(
+        'STUDY_MATERIAL_PURCHASE',
+        purchasePolicies,
+      );
+      if (!smConsentValidation.isValid) {
+        throw new BadRequestException({
+          code: 'STUDY_MATERIAL_CONSENT_REQUIRED',
+          message: `Premium study material purchase requires accepting mandatory policies: ${smConsentValidation.missingPolicies.join(', ')}`,
+          missing: smConsentValidation.missingPolicies,
+        });
+      }
     }
 
     // Check if student already has active purchase
@@ -1405,6 +1471,19 @@ startxref
         }
       }
 
+      if (this.consentService && purchasePolicies && purchasePolicies.length > 0) {
+        await this.consentService.recordConsent(
+          userId,
+          {
+            actionContext: 'STUDY_MATERIAL_PURCHASE',
+            purchaseId: payment.id,
+            paymentId: payment.id,
+            acceptedPolicies: purchasePolicies,
+          },
+          { ipAddress },
+        );
+      }
+
       this.liveSync.publishEvent('material.purchased', {
         materialId: material.id,
         userId,
@@ -1460,6 +1539,19 @@ startxref
         },
       },
     });
+
+    if (this.consentService && purchasePolicies && purchasePolicies.length > 0) {
+      await this.consentService.recordConsent(
+        userId,
+        {
+          actionContext: 'STUDY_MATERIAL_PURCHASE',
+          purchaseId: payment.id,
+          paymentId: payment.id,
+          acceptedPolicies: purchasePolicies,
+        },
+        { ipAddress },
+      );
+    }
 
     return {
       orderId: gatewayOrder.orderId,

@@ -426,12 +426,14 @@ export class StudyMaterialsController {
   createPurchaseOrder(
     @Param('id') id: string,
     @Request() req: { user: { id: string } },
-    @Body() body: { couponCode?: string },
+    @Body() body: { couponCode?: string; acceptedPolicies?: any[] },
   ) {
     return this.studyMaterialsService.createPurchaseOrder(
       id,
       req.user.id,
       body?.couponCode,
+      body?.acceptedPolicies,
+      (req as any)?.ip,
     );
   }
 

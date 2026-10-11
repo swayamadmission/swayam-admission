@@ -17,6 +17,8 @@ import {
   Phone,
   MapPin,
   Sparkles,
+  Upload,
+  Download,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi, College, CollegeGallery } from "../../../api/colleges.api";
@@ -72,6 +74,7 @@ export const PartnerProfileManager: React.FC<PartnerProfileManagerProps> = ({ co
         fullDescription: college.fullDescription || college.description || "",
         logo: college.logo || "",
         banner: college.banner || "",
+        brochureUrl: college.brochureUrl || "",
         establishedYear: college.establishedYear,
         ownership: college.ownership || "PRIVATE",
         type: college.type || "ENGINEERING",
@@ -132,6 +135,40 @@ export const PartnerProfileManager: React.FC<PartnerProfileManagerProps> = ({ co
 
   const handleFieldChange = (field: keyof College, val: any) => {
     setFormData((prev) => ({ ...prev, [field]: val }));
+  };
+
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+
+  const handleMediaUpload = async (
+    file: File,
+    type: "logo" | "banner" | "brochure" | "gallery",
+  ) => {
+    if (!collegeId) return;
+    try {
+      setUploadingField(type);
+      const res = await collegesApi.uploadMedia(collegeId, file, type);
+      if (res.data?.url) {
+        if (type === "logo") handleFieldChange("logo", res.data.url);
+        if (type === "banner") handleFieldChange("banner", res.data.url);
+        if (type === "brochure") handleFieldChange("brochureUrl", res.data.url);
+        if (type === "gallery") {
+          setGalleryList((prev) => [
+            ...prev,
+            {
+              imageUrl: res.data.url,
+              caption: file.name.replace(/\.[^/.]+$/, ""),
+              isCover: false,
+              sortOrder: prev.length,
+            },
+          ]);
+        }
+        showNotification("success", `${type.charAt(0).toUpperCase() + type.slice(1)} uploaded and synchronized successfully!`);
+      }
+    } catch (err: any) {
+      showNotification("error", err?.response?.data?.message || err.message || "Failed to upload file");
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   const handleSave = () => {
@@ -331,25 +368,108 @@ export const PartnerProfileManager: React.FC<PartnerProfileManagerProps> = ({ co
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#475569] mb-1">Logo URL</label>
-              <input
-                type="text"
-                value={formData.logo || ""}
-                onChange={(e) => handleFieldChange("logo", e.target.value)}
-                placeholder="https://..."
-                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#4A7B5B]"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-[#475569]">Logo URL</label>
+                <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                  <Upload className="w-3 h-3" />
+                  {uploadingField === "logo" ? "Uploading..." : "Upload / Replace"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingField === "logo"}
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "logo");
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={formData.logo || ""}
+                  onChange={(e) => handleFieldChange("logo", e.target.value)}
+                  placeholder="https://..."
+                  className="flex-1 h-9 px-3 rounded-xl border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#4A7B5B]"
+                />
+                {formData.logo && (
+                  <div className="w-9 h-9 rounded-xl bg-slate-50 border border-gray-200 p-1 shrink-0 overflow-hidden flex items-center justify-center">
+                    <img src={formData.logo} alt="Logo" className="w-full h-full object-contain" />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#475569] mb-1">Cover / Banner Image URL</label>
-              <input
-                type="text"
-                value={formData.banner || ""}
-                onChange={(e) => handleFieldChange("banner", e.target.value)}
-                placeholder="https://..."
-                className="w-full h-9 px-3 rounded-xl border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#4A7B5B]"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-[#475569]">Brochure URL</label>
+                <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                  <Upload className="w-3 h-3" />
+                  {uploadingField === "brochure" ? "Uploading..." : "Upload / Replace"}
+                  <input
+                    type="file"
+                    accept=".pdf,image/*"
+                    disabled={uploadingField === "brochure"}
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "brochure");
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={formData.brochureUrl || ""}
+                  onChange={(e) => handleFieldChange("brochureUrl", e.target.value)}
+                  placeholder="https://.../brochure.pdf"
+                  className="flex-1 h-9 px-3 rounded-xl border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#4A7B5B]"
+                />
+                {formData.brochureUrl && (
+                  <a
+                    href={formData.brochureUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-9 px-2.5 rounded-xl border border-[#A7D7B5] bg-[#E8F3EC] text-[#4A7B5B] flex items-center gap-1 text-xs font-bold hover:bg-[#d5ebd9] shrink-0"
+                    title="View Stored Brochure"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> View
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-[#475569]">Cover / Banner Image URL</label>
+                <label className="cursor-pointer text-[11px] font-bold text-[#4A7B5B] hover:underline flex items-center gap-1">
+                  <Upload className="w-3 h-3" />
+                  {uploadingField === "banner" ? "Uploading..." : "Upload / Replace Banner"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingField === "banner"}
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "banner");
+                    }}
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={formData.banner || ""}
+                  onChange={(e) => handleFieldChange("banner", e.target.value)}
+                  placeholder="https://..."
+                  className="flex-1 h-9 px-3 rounded-xl border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#4A7B5B]"
+                />
+                {formData.banner && (
+                  <div className="w-16 h-9 rounded-xl bg-slate-50 border border-gray-200 overflow-hidden shrink-0">
+                    <img src={formData.banner} alt="Banner" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -862,6 +982,19 @@ export const PartnerProfileManager: React.FC<PartnerProfileManagerProps> = ({ co
                 Cover Photo
               </label>
             </div>
+            <label className="h-8 px-3 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-[#E2E8F0] hover:bg-gray-50 flex items-center gap-1 shadow-xs shrink-0 cursor-pointer">
+              <Upload className="w-3.5 h-3.5" />
+              {uploadingField === "gallery" ? "Uploading..." : "Upload File"}
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingField === "gallery"}
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleMediaUpload(e.target.files[0], "gallery");
+                }}
+              />
+            </label>
             <button
               type="button"
               onClick={handleAddGalleryImage}

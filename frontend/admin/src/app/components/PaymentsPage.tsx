@@ -67,7 +67,7 @@ export default function PaymentsPage() {
     lateFeeAmount: "",
     dueDate: "",
     expiryDate: "",
-    paymentDestination: "PLATFORM",
+    paymentDestination: "",
     assignedReviewerId: "",
     remarks: "",
   });
@@ -362,7 +362,7 @@ export default function PaymentsPage() {
         lateFeeAmount: "",
         dueDate: "",
         expiryDate: "",
-        paymentDestination: "PLATFORM",
+        paymentDestination: "",
         assignedReviewerId: "",
         remarks: "",
       });
@@ -1197,18 +1197,18 @@ export default function PaymentsPage() {
                         </td>
 
                         <td className="px-5 py-3.5">
-                          {item.proofDocument ? (
+                          {(item.proofDocument || item.paymentProofUrl) ? (
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => setPreviewImageUrl(item.proofDocument)}
+                                onClick={() => setPreviewImageUrl(item.proofDocument || item.paymentProofUrl)}
                                 className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 hover:opacity-80 transition-opacity"
                               >
-                                <img src={item.proofDocument} alt="Proof" className="w-full h-full object-cover" />
+                                <img src={item.proofDocument || item.paymentProofUrl} alt="Proof" className="w-full h-full object-cover" />
                               </button>
                               <div>
                                 <span className="text-[10px] text-slate-400 block font-mono">UTR: {item.utrNumber || "N/A"}</span>
                                 <button
-                                  onClick={() => setPreviewImageUrl(item.proofDocument)}
+                                  onClick={() => setPreviewImageUrl(item.proofDocument || item.paymentProofUrl)}
                                   className="text-[11px] text-blue-600 font-bold hover:underline flex items-center gap-1"
                                 >
                                   <ImageIcon size={12} /> View Proof
@@ -1925,13 +1925,23 @@ export default function PaymentsPage() {
                   }
 
                   createRequestMutation.mutate({
-                    ...newRequestForm,
+                    studentId: newRequestForm.studentId,
+                    collegeId: newRequestForm.collegeId,
+                    applicationId: newRequestForm.applicationId || undefined,
+                    courseId: newRequestForm.courseId || undefined,
+                    feeHead: newRequestForm.feeHead,
                     totalAmount: calcGross,
                     requestedAmount: calcFinal,
+                    discountType: newRequestForm.discountType,
+                    discountValue: calcDiscVal,
                     discountAmount: calcDiscAmt,
                     scholarshipAmount: calcSch,
                     lateFeeAmount: calcLate,
                     finalPayableAmount: calcFinal,
+                    dueDate: newRequestForm.dueDate,
+                    expiryDate: newRequestForm.expiryDate || undefined,
+                    assignedReviewerId: newRequestForm.assignedReviewerId || undefined,
+                    remarks: newRequestForm.remarks || undefined,
                   });
                 }}
                 className="p-6 space-y-4 overflow-y-auto flex-1 text-xs"
@@ -2123,6 +2133,31 @@ export default function PaymentsPage() {
                     <div className="flex justify-between text-xs text-amber-400">
                       <span>Late Fee Component</span>
                       <span className="font-bold">+ ₹{calcLate.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {/* Live Resolved Beneficiary Preview */}
+                  {newRequestForm.collegeId && (
+                    <div className="flex justify-between items-center text-xs pt-1.5 border-t border-slate-800 text-slate-300">
+                      <span>Payment Beneficiary</span>
+                      <span className="font-semibold text-emerald-300">
+                        {(() => {
+                          const selCol = colleges.find((c: any) => c.id === newRequestForm.collegeId);
+                          const isCollegeFee = [
+                            "SEMESTER_FEE",
+                            "ADMISSION_FEE",
+                            "HOSTEL_FEE",
+                            "SECURITY_DEPOSIT",
+                            "TUITION_FEE",
+                          ].includes(newRequestForm.feeHead);
+                          if (
+                            selCol?.paymentMode === "DIRECT_COLLEGE" ||
+                            (selCol?.paymentMode !== "PLATFORM" && isCollegeFee)
+                          ) {
+                            return `${selCol?.name || "College"} (Direct College Bank)`;
+                          }
+                          return "Swayam Admission (Platform Gateway)";
+                        })()}
+                      </span>
                     </div>
                   )}
                   <div className="pt-2 border-t border-slate-800 flex justify-between items-center">

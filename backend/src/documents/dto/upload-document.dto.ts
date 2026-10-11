@@ -21,4 +21,10 @@ export class UploadDocumentDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  consentAccepted?: boolean | string;
+
+  @IsOptional()
+  acceptedPolicies?: any;
 }

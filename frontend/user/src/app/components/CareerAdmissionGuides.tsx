@@ -34,6 +34,8 @@ import { blogsApi, GuideItem, PublicBlogQueryParams } from "../../api/blogs.api"
 import { useDebounce } from "../../hooks/useDebounce";
 import { useAuth } from "../../context/AuthContext";
 import { useUserLiveSync } from "../../hooks/useUserLiveSync";
+import { toast } from "sonner";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 
 const EDUCATION_LEVELS = [
   "All",
@@ -144,7 +146,7 @@ export default function CareerAdmissionGuides() {
 
   // Saved Guide ID Set for quick O(1) lookup
   const savedGuideIds = useMemo(() => {
-    const list = savedRes?.data || [];
+    const list = Array.isArray(savedRes?.data) ? savedRes.data : [];
     return new Set(list.map((g: GuideItem) => g.id));
   }, [savedRes]);
 
@@ -153,6 +155,10 @@ export default function CareerAdmissionGuides() {
     mutationFn: (guideId: string) => blogsApi.saveGuide(guideId, studentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved_guides"] });
+      toast.success("Guide saved to your bookmarks");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to save guide");
     },
   });
 
@@ -160,12 +166,19 @@ export default function CareerAdmissionGuides() {
     mutationFn: (guideId: string) => blogsApi.unsaveGuide(guideId, studentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["saved_guides"] });
+      toast.success("Guide removed from your bookmarks");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to remove saved guide");
     },
   });
 
   const handleToggleSave = (e: React.MouseEvent, guide: GuideItem) => {
     e.stopPropagation();
-    if (!studentId) return;
+    if (!studentId) {
+      toast.error("Please log in to bookmark guides to your profile");
+      return;
+    }
     if (savedGuideIds.has(guide.id)) {
       unsaveMutation.mutate(guide.id);
     } else {
@@ -185,12 +198,12 @@ export default function CareerAdmissionGuides() {
   // Extract Guides list based on active tab
   const activeGuidesList: GuideItem[] = useMemo(() => {
     if (activeTab === "recommended") {
-      return recommendedRes?.data || [];
+      return Array.isArray(recommendedRes?.data) ? recommendedRes.data : [];
     }
     if (activeTab === "saved") {
-      return savedRes?.data || [];
+      return Array.isArray(savedRes?.data) ? savedRes.data : [];
     }
-    return guidesRes?.data?.data || [];
+    return Array.isArray(guidesRes?.data?.data) ? guidesRes.data.data : [];
   }, [activeTab, recommendedRes, savedRes, guidesRes]);
 
   const hasActiveFilters =
@@ -232,7 +245,7 @@ export default function CareerAdmissionGuides() {
             { id: "career", label: "Career Guides", icon: Compass },
             { id: "admission", label: "Admission Guides", icon: BookOpen },
             { id: "recommended", label: "Recommended for You", icon: Sparkles },
-            { id: "saved", label: `Saved (${savedRes?.data?.length || 0})`, icon: Bookmark },
+            { id: "saved", label: `Saved (${Array.isArray(savedRes?.data) ? savedRes.data.length : 0})`, icon: Bookmark },
           ].map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -254,6 +267,9 @@ export default function CareerAdmissionGuides() {
         </div>
       </div>
 
+      {/* Banner Slot */}
+      <PageBannerSlider slot="DASHBOARD_GUIDES" variant="wide" containerClassName="w-full my-4" />
+
       {/* ── COUNSELOR GUIDANCE BANNER ───────────────────────────────────── */}
       {counselorRes?.data?.hasCounselor && counselorRes.data.counselor && (
         <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -270,9 +286,14 @@ export default function CareerAdmissionGuides() {
                   Your Assigned Counselor
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {counselorRes.data.counselor.designation || "Senior Academic Counselor"}
-                {counselorRes.data.counselor.email && ` • ${counselorRes.data.counselor.email}`}
+              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                <span>{counselorRes.data.counselor.designation || "Senior Educational Counselor"}</span>
+                {(counselorRes.data.counselor as any).qualification && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span>{(counselorRes.data.counselor as any).qualification}</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -474,7 +495,7 @@ export default function CareerAdmissionGuides() {
                 : "Try adjusting your search criteria or resetting filters to browse all published guidance."}
             </p>
           </div>
-          {activeTab === "recommended" && (
+          {(activeTab === "recommended" || activeTab === "saved") && (
             <button
               onClick={() => setActiveTab("career")}
               className="px-6 py-2.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white text-xs font-bold rounded-xl shadow-sm transition-all"

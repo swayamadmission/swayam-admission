@@ -3,13 +3,22 @@ import { useQuery } from "@tanstack/react-query";
 import { settingsApi } from "../api/settings.api";
 import { Wrench } from "lucide-react";
 
-interface PublicSettings {
+export interface PublicSettings {
   platformName?: string;
+  brandName?: string;
   tagline?: string;
+  mainTagline?: string;
+  brandPromise?: string;
+  primaryAudience?: string;
   websiteUrl?: string;
+  generalEmail?: string;
+  admissionEmail?: string;
   supportEmail?: string;
   supportPhone?: string;
+  contactNumber1?: string;
+  contactNumber2?: string;
   whatsappPhone?: string;
+  whatsappNumber?: string;
   companyName?: string;
   address?: string;
   logo?: string;
@@ -20,6 +29,18 @@ interface PublicSettings {
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
   featureFlags?: Record<string, boolean>;
+  social?: {
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
+    linkedin?: string;
+    x?: string;
+    github?: string;
+    reddit?: string;
+    telegram?: string;
+    discord?: string;
+    handle?: string;
+  };
   seo?: {
     metaTitle?: string;
     metaDescription?: string;
@@ -43,14 +64,20 @@ export function PublicSettingsProvider({ children }: { children: ReactNode }) {
   const settings: PublicSettings = res?.data || {};
 
   useEffect(() => {
+    const brand = settings.brandName || settings.platformName || "Swayam Admission";
+    const tagline = settings.mainTagline || settings.tagline || "India Ka Mission Swayam Admission";
+
     if (settings.seo?.metaTitle) {
       document.title = settings.seo.metaTitle;
-    } else if (settings.platformName) {
-      document.title = `${settings.platformName} | ${settings.tagline || ''}`;
+    } else {
+      document.title = `${brand} | ${tagline}`;
     }
 
     if (settings.primaryColor) {
       document.documentElement.style.setProperty("--primary-color", settings.primaryColor);
+    }
+    if (settings.accentColor) {
+      document.documentElement.style.setProperty("--accent-color", settings.accentColor);
     }
   }, [settings]);
 

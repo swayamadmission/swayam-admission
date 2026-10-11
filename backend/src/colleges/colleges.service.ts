@@ -9,6 +9,9 @@ import { UpdateCollegeDto } from './dto/update-college.dto';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { AuditService } from '../audit/audit.service';
 import { Prisma } from '@prisma/client';
+import { join, extname } from 'path';
+import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class CollegesService {
@@ -174,7 +177,7 @@ export class CollegesService {
         where: whereClause,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: featured ? [{ featured: 'desc' }, { createdAt: 'desc' }] : { createdAt: 'desc' },
         include: {
           stateRelation: { select: { id: true, name: true, code: true } },
           districtRelation: { select: { id: true, name: true, code: true } },
@@ -264,6 +267,7 @@ export class CollegesService {
     if (dto.fullDescription !== undefined) data.fullDescription = dto.fullDescription;
     if (dto.logo !== undefined) data.logo = dto.logo;
     if (dto.banner !== undefined) data.banner = dto.banner;
+    if (dto.brochureUrl !== undefined) data.brochureUrl = dto.brochureUrl;
     if (dto.establishedYear !== undefined) data.establishedYear = dto.establishedYear;
     if (dto.ownership !== undefined) data.ownership = dto.ownership;
     if (dto.type !== undefined) data.type = dto.type;
@@ -565,6 +569,132 @@ export class CollegesService {
   }
 
   // =========================================================================
+  // MEDIA MANAGEMENT & FILE UPLOAD
+  // =========================================================================
+
+  async uploadMediaFile(
+    collegeId: string,
+    file: Express.Multer.File,
+    type: 'logo' | 'banner' | 'brochure' | 'gallery',
+    extra?: { caption?: string; isCover?: boolean; sortOrder?: number },
+    userId?: string,
+  ) {
+    const college = await this.prisma.college.findUnique({
+      where: { id: collegeId },
+    });
+    if (!college) {
+      throw new NotFoundException(`College with id ${collegeId} not found`);
+    }
+
+    if (!file || !file.buffer) {
+      throw new BadRequestException('File is required for media upload.');
+    }
+
+    const ext = extname(file.originalname).toLowerCase();
+    const allowedImages = ['.jpg', '.jpeg', '.png', '.webp', '.svg'];
+    const allowedDocs = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
+
+    if (type === 'brochure') {
+      if (!allowedDocs.includes(ext)) {
+        throw new BadRequestException(
+          `Invalid brochure file type (${ext}). Only PDF, JPG, PNG, and WEBP files are allowed.`,
+        );
+      }
+      if (file.size > 25 * 1024 * 1024) {
+        throw new BadRequestException('Brochure file cannot exceed 25MB.');
+      }
+    } else {
+      if (!allowedImages.includes(ext)) {
+        throw new BadRequestException(
+          `Invalid image file type (${ext}). Only JPG, PNG, WEBP, and SVG files are allowed.`,
+        );
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        throw new BadRequestException('Media image cannot exceed 10MB.');
+      }
+    }
+
+    // Target upload directory
+    const targetFolder = type === 'gallery' ? 'gallery' : `${type}s`;
+    const uploadDir = join(process.cwd(), 'uploads', 'colleges', targetFolder);
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const safeFileName = `${collegeId}-${type}-${Date.now()}-${randomUUID().substring(0, 8)}${ext}`;
+    const filePath = join(uploadDir, safeFileName);
+    fs.writeFileSync(filePath, file.buffer);
+
+    const publicUrl = `/uploads/colleges/${targetFolder}/${safeFileName}`;
+
+    if (type === 'logo') {
+      if (college.logo) {
+        this.cleanupLocalFile(college.logo);
+      }
+      const updated = await this.prisma.college.update({
+        where: { id: collegeId },
+        data: { logo: publicUrl },
+      });
+      return { success: true, type, url: publicUrl, college: updated };
+    } else if (type === 'banner') {
+      if (college.banner) {
+        this.cleanupLocalFile(college.banner);
+      }
+      const updated = await this.prisma.college.update({
+        where: { id: collegeId },
+        data: { banner: publicUrl },
+      });
+      return { success: true, type, url: publicUrl, college: updated };
+    } else if (type === 'brochure') {
+      if (college.brochureUrl) {
+        this.cleanupLocalFile(college.brochureUrl);
+      }
+      const updated = await this.prisma.college.update({
+        where: { id: collegeId },
+        data: { brochureUrl: publicUrl },
+      });
+      return { success: true, type, url: publicUrl, college: updated };
+    } else if (type === 'gallery') {
+      const isCover = extra?.isCover ?? false;
+      if (isCover) {
+        await this.prisma.collegeGallery.updateMany({
+          where: { collegeId, isCover: true },
+          data: { isCover: false },
+        });
+      }
+      const galleryItem = await this.prisma.collegeGallery.create({
+        data: {
+          collegeId,
+          imageUrl: publicUrl,
+          caption: extra?.caption || `${college.name} Campus View`,
+          sortOrder: extra?.sortOrder ?? 0,
+          isCover,
+        },
+      });
+      return { success: true, type, url: publicUrl, galleryItem };
+    }
+
+    throw new BadRequestException('Unknown media type.');
+  }
+
+  private cleanupLocalFile(relativeOrAbsoluteUrl?: string | null) {
+    if (!relativeOrAbsoluteUrl) return;
+    try {
+      if (relativeOrAbsoluteUrl.startsWith('/uploads/colleges/')) {
+        const localPath = join(
+          process.cwd(),
+          relativeOrAbsoluteUrl.replace(/^\//, ''),
+        );
+        if (fs.existsSync(localPath)) {
+          fs.unlinkSync(localPath);
+        }
+      }
+    } catch {
+      // Silently catch cleanup errors
+    }
+  }
+
+  // =========================================================================
   // GALLERY MANAGEMENT
   // =========================================================================
 
@@ -628,6 +758,8 @@ export class CollegesService {
     if (!existing || existing.collegeId !== collegeId) {
       throw new NotFoundException(`Gallery image not found`);
     }
+
+    this.cleanupLocalFile(existing.imageUrl);
 
     return this.prisma.collegeGallery.delete({
       where: { id: imageId },

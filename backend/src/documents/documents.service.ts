@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DataScopeService } from '../auth/data-scope.service';
@@ -17,6 +18,7 @@ import { RequestCorrectionDto } from './dto/request-correction.dto';
 import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ConsentService } from '../legal/consent.service';
 import * as crypto from 'crypto';
 
 export interface DocumentMasterConfig {
@@ -241,6 +243,8 @@ export class DocumentsService {
     private watermarkService: DocumentWatermarkService,
     private auditService: DocumentAuditService,
     private retentionService: DocumentRetentionService,
+    @Optional()
+    private consentService?: ConsentService,
   ) {}
 
   /**
@@ -298,6 +302,43 @@ export class DocumentsService {
     const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (file.mimetype && !allowedMimes.includes(file.mimetype)) {
       throw new BadRequestException('Only PDF, JPG, JPEG, and PNG files are allowed.');
+    }
+
+    // Authoritative Action-Based Consent validation (Requirement 9 & 19)
+    let uploadPolicies: any[] = [];
+    if (dto.acceptedPolicies) {
+      if (typeof dto.acceptedPolicies === 'string') {
+        try {
+          uploadPolicies = JSON.parse(dto.acceptedPolicies);
+        } catch {
+          uploadPolicies = [];
+        }
+      } else if (Array.isArray(dto.acceptedPolicies)) {
+        uploadPolicies = dto.acceptedPolicies;
+      }
+    }
+
+    if (this.consentService) {
+      if ((!uploadPolicies || uploadPolicies.length === 0) && (dto.consentAccepted === true || dto.consentAccepted === 'true')) {
+        const docReqs = await this.consentService.getActionRequirements('DOCUMENT_UPLOAD');
+        uploadPolicies = docReqs.policies.map((p) => ({
+          policyId: p.id,
+          policyType: p.policyType,
+          policyVersion: p.version,
+        }));
+      }
+
+      const docConsentValidation = await this.consentService.validateActionConsent(
+        'DOCUMENT_UPLOAD',
+        uploadPolicies,
+      );
+      if (!docConsentValidation.isValid) {
+        throw new BadRequestException({
+          code: 'DOCUMENT_CONSENT_REQUIRED',
+          message: `Document upload requires acknowledging mandatory data processing consent: ${docConsentValidation.missingPolicies.join(', ')}`,
+          missing: docConsentValidation.missingPolicies,
+        });
+      }
     }
 
     // Store in Private Protected Vault
@@ -380,6 +421,19 @@ export class DocumentsService {
         actionBy: userId,
       },
     });
+
+    if (this.consentService && uploadPolicies && uploadPolicies.length > 0) {
+      await this.consentService.recordConsent(
+        userId,
+        {
+          actionContext: 'DOCUMENT_UPLOAD',
+          documentId: doc.id,
+          applicationId: doc.applicationId || undefined,
+          acceptedPolicies: uploadPolicies,
+        },
+        { ipAddress, userAgent },
+      );
+    }
 
     // Create Immutable Audit Log
     await this.auditService.logAccess({

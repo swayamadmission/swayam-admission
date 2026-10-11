@@ -5,6 +5,7 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { NotificationPriority } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { DataScopeService } from '../auth/data-scope.service';
@@ -22,7 +23,10 @@ export class LeadRoutingService {
   /**
    * Validate if a staff member is operationally active and eligible for lead queue assignment
    */
-  private async validateStaffEligibility(userId: string): Promise<{
+  private async validateStaffEligibility(
+    userId: string,
+    allowCounselorRole = false,
+  ): Promise<{
     user: any;
     activePositionId: string | null;
     activePositionCode: string | null;
@@ -39,6 +43,7 @@ export class LeadRoutingService {
           where: { status: 'ACTIVE', endedAt: null },
           include: { position: true },
         },
+        counselorProfile: true,
       },
     });
 
@@ -55,6 +60,21 @@ export class LeadRoutingService {
     const isLocked = user.userRoles.some((ur) => ur.role.status === 'LOCKED');
     if (isLocked) {
       this.logger.warn(`Staff member ${user.fullName} (${userId}) has a locked role`);
+      return { user: null, activePositionId: null, activePositionCode: null };
+    }
+
+    // Authoritative role eligibility check
+    const isEligibleSenior = this.isEligibleSeniorCounselor(user);
+    const isEligibleBackupCounselor =
+      allowCounselorRole &&
+      (isEligibleSenior ||
+        user.role === 'COUNSELOR' ||
+        user.counselorProfile?.employmentStatus === 'ACTIVE');
+
+    if (!isEligibleSenior && !isEligibleBackupCounselor) {
+      this.logger.warn(
+        `Staff member ${user.fullName} (${userId}) is not eligible for role assignment (allowCounselorRole=${allowCounselorRole})`,
+      );
       return { user: null, activePositionId: null, activePositionCode: null };
     }
 
@@ -99,11 +119,44 @@ export class LeadRoutingService {
       throw new NotFoundException(`Lead with ID "${leadId}" not found`);
     }
 
-    const stateId = lead.stateId;
-    const districtId = lead.districtId;
+    let stateId = lead.stateId;
+    let districtId = lead.districtId;
 
+    // 1. Resolve State ID if missing but state name exists
+    if (!stateId && lead.state) {
+      const stateObj = await this.prisma.state.findFirst({
+        where: { name: { equals: lead.state.trim(), mode: 'insensitive' } },
+      });
+      if (stateObj) {
+        stateId = stateObj.id;
+        await this.prisma.lead.update({
+          where: { id: lead.id },
+          data: { stateId: stateObj.id, state: stateObj.name },
+        });
+      }
+    }
+
+    // 2. Resolve District ID if missing but district/city name exists
+    if (stateId && !districtId && (lead.district || lead.city)) {
+      const targetDistName = (lead.district || lead.city || '').trim();
+      const districtObj = await this.prisma.district.findFirst({
+        where: {
+          stateId,
+          name: { equals: targetDistName, mode: 'insensitive' },
+        },
+      });
+      if (districtObj) {
+        districtId = districtObj.id;
+        await this.prisma.lead.update({
+          where: { id: lead.id },
+          data: { districtId: districtObj.id, district: districtObj.name },
+        });
+      }
+    }
+
+    // Validate State existence
     if (!stateId) {
-      const reason = 'Lead geography lacks State ID';
+      const reason = `Invalid State/District: State "${lead.state || 'Unknown'}" not found in database or missing`;
       await this.flagRoutingException(lead.id, reason);
       return {
         success: false,
@@ -115,14 +168,33 @@ export class LeadRoutingService {
       };
     }
 
+    // Validate District belongs to State if districtId is set
+    if (districtId) {
+      const districtRec = await this.prisma.district.findUnique({
+        where: { id: districtId },
+      });
+      if (!districtRec || districtRec.stateId !== stateId) {
+        const reason = `Invalid State/District: District "${lead.district || districtId}" does not belong to State "${lead.state || stateId}"`;
+        await this.flagRoutingException(lead.id, reason);
+        return {
+          success: false,
+          leadId,
+          assignedSeniorCounselorId: null,
+          assignedPositionId: null,
+          isRoutingException: true,
+          reason,
+        };
+      }
+    }
+
     const now = new Date();
 
-    // 1. Check District-level Responsibility Assignment
+    // 3. Check District-level Responsibility Assignment (supports one senior counselor -> multiple districts)
     let assignment: any = null;
     let ruleUsed = 'DISTRICT_LEVEL';
 
     if (districtId) {
-      assignment = await this.prisma.geographicAssignment.findFirst({
+      const districtAssignments = await this.prisma.geographicAssignment.findMany({
         where: {
           stateId,
           districtId,
@@ -136,12 +208,29 @@ export class LeadRoutingService {
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      if (districtAssignments.length > 1) {
+        const reason = `Conflicting geographic responsibility mappings (${districtAssignments.length} active mappings) found for State "${lead.state || stateId}" / District "${lead.district || districtId}"`;
+        await this.flagRoutingException(lead.id, reason);
+        return {
+          success: false,
+          leadId,
+          assignedSeniorCounselorId: null,
+          assignedPositionId: null,
+          isRoutingException: true,
+          reason,
+        };
+      }
+
+      if (districtAssignments.length === 1) {
+        assignment = districtAssignments[0];
+      }
     }
 
-    // 2. Fallback to State-wide Responsibility Assignment if no district assignment found
+    // 4. Fallback to State-wide Responsibility Assignment if no district assignment found
     if (!assignment) {
       ruleUsed = 'STATE_WIDE_FALLBACK';
-      assignment = await this.prisma.geographicAssignment.findFirst({
+      const stateAssignments = await this.prisma.geographicAssignment.findMany({
         where: {
           stateId,
           districtId: null,
@@ -155,6 +244,23 @@ export class LeadRoutingService {
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      if (stateAssignments.length > 1) {
+        const reason = `Conflicting state-wide geographic responsibility mappings (${stateAssignments.length} active mappings) found for State "${lead.state || stateId}"`;
+        await this.flagRoutingException(lead.id, reason);
+        return {
+          success: false,
+          leadId,
+          assignedSeniorCounselorId: null,
+          assignedPositionId: null,
+          isRoutingException: true,
+          reason,
+        };
+      }
+
+      if (stateAssignments.length === 1) {
+        assignment = stateAssignments[0];
+      }
     }
 
     if (!assignment) {
@@ -170,14 +276,14 @@ export class LeadRoutingService {
       };
     }
 
-    // 3. Evaluate Primary Senior Counselor
+    // 5. Evaluate Primary Senior Counselor
     let selectedUserId: string | null = null;
     let selectedPositionId: string | null = null;
     let selectedPositionCode: string | null = null;
     let assignmentTypeReason = '';
 
     if (assignment.responsibleUserId) {
-      const primaryRes = await this.validateStaffEligibility(assignment.responsibleUserId);
+      const primaryRes = await this.validateStaffEligibility(assignment.responsibleUserId, false);
       if (primaryRes.user) {
         selectedUserId = primaryRes.user.id;
         selectedPositionId = primaryRes.activePositionId;
@@ -189,9 +295,9 @@ export class LeadRoutingService {
       }
     }
 
-    // 4. Evaluate Backup Senior Counselor if Primary is inactive or unavailable
+    // 6. Evaluate Backup Senior Counselor/Counselor if Primary is inactive or unavailable
     if (!selectedUserId && assignment.backupUserId) {
-      const backupRes = await this.validateStaffEligibility(assignment.backupUserId);
+      const backupRes = await this.validateStaffEligibility(assignment.backupUserId, true);
       if (backupRes.user) {
         selectedUserId = backupRes.user.id;
         selectedPositionId = backupRes.activePositionId;
@@ -200,9 +306,11 @@ export class LeadRoutingService {
       }
     }
 
-    // 5. If neither Primary nor Backup is active -> Flag Routing Exception
+    // 7. If neither Primary nor Backup is active -> Flag Routing Exception
     if (!selectedUserId) {
-      const reason = `Configured Senior Counselors for ${lead.state || 'State'} / ${lead.district || 'District'} are currently inactive or vacant`;
+      const reason = !assignment.responsibleUserId && !assignment.backupUserId
+        ? `No Senior Counselor assigned in geographic responsibility mapping for ${lead.state || 'State'} / ${lead.district || 'District'}`
+        : `Configured Senior Counselors for ${lead.state || 'State'} / ${lead.district || 'District'} are currently inactive or vacant`;
       await this.flagRoutingException(lead.id, reason);
       return {
         success: false,
@@ -214,7 +322,7 @@ export class LeadRoutingService {
       };
     }
 
-    // 6. Execute Routing Assignment Transaction
+    // 8. Execute Routing Assignment Transaction
     return this.prisma.$transaction(async (tx) => {
       // End previous active Senior Counselor LeadAssignments
       await tx.leadAssignment.updateMany({
@@ -297,12 +405,41 @@ export class LeadRoutingService {
             title: 'New Student Inquiry Routed',
             message: `New inquiry from ${lead.fullName} (${lead.state || ''}${lead.district ? ' • ' + lead.district : ''}) for ${lead.preferredCourse || 'Course'} has been routed to your queue.`,
             type: 'SYSTEM',
-            priority: 'HIGH',
+            priority: NotificationPriority.HIGH,
             category: 'LEAD',
           },
         });
       } catch (err: any) {
         this.logger.warn(`Failed to dispatch in-app notification for lead ${lead.id}: ${err.message}`);
+      }
+
+      // Notify Student if matching student user account exists
+      try {
+        const studentUser = await tx.user.findFirst({
+          where: {
+            OR: [
+              ...(lead.mobile ? [{ mobile: lead.mobile }] : []),
+              ...(lead.email ? [{ email: lead.email }] : []),
+            ],
+          },
+          select: { id: true },
+        });
+
+        if (studentUser) {
+          await tx.notification.create({
+            data: {
+              userId: studentUser.id,
+              receiverId: studentUser.id,
+              title: 'Counseling & Admission Support Assigned',
+              message: `Your counseling request has been assigned to our regional academic team (${updatedLead.assignedSeniorCounselor?.fullName || 'Senior Counselor'}). An advisor will review your profile shortly.`,
+              type: 'SYSTEM',
+              priority: NotificationPriority.MEDIUM,
+              category: 'LEAD',
+            },
+          });
+        }
+      } catch (studentNotifErr: any) {
+        this.logger.warn(`Failed to dispatch student notification for lead ${lead.id}: ${studentNotifErr.message}`);
       }
 
       return {

@@ -8,6 +8,11 @@ export interface PublicFaqQueryParams {
   featured?: boolean;
 }
 
+export interface FaqCategoryCount {
+  category: string;
+  count: number;
+}
+
 export const faqsApi = {
   findPublic: (params?: PublicFaqQueryParams) =>
     api.get("/faqs/public", { params }),
@@ -16,7 +21,7 @@ export const faqsApi = {
     api.get(`/faqs/slug/${slug}`),
 
   getCategories: () =>
-    api.get("/faqs/categories"),
+    api.get<FaqCategoryCount[]>("/faqs/categories"),
 
   getPopular: (limit?: number) =>
     api.get("/faqs/popular", { params: { limit } }),
@@ -32,4 +37,25 @@ export const faqsApi = {
 
   markNotHelpful: (slug: string) =>
     api.post(`/faqs/slug/${slug}/not-helpful`),
+
+  recordView: (slug: string) =>
+    api.post<{ success: boolean; views: number }>(`/faqs/slug/${slug}/view`),
+
+  askQuestion: (data: { question: string; category: string; additionalDetails?: string }) =>
+    api.post<{ success: boolean; message: string; data: any }>("/faqs/questions/ask", data),
+
+  getMyQuestions: () =>
+    api.get<
+      Array<{
+        id: string;
+        question: string;
+        answer?: string | null;
+        category: string;
+        status: string;
+        slug: string;
+        createdAt: string;
+        updatedAt: string;
+      }>
+    >("/faqs/questions/my"),
 };
+

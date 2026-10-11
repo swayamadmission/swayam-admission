@@ -5,10 +5,25 @@ export interface RoleQueryParams {
   department?: string;
   isActive?: boolean;
   status?: string;
+  includeArchived?: boolean;
   isProtected?: boolean;
   isSystem?: boolean;
   page?: number;
   limit?: number;
+}
+
+export interface FormOptionsResponse {
+  departments: Array<{ id?: string; name: string; code?: string }>;
+  parentRoles: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    level: number;
+    department?: string;
+    isProtected: boolean;
+    parentRoleId?: string | null;
+  }>;
+  levels: Array<{ level: number; label: string }>;
 }
 
 export interface CreateRoleDto {
@@ -69,6 +84,8 @@ export const rolesApi = {
 
   getPermissions: () => api.get("/roles/permissions/all"),
 
+  getFormOptions: () => api.get<FormOptionsResponse>("/roles/form-options"),
+
   getGovernanceRequests: (status?: string) =>
     api.get("/roles/governance/requests", { params: { status } }),
 
@@ -114,11 +131,19 @@ export const rolesApi = {
   archiveRole: (id: string, reason?: string) =>
     api.post(`/roles/${id}/archive`, { reason }),
 
+  restoreRole: (id: string) => api.post(`/roles/${id}/restore`),
+
   assignUser: (id: string, userId: string) =>
     api.post(`/roles/${id}/users`, { userId }),
 
   removeUser: (id: string, userId: string) =>
     api.delete(`/roles/${id}/users/${userId}`),
 
-  deleteRole: (id: string) => api.delete(`/roles/${id}`),
+  getUsers: (params?: { q?: string; limit?: number; role?: string }) =>
+    api.get("/users", { params }),
+
+  deleteRole: (id: string, options?: { permanent?: boolean }) =>
+    api.delete(`/roles/${id}`, {
+      params: options?.permanent ? { permanent: true } : undefined,
+    }),
 };

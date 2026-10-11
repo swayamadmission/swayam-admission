@@ -237,9 +237,9 @@ function parseQueryFilters(query: CourseQueryDto) {
     state: query.state,
     status: query.status,
     featured:
-      query.featured === 'true'
+      query.featured === 'true' || (query.featured as any) === true
         ? true
-        : query.featured === 'false'
+        : query.featured === 'false' || (query.featured as any) === false
           ? false
           : undefined,
     educationLevel: query.educationLevel,

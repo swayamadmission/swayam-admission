@@ -61,6 +61,12 @@ export class RolesController {
     return this.rolesService.getPermissions();
   }
 
+  @Get('form-options')
+  @Permissions('roles.view')
+  getFormOptions() {
+    return this.rolesService.getFormOptions();
+  }
+
   // ─── Governance 2-Person Approval Endpoints ───────────────────
 
   @Get('governance/requests')
@@ -170,6 +176,12 @@ export class RolesController {
     return this.rolesService.enableRole(id, user?.id);
   }
 
+  @Post(':id/restore')
+  @Permissions('roles.enable')
+  restore(@Param('id') id: string, @CurrentUser() user: any) {
+    return this.rolesService.restoreRole(id, user?.id);
+  }
+
   @Post(':id/lock')
   @Permissions('roles.lock')
   lock(
@@ -218,7 +230,12 @@ export class RolesController {
 
   @Delete(':id')
   @Permissions('roles.delete')
-  remove(@Param('id') id: string, @CurrentUser() user: any) {
-    return this.rolesService.deleteRole(id, user?.id);
+  remove(
+    @Param('id') id: string,
+    @Query('permanent') permanent: string,
+    @CurrentUser() user: any,
+  ) {
+    const isPermanent = permanent === 'true' || permanent === '1';
+    return this.rolesService.deleteRole(id, user?.id, isPermanent);
   }
 }

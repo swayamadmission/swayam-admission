@@ -53,6 +53,7 @@ import {
   SecuritySetting,
   SEOSetting,
 } from "../../api/settings.api";
+import BrandContactManager from "./BrandContactManager";
 
 interface CategoryTab {
   id: string;
@@ -64,6 +65,7 @@ interface CategoryTab {
 
 const CATEGORY_TABS: CategoryTab[] = [
   { id: "all", label: "All Configurations", icon: Sliders },
+  { id: "brand_contact", label: "Brand, Contact & Social", icon: Palette },
   { id: "COUNSELING", label: "CRM & Counseling", category: "COUNSELING", icon: Briefcase },
   { id: "TASKS_SLA", label: "Tasks & SLAs", category: "TASKS_SLA", icon: Clock },
   { id: "ADMISSIONS", label: "Admissions Workflow", category: "ADMISSIONS", icon: GraduationCap },
@@ -118,7 +120,7 @@ export default function SettingsPage() {
     queryKey: ["admin_system_configurations", activeCategoryTab, selectedScope, scopeIdInput, searchQuery],
     queryFn: () =>
       settingsApi.queryConfigurations({
-        category: activeCategoryTab !== "all" && activeCategoryTab !== "approvals" && activeCategoryTab !== "telemetry" && activeCategoryTab !== "legacy"
+        category: activeCategoryTab !== "all" && activeCategoryTab !== "approvals" && activeCategoryTab !== "telemetry" && activeCategoryTab !== "legacy" && activeCategoryTab !== "brand_contact"
           ? activeCategoryTab
           : undefined,
         scope: selectedScope,
@@ -712,8 +714,13 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* 4. CANONICAL CONFIGURATIONS LIST */}
-            {activeCategoryTab !== "approvals" && activeCategoryTab !== "telemetry" && activeCategoryTab !== "legacy" && (
+            {/* 4. BRAND, CONTACT & SOCIAL MASTER SETTINGS */}
+            {activeCategoryTab === "brand_contact" && (
+              <BrandContactManager triggerNotice={triggerNotice} />
+            )}
+
+            {/* 5. CANONICAL CONFIGURATIONS LIST */}
+            {activeCategoryTab !== "approvals" && activeCategoryTab !== "telemetry" && activeCategoryTab !== "legacy" && activeCategoryTab !== "brand_contact" && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-[#4A7B5B]">

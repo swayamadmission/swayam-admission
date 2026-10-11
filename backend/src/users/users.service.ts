@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Role } from '@prisma/client';
@@ -91,6 +91,9 @@ export class UsersService {
 
     return {
       ...userWithoutPassword,
+      mobileVerified: !!user.phoneVerified,
+      phoneVerified: !!user.phoneVerified,
+      emailVerified: !!user.emailVerified,
       roles: iamAccess.roles,
       effectivePermissions: iamAccess.effectivePermissions,
       dataScopes: iamAccess.dataScopes,
@@ -118,6 +121,84 @@ export class UsersService {
     if (dto.city) userUpdate.city = dto.city;
     if (dto.address) userUpdate.address = dto.address;
     if (dto.pincode) userUpdate.pincode = dto.pincode;
+
+    // Email update & verification status reset
+    if (dto.email !== undefined && dto.email !== null) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      if (cleanEmail) {
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(cleanEmail)) {
+          throw new BadRequestException('Please enter a valid email address.');
+        }
+        const domain = cleanEmail.split('@')[1];
+        const DISPOSABLE_DOMAINS = new Set([
+          'mailinator.com',
+          'tempmail.com',
+          '10minutemail.com',
+          'guerrillamail.com',
+          'yopmail.com',
+          'sharklasers.com',
+          'dispostable.com',
+          'trashmail.com',
+          'getairmail.com',
+          'mytemp.email',
+          'temp-mail.org',
+          'fakeinbox.com',
+          'throwawaymail.com',
+        ]);
+        if (DISPOSABLE_DOMAINS.has(domain)) {
+          throw new BadRequestException(
+            'Disposable or temporary email domains are not permitted. Please use your personal or official email.',
+          );
+        }
+        if (cleanEmail !== user.email) {
+          const conflict = await this.prisma.user.findFirst({
+            where: {
+              id: { not: userId },
+              OR: [{ email: cleanEmail }, { personalEmail: cleanEmail }],
+            },
+          });
+          if (conflict) {
+            throw new BadRequestException(
+              'Email address is already registered with another account.',
+            );
+          }
+          userUpdate.email = cleanEmail;
+          userUpdate.personalEmail = cleanEmail;
+          userUpdate.emailVerified = false;
+          userUpdate.emailVerifiedAt = null;
+        }
+      }
+    }
+
+    // Mobile update
+    if (dto.mobile !== undefined && dto.mobile !== null) {
+      const cleaned = dto.mobile.replace(/[^\d+]/g, '');
+      let digits = cleaned.replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);
+      else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+      if (digits.length !== 10 || !/^[6-9]\d{9}$/.test(digits)) {
+        throw new BadRequestException(
+          'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).',
+        );
+      }
+      const canonicalMobile = `+91${digits}`;
+      if (canonicalMobile !== user.mobile) {
+        const conflict = await this.prisma.user.findFirst({
+          where: {
+            id: { not: userId },
+            OR: [{ mobile: canonicalMobile }, { personalMobile: canonicalMobile }],
+          },
+        });
+        if (conflict) {
+          throw new BadRequestException(
+            'Mobile number is already registered with another account.',
+          );
+        }
+        userUpdate.mobile = canonicalMobile;
+        userUpdate.personalMobile = canonicalMobile;
+      }
+    }
 
     // Merge preferences
     if (dto.preferences) {
@@ -214,7 +295,7 @@ export class UsersService {
       await this.prisma.lead.updateMany({
         where: {
           OR: [
-            { mobile: user.mobile },
+            ...(user.mobile ? [{ mobile: user.mobile }] : []),
             ...(user.email ? [{ email: user.email }] : []),
           ],
         },
@@ -333,5 +414,247 @@ export class UsersService {
 
     const { password, ...userWithoutPassword } = updated;
     return userWithoutPassword;
+  }
+
+  async getShortlist(userId: string) {
+    const savedItems = await this.prisma.savedItem.findMany({
+      where: {
+        userId,
+        itemType: 'COLLEGE',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (savedItems.length === 0) {
+      return {
+        success: true,
+        count: 0,
+        data: [],
+      };
+    }
+
+    const collegeIds = savedItems.map((item) => item.itemId);
+    const colleges = await this.prisma.college.findMany({
+      where: {
+        id: { in: collegeIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+        banner: true,
+        city: true,
+        state: true,
+        ownership: true,
+        type: true,
+        rating: true,
+        ranking: true,
+        gallery: {
+          select: { imageUrl: true },
+          take: 1,
+        },
+        courses: {
+          select: {
+            id: true,
+            name: true,
+            totalFees: true,
+            duration: true,
+          },
+          take: 4,
+        },
+      },
+    });
+
+    const collegeMap = new Map(colleges.map((c) => [c.id, c]));
+
+    const formattedList = savedItems
+      .map((item) => {
+        const college = collegeMap.get(item.itemId);
+        if (!college) return null;
+
+        const minFee = college.courses?.reduce((min, c) => {
+          return c.totalFees && c.totalFees < min ? c.totalFees : min;
+        }, Infinity);
+
+        return {
+          id: item.id,
+          userId: item.userId,
+          collegeId: college.id,
+          createdAt: item.createdAt,
+          savedAt: item.createdAt,
+          college: {
+            ...college,
+            img: college.banner || college.gallery?.[0]?.imageUrl || college.logo,
+            bannerImg: college.banner || college.gallery?.[0]?.imageUrl || college.logo,
+            coursesCount: college.courses?.length || 0,
+            totalFees: minFee !== Infinity ? minFee : 120000,
+          },
+        };
+      })
+      .filter(Boolean);
+
+    return {
+      success: true,
+      count: formattedList.length,
+      data: formattedList,
+    };
+  }
+
+  async getShortlistIds(userId: string) {
+    const savedItems = await this.prisma.savedItem.findMany({
+      where: {
+        userId,
+        itemType: 'COLLEGE',
+      },
+      select: { itemId: true },
+    });
+
+    const ids = savedItems.map((item) => item.itemId);
+    return {
+      success: true,
+      data: ids,
+      collegeIds: ids,
+    };
+  }
+
+  async addToShortlist(userId: string, collegeId: string) {
+    if (!collegeId) {
+      throw new BadRequestException('College ID is required');
+    }
+
+    const college = await this.prisma.college.findUnique({
+      where: { id: collegeId },
+      select: { id: true, name: true },
+    });
+
+    if (!college) {
+      throw new NotFoundException('College not found');
+    }
+
+    const existing = await this.prisma.savedItem.findUnique({
+      where: {
+        userId_itemType_itemId: {
+          userId,
+          itemType: 'COLLEGE',
+          itemId: college.id,
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        success: true,
+        message: 'College is already in your shortlist',
+        saved: true,
+        isSaved: true,
+        alreadySaved: true,
+        data: existing,
+      };
+    }
+
+    const saved = await this.prisma.savedItem.create({
+      data: {
+        userId,
+        itemType: 'COLLEGE',
+        itemId: college.id,
+      },
+    });
+
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          module: 'COLLEGE_SHORTLIST',
+          action: 'COLLEGE_SAVED',
+          description: `Student saved college: ${college.name}`,
+          userId,
+          entityType: 'COLLEGE',
+          entityId: college.id,
+          entityName: college.name,
+        },
+      });
+    } catch {}
+
+    return {
+      success: true,
+      message: 'College saved successfully',
+      saved: true,
+      isSaved: true,
+      alreadySaved: false,
+      data: saved,
+    };
+  }
+
+  async removeFromShortlist(userId: string, idOrCollegeId: string) {
+    if (!idOrCollegeId) {
+      throw new BadRequestException('ID or College ID is required');
+    }
+
+    const result = await this.prisma.savedItem.deleteMany({
+      where: {
+        userId,
+        itemType: 'COLLEGE',
+        OR: [
+          { id: idOrCollegeId },
+          { itemId: idOrCollegeId },
+        ],
+      },
+    });
+
+    try {
+      await this.prisma.collegeShortlist.updateMany({
+        where: {
+          studentId: userId,
+          collegeId: idOrCollegeId,
+          status: 'SHORTLISTED',
+        },
+        data: {
+          status: 'REMOVED',
+        },
+      });
+    } catch {}
+
+    return {
+      success: true,
+      message: 'College removed from saved list',
+      saved: false,
+      isSaved: false,
+      removed: result.count > 0,
+      count: result.count,
+    };
+  }
+
+  async toggleShortlist(userId: string, collegeId: string) {
+    if (!collegeId) {
+      throw new BadRequestException('College ID is required');
+    }
+
+    const existing = await this.prisma.savedItem.findUnique({
+      where: {
+        userId_itemType_itemId: {
+          userId,
+          itemType: 'COLLEGE',
+          itemId: collegeId,
+        },
+      },
+    });
+
+    if (existing) {
+      await this.removeFromShortlist(userId, collegeId);
+      return {
+        success: true,
+        saved: false,
+        isSaved: false,
+        message: 'College removed from saved list',
+      };
+    } else {
+      await this.addToShortlist(userId, collegeId);
+      return {
+        success: true,
+        saved: true,
+        isSaved: true,
+        message: 'College saved successfully',
+      };
+    }
   }
 }

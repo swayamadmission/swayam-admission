@@ -5,6 +5,7 @@ import {
   Cpu, TrendingUp, Stethoscope, Scale, GraduationCap, BookOpen,
   Star, Bell, ChevronRight, Filter
 } from "lucide-react";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 
 export interface Exam {
   slug: string;
@@ -85,6 +86,9 @@ export default function ExamsPage() {
 
   return (
     <div style={{ backgroundColor: "#F8FAFC" }}>
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="EXAMS_TOP" />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">

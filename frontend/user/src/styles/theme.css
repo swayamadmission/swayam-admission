@@ -190,3 +190,71 @@
     }
   }
 }
+
+/* ========================================================================== */
+/* STANDALONE OFFICIAL RECEIPT PRINT ISOLATION                                */
+/* Ensures only .receipt-print-area is printed, hiding all other webpage UI  */
+/* ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide entire page DOM by default */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Make ONLY .receipt-print-area and all its children visible */
+  .receipt-print-area,
+  .receipt-print-area * {
+    visibility: visible !important;
+  }
+
+  /* Position .receipt-print-area cleanly at the top of the printed document */
+  .receipt-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 1.5px solid #0f172a !important;
+    border-radius: 12px !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    z-index: 9999999 !important;
+  }
+
+  /* Guarantee removal of navigation, footer, floating buttons, action controls */
+  nav,
+  header,
+  footer,
+  aside,
+  button,
+  .no-print,
+  [data-no-print="true"],
+  .floating-buttons,
+  .fixed:not(.receipt-print-area-wrapper) {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+

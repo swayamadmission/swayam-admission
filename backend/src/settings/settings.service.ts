@@ -12,6 +12,7 @@ import { UpdateNotificationSettingDto } from './dto/update-notification-setting.
 import { UpdateIntegrationSettingDto } from './dto/update-integration-setting.dto';
 import { UpdateSecuritySettingDto } from './dto/update-security-setting.dto';
 import { UpdateSEOSettingDto } from './dto/update-seo-setting.dto';
+import { UpdateBrandContactSettingDto } from './dto/update-brand-contact-setting.dto';
 import * as os from 'os';
 
 @Injectable()
@@ -278,11 +279,23 @@ export class SettingsService implements OnModuleInit {
 
     return {
       platformName: system?.platformName || 'Swayam Admission',
-      tagline: system?.tagline || 'Swayam Admission jo dein Desh ki Shiksha.',
-      websiteUrl: system?.websiteUrl || 'https://swayamadmission.in',
-      supportEmail: system?.supportEmail || 'support@swayamadmission.in',
-      supportPhone: system?.supportPhone || '+91 1800 000 0000',
-      whatsappPhone: system?.whatsappPhone || '+91 9876543210',
+      brandName: system?.platformName || 'Swayam Admission',
+      tagline: system?.tagline || 'India Ka Mission Swayam Admission',
+      mainTagline: system?.tagline || 'India Ka Mission Swayam Admission',
+      brandPromise: system?.brandPromise || 'Your Trusted Education Partner',
+      primaryAudience:
+        system?.primaryAudience ||
+        'Students seeking admission guidance across India.',
+      websiteUrl: system?.websiteUrl || 'https://www.swayamadmission.com/',
+      generalEmail: system?.generalEmail || 'swayamadmissions@gmail.com',
+      admissionEmail:
+        system?.admissionEmail || 'getadmission@swayamadmission.com',
+      supportEmail: system?.supportEmail || 'support@swayamadmision.com',
+      supportPhone: system?.supportPhone || '6284308664',
+      contactNumber1: system?.supportPhone || '6284308664',
+      contactNumber2: system?.contactNumber2 || '6399102731',
+      whatsappPhone: system?.whatsappPhone || '6284308664',
+      whatsappNumber: system?.whatsappPhone || '6284308664',
       companyName: system?.companyName || 'Swayam Admission Pvt Ltd',
       address: system?.address || 'New Delhi, India',
       timezone: system?.timezone || 'IST (Asia/Kolkata)',
@@ -304,13 +317,45 @@ export class SettingsService implements OnModuleInit {
       typography: branding?.typography || 'Inter, sans-serif',
       borderRadius: branding?.borderRadius || '12px',
 
+      // Social Media Links (Safe public URLs, empty string for unconfigured links)
+      social: {
+        instagram:
+          system?.instagramUrl ||
+          'https://www.instagram.com/swayamadmission',
+        facebook:
+          system?.facebookUrl ||
+          'https://www.facebook.com/swayamadmission',
+        youtube:
+          system?.youtubeUrl ||
+          'https://www.youtube.com/@swayamadmission',
+        linkedin:
+          system?.linkedinUrl ||
+          'https://www.linkedin.com/company/swayamadmission',
+        x: system?.xUrl || 'https://x.com/swayamadmission',
+        github:
+          system?.githubUrl || 'https://github.com/swayamadmission',
+        reddit:
+          system?.redditUrl ||
+          'https://www.reddit.com/user/swayamadmission/',
+        telegram:
+          system?.telegramUrl || 'https://t.me/swayamadmission',
+        discord: system?.discordUrl || '',
+        handle: system?.socialHandle || '@swayamadmission',
+      },
+
       // SEO
       seo: {
-        metaTitle: seo?.metaTitle || 'Swayam Admission',
+        metaTitle:
+          seo?.metaTitle ||
+          `${system?.platformName || 'Swayam Admission'} | ${system?.tagline || 'India Ka Mission Swayam Admission'}`,
         metaDescription:
-          seo?.metaDescription || 'Premier Admission CRM & Guidance Platform',
-        keywords: seo?.keywords || 'admission, counseling, MBBS',
-        canonicalDomain: seo?.canonicalDomain || 'https://swayamadmission.in',
+          seo?.metaDescription ||
+          'India Ka Mission Swayam Admission — Your Trusted Education Partner',
+        keywords: seo?.keywords || 'admission, counseling, MBBS, engineering, colleges',
+        canonicalDomain:
+          seo?.canonicalDomain ||
+          system?.websiteUrl ||
+          'https://www.swayamadmission.com/',
       },
 
       // Feature Flags
@@ -351,6 +396,209 @@ export class SettingsService implements OnModuleInit {
       seo,
       featureFlags,
       emailTemplates,
+    };
+  }
+
+  // ─── BRAND & CONTACT SETTINGS (CENTRALIZED MASTER) ──────────────────────────
+  async getBrandContactSettings() {
+    const [system, branding] = await Promise.all([
+      this.prisma.systemSetting.findFirst(),
+      this.prisma.brandingSetting.findFirst(),
+    ]);
+
+    return {
+      brandName: system?.platformName || 'Swayam Admission',
+      mainTagline: system?.tagline || 'India Ka Mission Swayam Admission',
+      brandPromise: system?.brandPromise || 'Your Trusted Education Partner',
+      primaryAudience:
+        system?.primaryAudience ||
+        'Students seeking admission guidance across India.',
+      primaryColor: branding?.primaryColor || '#4A7B5B',
+      accentColor: branding?.accentColor || '#F0AE1A',
+      generalEmail: system?.generalEmail || 'swayamadmissions@gmail.com',
+      admissionEmail:
+        system?.admissionEmail || 'getadmission@swayamadmission.com',
+      supportEmail: system?.supportEmail || 'support@swayamadmision.com',
+      contactNumber1: system?.supportPhone || '6284308664',
+      contactNumber2: system?.contactNumber2 || '6399102731',
+      whatsappNumber: system?.whatsappPhone || '6284308664',
+      websiteUrl: system?.websiteUrl || 'https://www.swayamadmission.com/',
+      instagramUrl:
+        system?.instagramUrl || 'https://www.instagram.com/swayamadmission',
+      facebookUrl:
+        system?.facebookUrl || 'https://www.facebook.com/swayamadmission',
+      youtubeUrl:
+        system?.youtubeUrl || 'https://www.youtube.com/@swayamadmission',
+      linkedinUrl:
+        system?.linkedinUrl ||
+        'https://www.linkedin.com/company/swayamadmission',
+      xUrl: system?.xUrl || 'https://x.com/swayamadmission',
+      githubUrl: system?.githubUrl || 'https://github.com/swayamadmission',
+      redditUrl:
+        system?.redditUrl || 'https://www.reddit.com/user/swayamadmission/',
+      telegramUrl: system?.telegramUrl || 'https://t.me/swayamadmission',
+      discordUrl: system?.discordUrl || '',
+      socialHandle: system?.socialHandle || '@swayamadmission',
+      updatedAt: system?.updatedAt,
+    };
+  }
+
+  async updateBrandContactSettings(
+    dto: UpdateBrandContactSettingDto,
+    user?: any,
+  ) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const hexRegex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
+
+    if (dto.generalEmail && !emailRegex.test(dto.generalEmail.trim())) {
+      throw new BadRequestException('Invalid email format for General Email');
+    }
+    if (dto.admissionEmail && !emailRegex.test(dto.admissionEmail.trim())) {
+      throw new BadRequestException('Invalid email format for Admission Email');
+    }
+    if (dto.supportEmail && !emailRegex.test(dto.supportEmail.trim())) {
+      throw new BadRequestException('Invalid email format for Support Email');
+    }
+
+    if (dto.primaryColor && !hexRegex.test(dto.primaryColor.trim())) {
+      throw new BadRequestException('Primary color must be a valid HEX color code (e.g. #4A7B5B)');
+    }
+    if (dto.accentColor && !hexRegex.test(dto.accentColor.trim())) {
+      throw new BadRequestException('Accent color must be a valid HEX color code (e.g. #F0AE1A)');
+    }
+
+    const existingSystem = await this.prisma.systemSetting.findFirst();
+    const existingBranding = await this.prisma.brandingSetting.findFirst();
+
+    // Prepare system updates
+    const systemUpdate: any = {};
+    if (dto.brandName !== undefined) systemUpdate.platformName = dto.brandName.trim();
+    if (dto.mainTagline !== undefined) systemUpdate.tagline = dto.mainTagline.trim();
+    if (dto.brandPromise !== undefined) systemUpdate.brandPromise = dto.brandPromise.trim();
+    if (dto.primaryAudience !== undefined) systemUpdate.primaryAudience = dto.primaryAudience.trim();
+    if (dto.websiteUrl !== undefined) systemUpdate.websiteUrl = dto.websiteUrl.trim();
+    if (dto.generalEmail !== undefined) systemUpdate.generalEmail = dto.generalEmail.trim();
+    if (dto.admissionEmail !== undefined) systemUpdate.admissionEmail = dto.admissionEmail.trim();
+    if (dto.supportEmail !== undefined) systemUpdate.supportEmail = dto.supportEmail.trim();
+    if (dto.contactNumber1 !== undefined) systemUpdate.supportPhone = dto.contactNumber1.trim();
+    if (dto.contactNumber2 !== undefined) systemUpdate.contactNumber2 = dto.contactNumber2.trim();
+    if (dto.whatsappNumber !== undefined) systemUpdate.whatsappPhone = dto.whatsappNumber.trim();
+    if (dto.instagramUrl !== undefined) systemUpdate.instagramUrl = dto.instagramUrl.trim();
+    if (dto.facebookUrl !== undefined) systemUpdate.facebookUrl = dto.facebookUrl.trim();
+    if (dto.youtubeUrl !== undefined) systemUpdate.youtubeUrl = dto.youtubeUrl.trim();
+    if (dto.linkedinUrl !== undefined) systemUpdate.linkedinUrl = dto.linkedinUrl.trim();
+    if (dto.xUrl !== undefined) systemUpdate.xUrl = dto.xUrl.trim();
+    if (dto.githubUrl !== undefined) systemUpdate.githubUrl = dto.githubUrl.trim();
+    if (dto.redditUrl !== undefined) systemUpdate.redditUrl = dto.redditUrl.trim();
+    if (dto.telegramUrl !== undefined) systemUpdate.telegramUrl = dto.telegramUrl.trim();
+    if (dto.discordUrl !== undefined) systemUpdate.discordUrl = dto.discordUrl.trim();
+    if (dto.socialHandle !== undefined) systemUpdate.socialHandle = dto.socialHandle.trim();
+
+    const updatedSystem = await this.prisma.systemSetting.upsert({
+      where: { id: existingSystem?.id || 'default_system_setting' },
+      update: systemUpdate,
+      create: { id: 'default_system_setting', ...systemUpdate },
+    });
+
+    // Prepare branding updates (Primary and Accent colors)
+    const brandingUpdate: any = {};
+    if (dto.primaryColor !== undefined) brandingUpdate.primaryColor = dto.primaryColor.trim();
+    if (dto.accentColor !== undefined) brandingUpdate.accentColor = dto.accentColor.trim();
+
+    const updatedBranding = await this.prisma.brandingSetting.upsert({
+      where: { id: existingBranding?.id || 'default_branding_setting' },
+      update: brandingUpdate,
+      create: { id: 'default_branding_setting', ...brandingUpdate },
+    });
+
+    // Synchronize SEO metaTitle & canonicalDomain if brand name, tagline or website url changed
+    if (dto.brandName || dto.mainTagline || dto.websiteUrl) {
+      try {
+        const seo = await this.prisma.sEOSetting.findFirst();
+        if (seo) {
+          const newTitle = `${dto.brandName || updatedSystem.platformName} | ${dto.mainTagline || updatedSystem.tagline}`;
+          await this.prisma.sEOSetting.update({
+            where: { id: seo.id },
+            data: {
+              metaTitle: newTitle,
+              canonicalDomain: dto.websiteUrl || updatedSystem.websiteUrl,
+            },
+          });
+        }
+      } catch (err) {
+        // SEO sync non-blocking
+      }
+    }
+
+    // Record comprehensive Audit Log
+    const oldValues = {
+      brandName: existingSystem?.platformName,
+      mainTagline: existingSystem?.tagline,
+      brandPromise: existingSystem?.brandPromise,
+      primaryAudience: existingSystem?.primaryAudience,
+      primaryColor: existingBranding?.primaryColor,
+      accentColor: existingBranding?.accentColor,
+      generalEmail: existingSystem?.generalEmail,
+      admissionEmail: existingSystem?.admissionEmail,
+      supportEmail: existingSystem?.supportEmail,
+      contactNumber1: existingSystem?.supportPhone,
+      contactNumber2: existingSystem?.contactNumber2,
+      whatsappNumber: existingSystem?.whatsappPhone,
+      websiteUrl: existingSystem?.websiteUrl,
+      social: {
+        instagram: existingSystem?.instagramUrl,
+        facebook: existingSystem?.facebookUrl,
+        youtube: existingSystem?.youtubeUrl,
+        linkedin: existingSystem?.linkedinUrl,
+        x: existingSystem?.xUrl,
+        github: existingSystem?.githubUrl,
+        reddit: existingSystem?.redditUrl,
+        telegram: existingSystem?.telegramUrl,
+        discord: existingSystem?.discordUrl,
+        handle: existingSystem?.socialHandle,
+      },
+    };
+
+    const newValues = {
+      brandName: updatedSystem.platformName,
+      mainTagline: updatedSystem.tagline,
+      brandPromise: updatedSystem.brandPromise,
+      primaryAudience: updatedSystem.primaryAudience,
+      primaryColor: updatedBranding.primaryColor,
+      accentColor: updatedBranding.accentColor,
+      generalEmail: updatedSystem.generalEmail,
+      admissionEmail: updatedSystem.admissionEmail,
+      supportEmail: updatedSystem.supportEmail,
+      contactNumber1: updatedSystem.supportPhone,
+      contactNumber2: updatedSystem.contactNumber2,
+      whatsappNumber: updatedSystem.whatsappPhone,
+      websiteUrl: updatedSystem.websiteUrl,
+      social: {
+        instagram: updatedSystem.instagramUrl,
+        facebook: updatedSystem.facebookUrl,
+        youtube: updatedSystem.youtubeUrl,
+        linkedin: updatedSystem.linkedinUrl,
+        x: updatedSystem.xUrl,
+        github: updatedSystem.githubUrl,
+        reddit: updatedSystem.redditUrl,
+        telegram: updatedSystem.telegramUrl,
+        discord: updatedSystem.discordUrl,
+        handle: updatedSystem.socialHandle,
+      },
+    };
+
+    await this.logAudit(
+      'BRAND_CONTACT',
+      oldValues,
+      newValues,
+      user?.id,
+      user?.fullName || user?.email ? `${user?.fullName || user?.email} (${user?.role || 'ADMIN'})` : 'Super Admin',
+    );
+
+    return {
+      success: true,
+      message: 'Brand, contact, and social media settings updated and synchronized successfully',
+      data: await this.getBrandContactSettings(),
     };
   }
 

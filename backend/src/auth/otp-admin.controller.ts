@@ -1,0 +1,45 @@
+import { Controller, Get, Put, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { OtpAdminService } from './otp-admin.service';
+import { UpdateOtpConfigDto } from './dto/otp-config.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+import { Request } from 'express';
+
+@Controller('admin/otp-settings')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('SUPER_ADMIN', 'SYSTEM_MANAGER') // Enforcing RBAC for admin capabilities
+export class OtpAdminController {
+  constructor(private readonly otpAdminService: OtpAdminService) {}
+
+  @Get('dashboard')
+  getDashboardStats() {
+    return this.otpAdminService.getDashboardStats();
+  }
+
+  @Get('config/:channel')
+  getConfig(@Param('channel') channel: 'WHATSAPP' | 'EMAIL') {
+    return this.otpAdminService.getConfig(channel);
+  }
+
+  @Put('config/:channel')
+  updateConfig(
+    @Req() req: any,
+    @Param('channel') channel: 'WHATSAPP' | 'EMAIL',
+    @Body() dto: UpdateOtpConfigDto,
+  ) {
+    const adminUserId = req.user.userId;
+    const ipAddress = req.ip || req.connection?.remoteAddress;
+    return this.otpAdminService.updateConfig(adminUserId, channel, dto, ipAddress);
+  }
+
+  @Post('test/whatsapp')
+  testWhatsApp(@Req() req: any, @Body('mobile') mobile: string) {
+    return this.otpAdminService.testWhatsAppConfig(req.user.userId, mobile);
+  }
+
+  @Post('test/email')
+  testEmail(@Req() req: any, @Body('email') email: string) {
+    return this.otpAdminService.testEmailConfig(req.user.userId, email);
+  }
+}

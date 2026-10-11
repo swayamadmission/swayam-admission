@@ -1,4 +1,4 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateDeletionRequestDto {
   @IsOptional()
@@ -18,13 +18,14 @@ export class CreateDeletionRequestDto {
   @IsString()
   additionalDetails?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  studentConfirmed?: boolean;
 
   @IsOptional()
-  @IsBoolean()
-  confirmation?: boolean;
+  @IsArray()
+  acceptedPolicies?: Array<{
+    policyId?: string;
+    policyType: string;
+    policyVersion: string;
+  }>;
 }
 
 export class ReviewDeletionDto {

@@ -25,9 +25,11 @@ import {
   StudentReferralHubResponse,
   StudentReferralBenefitResponse,
 } from '../../api/referral.api';
+import PolicyViewerModal from './PolicyViewerModal';
 
 export const ReferralDashboard: React.FC = () => {
   const [data, setData] = useState<StudentReferralHubResponse | null>(null);
+  const [showTermsModal, setShowTermsModal] = useState<boolean>(false);
   const [myBenefit, setMyBenefit] = useState<StudentReferralBenefitResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -482,6 +484,27 @@ export const ReferralDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Referral Terms Disclaimer */}
+      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div>
+          <span className="font-semibold text-slate-700">Official Rewards Policy:</span> Tier 1 (4 referred, 3 qualified, 1-yr completed &amp; fee paid = ₹4,000) · Tier 2 (8 referred, 6 qualified, 1-yr completed &amp; fee paid = ₹10,000). All payouts subject to verification.
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowTermsModal(true)}
+          className="text-[#4A7B5B] hover:text-[#3B6349] font-bold underline whitespace-nowrap cursor-pointer"
+        >
+          View Referral &amp; Rewards Terms →
+        </button>
+      </div>
+
+      {showTermsModal && (
+        <PolicyViewerModal
+          slug="referral-and-rewards-terms"
+          onClose={() => setShowTermsModal(false)}
+        />
+      )}
     </div>
   );
 };

@@ -80,6 +80,101 @@ export class PaymentGovernanceService {
       );
     }
 
+    // Server-side validation of student existence and identity
+    const student = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        mobile: true,
+        role: true,
+      },
+    });
+    if (!student) {
+      throw new BadRequestException(`Selected student ID ${studentId} does not exist.`);
+    }
+
+    // Server-side validation of college existence, active bank accounts, and routing policies
+    const college = await this.prisma.college.findUnique({
+      where: { id: collegeId },
+      include: {
+        bankAccounts: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        },
+      },
+    });
+    if (!college) {
+      throw new BadRequestException(`Selected college ID ${collegeId} does not exist.`);
+    }
+
+    // Authoritative resolution of payment destination based on College routing engine policy
+    let resolvedPaymentDestination = 'PLATFORM';
+
+    if (college.paymentMode === 'DIRECT_COLLEGE') {
+      resolvedPaymentDestination = 'DIRECT_COLLEGE';
+    } else if (college.paymentMode === 'PLATFORM') {
+      resolvedPaymentDestination = 'PLATFORM';
+    } else {
+      // HYBRID routing mode (or default)
+      let mapping: Record<string, string> = {};
+      if (college.hybridFeeHeadMapping) {
+        if (typeof college.hybridFeeHeadMapping === 'string') {
+          try {
+            mapping = JSON.parse(college.hybridFeeHeadMapping);
+          } catch (e) {
+            mapping = {};
+          }
+        } else if (typeof college.hybridFeeHeadMapping === 'object') {
+          mapping = college.hybridFeeHeadMapping as Record<string, string>;
+        }
+      }
+
+      if (mapping[feeHead]) {
+        resolvedPaymentDestination =
+          mapping[feeHead] === 'DIRECT_COLLEGE'
+            ? 'DIRECT_COLLEGE'
+            : 'PLATFORM';
+      } else {
+        const collegeFeeHeads = [
+          'SEMESTER_FEE',
+          'ADMISSION_FEE',
+          'HOSTEL_FEE',
+          'SECURITY_DEPOSIT',
+          'TUITION_FEE',
+        ];
+        if (collegeFeeHeads.includes(feeHead)) {
+          resolvedPaymentDestination = 'DIRECT_COLLEGE';
+        } else {
+          resolvedPaymentDestination = 'PLATFORM';
+        }
+      }
+    }
+
+    // For DIRECT_COLLEGE destination, enforce and link an active verified college bank account
+    let resolvedBankId: string | null = null;
+    if (resolvedPaymentDestination === 'DIRECT_COLLEGE') {
+      if (collegeBankId) {
+        const account = college.bankAccounts.find((b) => b.id === collegeBankId);
+        if (!account) {
+          throw new BadRequestException(
+            'Selected college bank account is not valid or active for this college.',
+          );
+        }
+        resolvedBankId = account.id;
+      } else {
+        if (college.bankAccounts.length === 0) {
+          throw new BadRequestException(
+            `College "${college.name}" does not have an active verified bank account for direct college payments. Please configure a college bank account first.`,
+          );
+        }
+        resolvedBankId = college.bankAccounts[0].id;
+      }
+    } else {
+      resolvedBankId = null;
+    }
+
     const discountValue = Number(rawDiscountValue || 0);
     let discountAmount = 0;
     if (discountType === 'PERCENTAGE') {
@@ -119,15 +214,6 @@ export class PaymentGovernanceService {
     const count = await this.prisma.paymentRequest.count();
     const requestCode = `REQ-${new Date().getFullYear()}-${String(count + 1).padStart(6, '0')}`;
 
-    let resolvedBankId = collegeBankId;
-    if (!resolvedBankId && collegeId) {
-      const defaultBank = await this.prisma.collegeBankAccount.findFirst({
-        where: { collegeId, isActive: true },
-        orderBy: { isDefault: 'desc' },
-      });
-      if (defaultBank) resolvedBankId = defaultBank.id;
-    }
-
     const request = await this.prisma.paymentRequest.create({
       data: {
         requestCode,
@@ -149,11 +235,11 @@ export class PaymentGovernanceService {
         dueDate: dueDate ? new Date(dueDate) : null,
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         lateFee: lateFeeAmount,
-        collegeBankId: resolvedBankId || null,
+        collegeBankId: resolvedBankId,
         accountCategory: accountCategory || 'ADMISSION',
         assignedReviewerId: assignedReviewerId || null,
         assignedRole: assignedRole || 'COUNSELOR',
-        paymentDestination: paymentDestination || 'PLATFORM',
+        paymentDestination: resolvedPaymentDestination,
         installmentNumber: installmentNumber ? Number(installmentNumber) : 1,
         totalInstallments: totalInstallments ? Number(totalInstallments) : 1,
         remarks: remarks || null,
@@ -188,10 +274,14 @@ export class PaymentGovernanceService {
     // Notifications Flow
     // 1. Notify Student
     try {
+      const beneficiaryName =
+        resolvedPaymentDestination === 'DIRECT_COLLEGE'
+          ? college.name
+          : 'Swayam Admission';
       await this.notificationsService.createNotification({
         userId: studentId,
         title: 'New Fee Payment Request Issued',
-        message: `Payment Request ${requestCode} for ${feeHead} of ₹${finalPayableAmount.toLocaleString('en-IN')} has been issued. Due Date: ${dueDate ? new Date(dueDate).toLocaleDateString('en-IN') : 'N/A'}`,
+        message: `Payment Request ${requestCode} for ${feeHead} of ₹${finalPayableAmount.toLocaleString('en-IN')} has been issued. Payable to: ${beneficiaryName}. Due Date: ${dueDate ? new Date(dueDate).toLocaleDateString('en-IN') : 'N/A'}`,
         type: 'PAYMENT' as any,
         category: 'PAYMENT',
         actionUrl: '/dashboard',
@@ -371,7 +461,99 @@ export class PaymentGovernanceService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return { success: true, data: requests };
+    const enriched = requests.map((req) => {
+      const isDirectCollege = req.paymentDestination === 'DIRECT_COLLEGE';
+      const beneficiary = isDirectCollege
+        ? req.college?.name || 'College'
+        : 'Swayam Admission';
+      const beneficiaryType = isDirectCollege ? 'COLLEGE' : 'SWAYAM';
+      const couponApplicable = !isDirectCollege;
+      const paymentMethodLabel = isDirectCollege
+        ? 'Direct College Bank'
+        : 'Online Payment (Razorpay)';
+
+      return {
+        ...req,
+        beneficiary,
+        beneficiaryType,
+        couponApplicable,
+        paymentMethodLabel,
+        isDirectCollege,
+      };
+    });
+
+    return { success: true, data: enriched };
+  }
+
+  async getPaymentRequestById(id: string, user: IUser) {
+    const request = await this.prisma.paymentRequest.findUnique({
+      where: { id },
+      include: {
+        college: {
+          select: {
+            id: true,
+            name: true,
+            logo: true,
+            paymentMode: true,
+            bankAccounts: {
+              where: { isActive: true },
+              orderBy: { isDefault: 'desc' },
+            },
+          },
+        },
+        course: { select: { id: true, name: true } },
+        collegeBank: true,
+        application: true,
+        student: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            mobile: true,
+          },
+        },
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            verifications: true,
+            timelineEvents: true,
+          },
+        },
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException(`Payment request ${id} not found.`);
+    }
+
+    // Strict student isolation: Student A cannot access Student B's payment request
+    if (user.role === 'STUDENT' && request.studentId !== user.id) {
+      throw new ForbiddenException(
+        'You are not authorized to access this payment request.',
+      );
+    }
+
+    const isDirectCollege = request.paymentDestination === 'DIRECT_COLLEGE';
+    const beneficiary = isDirectCollege
+      ? request.college?.name || 'Partner College'
+      : 'Swayam Admission';
+    const beneficiaryType = isDirectCollege ? 'COLLEGE' : 'SWAYAM';
+    const couponApplicable = !isDirectCollege;
+    const paymentMethodLabel = isDirectCollege
+      ? 'Direct College Bank'
+      : 'Online Payment (Razorpay)';
+
+    return {
+      success: true,
+      data: {
+        ...request,
+        beneficiary,
+        beneficiaryType,
+        couponApplicable,
+        paymentMethodLabel,
+        isDirectCollege,
+      },
+    };
   }
 
   // ==========================================
@@ -2251,6 +2433,7 @@ export class PaymentGovernanceService {
           data: {
             utrNumber: dto.utrNumber.trim(),
             paymentProofUrl: dto.proofUrl || dto.proofDocument || null,
+            proofDocument: dto.proofUrl || dto.proofDocument || null,
             paidAmount: Number(dto.paidAmount || request.finalPayableAmount),
             paymentMethod: (dto.paymentMethod as any) || 'UPI',
             verificationStatus: 'PENDING',
@@ -2270,6 +2453,7 @@ export class PaymentGovernanceService {
             paidAmount: Number(dto.paidAmount || request.finalPayableAmount),
             utrNumber: dto.utrNumber.trim(),
             paymentProofUrl: dto.proofUrl || dto.proofDocument || null,
+            proofDocument: dto.proofUrl || dto.proofDocument || null,
             paymentMethod: (dto.paymentMethod as any) || 'UPI',
             paymentDestination: request.paymentDestination,
             status: 'PENDING',

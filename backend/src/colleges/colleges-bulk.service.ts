@@ -39,6 +39,11 @@ export interface BulkValidationResult {
     coursesCount: number;
     status: string;
     errors: string[];
+    mediaStatus?: {
+      logo: 'VALID' | 'MISSING' | 'INVALID';
+      banner: 'VALID' | 'MISSING' | 'INVALID';
+      brochure: 'VALID' | 'MISSING' | 'INVALID';
+    };
     sanitizedData?: any;
   }>;
 }
@@ -277,6 +282,13 @@ const TEMPLATE_COLUMNS = [
       'https://images.unsplash.com/photo-1562774053-701939374585?w=1200&q=80',
   },
   {
+    key: 'brochureUrl',
+    label: 'Brochure URL',
+    required: false,
+    example:
+      'https://documents.example.com/brochures/college-brochure.pdf',
+  },
+  {
     key: 'galleryUrls',
     label: 'Gallery URLs (Comma or Semicolon Separated)',
     required: false,
@@ -368,6 +380,25 @@ export class CollegesBulkService {
   ) {}
 
   /**
+   * Robust header key cleaner that strips BOM, zero-width spaces, special characters,
+   * collapses whitespace, and provides both cleaned and alphanumeric-only representations.
+   */
+  cleanHeaderKey(rawKey: string): { cleanKey: string; alphaKey: string } {
+    if (!rawKey) return { cleanKey: '', alphaKey: '' };
+    const cleanKey = rawKey
+      .toString()
+      .replace(/^\uFEFF/, '') // Strip UTF-8 BOM
+      .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ') // Strip zero-width & non-breaking spaces
+      .replace(/[*()/\\#:_–—-]/g, ' ') // Replace punctuation & asterisks with spaces
+      .toLowerCase()
+      .replace(/\s+/g, ' ') // Collapse multiple whitespace to single space
+      .trim(); // TRIM AFTER REPLACING SYMBOLS!
+
+    const alphaKey = cleanKey.replace(/[^a-z0-9]/g, '');
+    return { cleanKey, alphaKey };
+  }
+
+  /**
    * Normalizes raw row object regardless of whether keys are human labels, case variations, or field keys.
    */
   normalizeRow(raw: any): Record<string, any> {
@@ -376,122 +407,156 @@ export class CollegesBulkService {
 
     for (const [rawKey, val] of Object.entries(raw)) {
       if (val === undefined || val === null) continue;
-      const cleanKey = rawKey
-        .trim()
-        .toLowerCase()
-        .replace(/[*()/]/g, '')
-        .replace(/\s+/g, ' ');
+      const { cleanKey, alphaKey } = this.cleanHeaderKey(rawKey);
 
-      if (cleanKey.includes('college name') || cleanKey === 'name') {
-        normalized.name = val;
-      } else if (cleanKey === 'city') {
-        normalized.city = val;
-      } else if (cleanKey === 'state') {
-        normalized.state = val;
-      } else if (cleanKey.includes('established') || cleanKey.includes('estd')) {
-        normalized.establishedYear = val;
+      // Clean value string if string
+      const cleanVal =
+        typeof val === 'string'
+          ? val
+              .replace(/^\uFEFF/, '')
+              .replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ')
+              .trim()
+          : val;
+
+      if (
+        cleanKey.includes('college name') ||
+        cleanKey === 'name' ||
+        cleanKey === 'college' ||
+        alphaKey === 'collegename' ||
+        alphaKey === 'name' ||
+        alphaKey === 'institutionname' ||
+        alphaKey === 'institutename'
+      ) {
+        normalized.name = cleanVal;
+        normalized.collegeName = cleanVal;
+      } else if (
+        cleanKey === 'city' ||
+        cleanKey === 'city name' ||
+        cleanKey === 'district' ||
+        cleanKey === 'town' ||
+        alphaKey === 'city' ||
+        alphaKey === 'cityname' ||
+        alphaKey === 'district'
+      ) {
+        normalized.city = cleanVal;
+      } else if (
+        cleanKey === 'state' ||
+        cleanKey === 'state name' ||
+        cleanKey === 'province' ||
+        alphaKey === 'state' ||
+        alphaKey === 'statename'
+      ) {
+        normalized.state = cleanVal;
+      } else if (cleanKey.includes('established') || cleanKey.includes('estd') || alphaKey.includes('estd')) {
+        normalized.establishedYear = cleanVal;
       } else if (cleanKey.includes('ownership')) {
-        normalized.ownership = val;
-      } else if (cleanKey.includes('college type') || cleanKey === 'type') {
-        normalized.type = val;
+        normalized.ownership = cleanVal;
+      } else if (cleanKey.includes('college type') || cleanKey === 'type' || alphaKey === 'type') {
+        normalized.type = cleanVal;
       } else if (cleanKey.includes('university') || cleanKey.includes('affiliated')) {
-        normalized.university = val;
+        normalized.university = cleanVal;
       } else if (cleanKey.includes('accreditation')) {
-        normalized.accreditation = val;
+        normalized.accreditation = cleanVal;
       } else if (cleanKey.includes('approval')) {
-        normalized.approvals = val;
+        normalized.approvals = cleanVal;
       } else if (cleanKey.includes('nirf')) {
-        normalized.nirfRanking = val;
+        normalized.nirfRanking = cleanVal;
       } else if (cleanKey === 'ranking' || cleanKey.includes('rank')) {
-        normalized.ranking = val;
+        normalized.ranking = cleanVal;
       } else if (cleanKey.includes('naac')) {
-        normalized.naacGrade = val;
+        normalized.naacGrade = cleanVal;
       } else if (cleanKey === 'rating' || cleanKey.includes('rating')) {
-        normalized.rating = val;
+        normalized.rating = cleanVal;
       } else if (cleanKey.includes('short desc')) {
-        normalized.shortDescription = val;
+        normalized.shortDescription = cleanVal;
       } else if (cleanKey.includes('full desc') || cleanKey.includes('description')) {
-        normalized.fullDescription = val;
+        normalized.fullDescription = cleanVal;
       } else if (cleanKey.includes('address')) {
-        normalized.address = val;
-      } else if (cleanKey.includes('pincode') || cleanKey.includes('pin code')) {
-        normalized.pincode = val;
+        normalized.address = cleanVal;
+      } else if (cleanKey.includes('pincode') || cleanKey.includes('pin code') || alphaKey.includes('pincode')) {
+        normalized.pincode = cleanVal;
       } else if (cleanKey.includes('website')) {
-        normalized.website = val;
+        normalized.website = cleanVal;
       } else if (cleanKey.includes('email')) {
-        normalized.email = val;
-      } else if (cleanKey.includes('phone') || cleanKey.includes('contact num')) {
-        normalized.phone = val;
+        normalized.email = cleanVal;
+      } else if (cleanKey.includes('phone') || cleanKey.includes('contact num') || cleanKey.includes('mobile')) {
+        normalized.phone = cleanVal;
       } else if (cleanKey.includes('whatsapp')) {
-        normalized.whatsapp = val;
-      } else if (cleanKey.includes('contact person')) {
-        normalized.contactPerson = val;
+        normalized.whatsapp = cleanVal;
+      } else if (cleanKey.includes('contact person') || cleanKey.includes('contact name')) {
+        normalized.contactPerson = cleanVal;
       } else if (cleanKey.includes('application fee')) {
-        normalized.applicationFee = val;
+        normalized.applicationFee = cleanVal;
       } else if (cleanKey.includes('placement rate') || cleanKey.includes('placement percentage')) {
-        normalized.placementPercentage = val;
+        normalized.placementPercentage = cleanVal;
       } else if (cleanKey.includes('highest package')) {
-        normalized.highestPackage = val;
+        normalized.highestPackage = cleanVal;
       } else if (cleanKey.includes('average package')) {
-        normalized.averagePackage = val;
+        normalized.averagePackage = cleanVal;
       } else if (cleanKey.includes('median package')) {
-        normalized.medianPackage = val;
-      } else if (cleanKey.includes('recruiter') || cleanKey.includes('placement compan') || cleanKey.includes('top recruiters')) {
-        normalized.placementCompanies = val;
+        normalized.medianPackage = cleanVal;
+      } else if (
+        cleanKey.includes('recruiter') ||
+        cleanKey.includes('placement compan') ||
+        cleanKey.includes('top recruiters')
+      ) {
+        normalized.placementCompanies = cleanVal;
       } else if (cleanKey.includes('placement summary') || cleanKey.includes('placement info')) {
-        normalized.placementInfo = val;
+        normalized.placementInfo = cleanVal;
       } else if (cleanKey.includes('placement year') || cleanKey.includes('placement session')) {
-        normalized.placementYear = val;
+        normalized.placementYear = cleanVal;
       } else if (cleanKey.includes('boys hostel')) {
-        normalized.boysHostelAvailable = val;
+        normalized.boysHostelAvailable = cleanVal;
       } else if (cleanKey.includes('girls hostel')) {
-        normalized.girlsHostelAvailable = val;
+        normalized.girlsHostelAvailable = cleanVal;
       } else if (cleanKey.includes('hostel fee') || cleanKey.includes('hostel structure')) {
-        normalized.hostelFee = val;
+        normalized.hostelFee = cleanVal;
       } else if (cleanKey.includes('hostel facilit')) {
-        normalized.hostelFacilities = val;
+        normalized.hostelFacilities = cleanVal;
       } else if (cleanKey.includes('hostel available') || cleanKey === 'hostel') {
-        normalized.hostelAvailable = val;
+        normalized.hostelAvailable = cleanVal;
       } else if (cleanKey.includes('mess') || cleanKey.includes('food')) {
-        normalized.messInfo = val;
+        normalized.messInfo = cleanVal;
       } else if (cleanKey.includes('other facilit')) {
-        normalized.otherFacilities = val;
+        normalized.otherFacilities = cleanVal;
       } else if (cleanKey.includes('transport')) {
-        normalized.transportAvailable = val;
+        normalized.transportAvailable = cleanVal;
       } else if (cleanKey.includes('scholarship')) {
-        normalized.scholarshipAvailable = val;
-      } else if (cleanKey === 'logo' || cleanKey.includes('logo image')) {
-        normalized.logo = val;
+        normalized.scholarshipAvailable = cleanVal;
+      } else if (cleanKey === 'logo' || cleanKey.includes('logo image') || cleanKey.includes('logo url')) {
+        normalized.logo = cleanVal;
       } else if (cleanKey.includes('banner') || cleanKey.includes('cover')) {
-        normalized.banner = val;
+        normalized.banner = cleanVal;
+      } else if (cleanKey.includes('brochure') || cleanKey.includes('prospectus')) {
+        normalized.brochureUrl = cleanVal;
       } else if (cleanKey.includes('gallery')) {
-        normalized.galleryUrls = val;
+        normalized.galleryUrls = cleanVal;
       } else if (cleanKey.includes('featured')) {
-        normalized.featured = val;
+        normalized.featured = cleanVal;
       } else if (cleanKey.includes('verified')) {
-        normalized.verified = val;
+        normalized.verified = cleanVal;
       } else if (cleanKey.includes('status')) {
-        normalized.status = val;
+        normalized.status = cleanVal;
       } else if (cleanKey.includes('seo title')) {
-        normalized.seoTitle = val;
+        normalized.seoTitle = cleanVal;
       } else if (cleanKey.includes('seo desc')) {
-        normalized.seoDescription = val;
+        normalized.seoDescription = cleanVal;
       } else if (cleanKey.includes('seo keyword')) {
-        normalized.seoKeywords = val;
+        normalized.seoKeywords = cleanVal;
       } else if (cleanKey.includes('course name') || cleanKey.includes('primary course')) {
-        normalized.defaultCourseName = val;
+        normalized.defaultCourseName = cleanVal;
       } else if (cleanKey.includes('course level') || cleanKey.includes('degree') || cleanKey.includes('level')) {
-        normalized.defaultCourseLevel = val;
+        normalized.defaultCourseLevel = cleanVal;
       } else if (cleanKey.includes('course duration') || cleanKey.includes('duration')) {
-        normalized.defaultCourseDuration = val;
+        normalized.defaultCourseDuration = cleanVal;
       } else if (cleanKey.includes('annual fee') || cleanKey.includes('course fee') || cleanKey.includes('fees')) {
-        normalized.defaultCourseFees = val;
+        normalized.defaultCourseFees = cleanVal;
       } else if (cleanKey.includes('seat') || cleanKey.includes('intake')) {
-        normalized.defaultCourseSeats = val;
+        normalized.defaultCourseSeats = cleanVal;
       } else if (cleanKey.includes('eligibility')) {
-        normalized.defaultCourseEligibility = val;
+        normalized.defaultCourseEligibility = cleanVal;
       } else {
-        normalized[rawKey] = val;
+        normalized[rawKey] = cleanVal;
       }
     }
 
@@ -504,9 +569,16 @@ export class CollegesBulkService {
   buildSanitizedCollegeData(
     row: Record<string, any>,
     candidateSlug?: string,
-    existingMatch?: any,
+    existingMatch?: {
+      id: string;
+      slug: string;
+      stateId?: string | null;
+      districtId?: string | null;
+    } | null,
+    stateId?: string,
+    districtId?: string,
   ) {
-    const collegeName = (row.name || '').toString().trim();
+    const collegeName = (row.name || row.collegeName || '').toString().trim();
     const city = (row.city || '').toString().trim();
     const state = (row.state || '').toString().trim();
 
@@ -583,6 +655,8 @@ export class CollegesBulkService {
       existingId: existingMatch ? existingMatch.id : undefined,
       city,
       state,
+      stateId: stateId || (existingMatch?.stateId ? existingMatch.stateId : undefined),
+      districtId: districtId || (existingMatch?.districtId ? existingMatch.districtId : undefined),
       establishedYear: this.parseNumber(row.establishedYear),
       ownership,
       type,
@@ -623,6 +697,7 @@ export class CollegesBulkService {
       scholarshipAvailable: this.parseBoolean(row.scholarshipAvailable),
       logo: row.logo ? String(row.logo).trim() : undefined,
       banner: row.banner ? String(row.banner).trim() : undefined,
+      brochureUrl: row.brochureUrl ? String(row.brochureUrl).trim() : undefined,
       galleryUrls,
       featured: this.parseBoolean(row.featured),
       verified: this.parseBoolean(row.verified),
@@ -710,6 +785,8 @@ export class CollegesBulkService {
       'https://images.unsplash.com/photo-1592280771190-3e2e4d571952?w=200&q=80';
     sampleRow2['Cover / Banner URL'] =
       'https://images.unsplash.com/photo-1562774053-701939374585?w=1200&q=80';
+    sampleRow2['Brochure URL'] =
+      'https://documents.example.com/brochures/bits-pilani-prospectus.pdf';
     sampleRow2['Gallery URLs (Comma or Semicolon Separated)'] =
       'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800;https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=800';
     sampleRow2['Featured College (YES/NO)'] = 'YES';
@@ -819,12 +896,205 @@ export class CollegesBulkService {
       }
       const ws = wb.Sheets[firstSheetName];
       const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      return rows;
+      // Filter out trailing empty rows where all cells are blank or whitespace
+      return rows.filter((r) => {
+        if (!r || typeof r !== 'object') return false;
+        return Object.values(r).some(
+          (val) => val !== null && val !== undefined && String(val).trim() !== '',
+        );
+      });
     } catch (err: any) {
       throw new BadRequestException(
         `Failed to parse file: ${err.message || 'Invalid format'}`,
       );
     }
+  }
+
+  /**
+   * Matches raw state string against registered State master records in database.
+   */
+  matchState(
+    rawState: string,
+    states: Array<{ id: string; name: string; code: string }>,
+  ): { id: string; name: string; code: string } | null {
+    if (!rawState || !rawState.trim()) return null;
+    const clean = rawState.trim().toLowerCase();
+    const alpha = clean.replace(/[^a-z0-9]/g, '');
+
+    // 1. Exact case-insensitive name match
+    const byName = states.find((s) => s.name.trim().toLowerCase() === clean);
+    if (byName) return byName;
+
+    // 2. Exact code match (e.g. MH, DL, KA, TN, UP, RJ)
+    const byCode = states.find(
+      (s) => s.code.trim().toUpperCase() === clean.toUpperCase(),
+    );
+    if (byCode) return byCode;
+
+    // 3. Alphanumeric match (ignoring spaces & punctuation, e.g. "Jammu & Kashmir")
+    const byAlpha = states.find(
+      (s) => s.name.toLowerCase().replace(/[^a-z0-9]/g, '') === alpha,
+    );
+    if (byAlpha) return byAlpha;
+
+    // 4. Known aliases & variants
+    const STATE_ALIASES: Record<string, string> = {
+      delhinct: 'DL',
+      nctofdelhi: 'DL',
+      nctdelhi: 'DL',
+      newdelhi: 'DL',
+      orissa: 'OD',
+      pondicherry: 'PY',
+      uttaranchal: 'UK',
+      jammuandkashmir: 'JK',
+      jammukashmir: 'JK',
+      andamanandnicobar: 'AN',
+      andamanandnicobarislands: 'AN',
+      dadraandnagarhaveli: 'DH',
+      damandiu: 'DH',
+    };
+    if (STATE_ALIASES[alpha]) {
+      const targetCode = STATE_ALIASES[alpha];
+      const byAlias = states.find((s) => s.code === targetCode);
+      if (byAlias) return byAlias;
+    }
+
+    // 5. StartsWith / Includes
+    const byPrefix = states.find(
+      (s) =>
+        s.name.toLowerCase().startsWith(clean) ||
+        clean.startsWith(s.name.toLowerCase()),
+    );
+    if (byPrefix) return byPrefix;
+
+    return null;
+  }
+
+  /**
+   * Matches raw city string against registered District master records in database.
+   */
+  matchDistrict(
+    rawCity: string,
+    matchedState: { id: string; name: string; code: string } | null,
+    districts: Array<{
+      id: string;
+      name: string;
+      code: string | null;
+      stateId: string;
+    }>,
+  ): {
+    matched: boolean;
+    district?: {
+      id: string;
+      name: string;
+      code: string | null;
+      stateId: string;
+    };
+    message?: string;
+  } {
+    if (!rawCity || !rawCity.trim()) {
+      return { matched: false, message: 'City is required.' };
+    }
+    const clean = rawCity.trim().toLowerCase();
+    const alpha = clean.replace(/[^a-z0-9]/g, '');
+
+    const CITY_DISTRICT_ALIASES: Record<string, string> = {
+      pilani: 'jhunjhunu',
+      mumbai: 'mumbai',
+      bombay: 'mumbai',
+      calcutta: 'kolkata',
+      kolkata: 'kolkata',
+      madras: 'chennai',
+      chennai: 'chennai',
+      bengaluru: 'bengaluru',
+      bangalore: 'bengaluru',
+      gurgaon: 'gurugram',
+      gurugram: 'gurugram',
+      noida: 'gautam buddha nagar',
+      greaternoida: 'gautam buddha nagar',
+      delhi: 'new delhi',
+      newdelhi: 'new delhi',
+      centraldelhi: 'central delhi',
+      southdelhi: 'south delhi',
+      northdelhi: 'north delhi',
+      cochin: 'ernakulam',
+      kochi: 'ernakulam',
+      trivandrum: 'thiruvananthapuram',
+      allahabad: 'prayagraj',
+      prayagraj: 'prayagraj',
+      varanasi: 'varanasi',
+      kashi: 'varanasi',
+      banaras: 'varanasi',
+      baroda: 'vadodara',
+      vadodara: 'vadodara',
+      mysore: 'mysuru',
+      mysuru: 'mysuru',
+      mangalore: 'dakshina kannada',
+      pune: 'pune',
+      jaipur: 'jaipur',
+      patna: 'patna',
+      ranchi: 'ranchi',
+      hyderabad: 'hyderabad',
+      ahmedabad: 'ahmedabad',
+      lucknow: 'lucknow',
+      chandigarh: 'chandigarh',
+    };
+
+    const candidateDistricts = matchedState
+      ? districts.filter((d) => d.stateId === matchedState.id)
+      : districts;
+
+    // 1. Exact name match in state
+    const exactMatch = candidateDistricts.find(
+      (d) => d.name.trim().toLowerCase() === clean,
+    );
+    if (exactMatch) return { matched: true, district: exactMatch };
+
+    // 2. Alphanumeric match in state
+    const alphaMatch = candidateDistricts.find(
+      (d) => d.name.toLowerCase().replace(/[^a-z0-9]/g, '') === alpha,
+    );
+    if (alphaMatch) return { matched: true, district: alphaMatch };
+
+    // 3. Alias match in state
+    const alias = CITY_DISTRICT_ALIASES[alpha];
+    if (alias) {
+      const aliasMatch = candidateDistricts.find(
+        (d) =>
+          d.name.trim().toLowerCase() === alias ||
+          d.name.toLowerCase().replace(/[^a-z0-9]/g, '') ===
+            alias.replace(/[^a-z0-9]/g, ''),
+      );
+      if (aliasMatch) return { matched: true, district: aliasMatch };
+    }
+
+    // 4. StartsWith / Includes match in state
+    const prefixMatch = candidateDistricts.find(
+      (d) =>
+        d.name.toLowerCase().startsWith(clean) ||
+        clean.startsWith(d.name.toLowerCase()),
+    );
+    if (prefixMatch) return { matched: true, district: prefixMatch };
+
+    // If not found in matched state, check if city exists in other states
+    if (matchedState) {
+      const globalMatch = districts.find(
+        (d) =>
+          d.name.trim().toLowerCase() === clean ||
+          d.name.toLowerCase().replace(/[^a-z0-9]/g, '') === alpha,
+      );
+      if (globalMatch) {
+        return {
+          matched: false,
+          message: `City not found: "${rawCity}" is not a registered District/City in ${matchedState.name}.`,
+        };
+      }
+    }
+
+    return {
+      matched: false,
+      message: `City not found: "${rawCity}" does not match any registered District/City.`,
+    };
   }
 
   /**
@@ -882,10 +1152,26 @@ export class CollegesBulkService {
       throw new BadRequestException('No rows provided for validation.');
     }
 
-    // Query existing colleges to check duplicates/updates efficiently
-    const existingColleges = await this.prisma.college.findMany({
-      select: { id: true, name: true, slug: true, city: true, state: true },
-    });
+    // Query existing colleges and master state/district records to validate and map IDs
+    const [existingColleges, dbStates, dbDistricts] = await Promise.all([
+      this.prisma.college.findMany({
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          city: true,
+          state: true,
+          stateId: true,
+          districtId: true,
+        },
+      }),
+      this.prisma.state.findMany({
+        select: { id: true, name: true, code: true },
+      }),
+      this.prisma.district.findMany({
+        select: { id: true, name: true, code: true, stateId: true },
+      }),
+    ]);
 
     const slugMap = new Map<string, (typeof existingColleges)[0]>();
     const nameCityMap = new Map<string, (typeof existingColleges)[0]>();
@@ -914,7 +1200,7 @@ export class CollegesBulkService {
       // Normalize row keys across various formats
       const row = this.normalizeRow(raw);
 
-      const collegeName = (row.name || '').toString().trim();
+      const collegeName = (row.name || row.collegeName || '').toString().trim();
       const city = (row.city || '').toString().trim();
       const state = (row.state || '').toString().trim();
 
@@ -927,21 +1213,58 @@ export class CollegesBulkService {
         });
         rowErrors.push('Missing college name');
       }
-      if (!city) {
-        errors.push({
-          row: rowIndex,
-          field: 'city',
-          message: 'City is required.',
-        });
-        rowErrors.push('Missing city');
-      }
+
+      let matchedState: (typeof dbStates)[0] | null = null;
+      let matchedDistrict: (typeof dbDistricts)[0] | null = null;
+
       if (!state) {
         errors.push({
           row: rowIndex,
+          collegeName,
           field: 'state',
           message: 'State is required.',
         });
         rowErrors.push('Missing state');
+      } else {
+        matchedState = this.matchState(state, dbStates);
+        if (!matchedState) {
+          errors.push({
+            row: rowIndex,
+            collegeName,
+            field: 'state',
+            message: `State not found: "${state}" does not match any registered State.`,
+          });
+          rowErrors.push('State not found');
+        }
+      }
+
+      if (!city) {
+        errors.push({
+          row: rowIndex,
+          collegeName,
+          field: 'city',
+          message: 'City is required.',
+        });
+        rowErrors.push('Missing city');
+      } else {
+        const districtMatch = this.matchDistrict(city, matchedState, dbDistricts);
+        if (!districtMatch.matched) {
+          errors.push({
+            row: rowIndex,
+            collegeName,
+            field: 'city',
+            message:
+              districtMatch.message ||
+              `City not found: "${city}" does not match any registered District/City.`,
+          });
+          rowErrors.push('City not found');
+        } else {
+          matchedDistrict = districtMatch.district || null;
+          if (!matchedState && matchedDistrict) {
+            matchedState =
+              dbStates.find((s) => s.id === matchedDistrict!.stateId) || null;
+          }
+        }
       }
 
       // Numerical range validations
@@ -988,9 +1311,14 @@ export class CollegesBulkService {
         rowErrors.push('Invalid rating');
       }
 
-      // URL validations if provided
-      const validateUrl = (urlStr?: string, fieldName = 'URL') => {
-        if (!urlStr || !String(urlStr).trim()) return true;
+      // Media URL Validations and Status Determination
+      const validateMediaUrl = (
+        urlStr?: string,
+        fieldName = 'URL',
+      ): { status: 'VALID' | 'MISSING' | 'INVALID'; isValid: boolean } => {
+        if (!urlStr || !String(urlStr).trim()) {
+          return { status: 'MISSING', isValid: true };
+        }
         const clean = String(urlStr).trim();
         if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
           errors.push({
@@ -1000,19 +1328,80 @@ export class CollegesBulkService {
             message: `${fieldName} must begin with http:// or https://.`,
           });
           rowErrors.push(`Malformed ${fieldName}`);
-          return false;
+          return { status: 'INVALID', isValid: false };
         }
-        return true;
+        try {
+          const parsed = new URL(clean);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            errors.push({
+              row: rowIndex,
+              collegeName,
+              field: fieldName,
+              message: `${fieldName} has an invalid protocol (http and https only).`,
+            });
+            rowErrors.push(`Invalid ${fieldName} protocol`);
+            return { status: 'INVALID', isValid: false };
+          }
+          if (!parsed.hostname || parsed.hostname.length < 3) {
+            errors.push({
+              row: rowIndex,
+              collegeName,
+              field: fieldName,
+              message: `${fieldName} has an invalid domain hostname.`,
+            });
+            rowErrors.push(`Invalid ${fieldName} host`);
+            return { status: 'INVALID', isValid: false };
+          }
+          const hostLower = parsed.hostname.toLowerCase();
+          const dummyHosts = ['dummy', 'fake', 'test', 'invalid', 'null', 'undefined'];
+          if (
+            dummyHosts.includes(hostLower) ||
+            hostLower.startsWith('fake.') ||
+            hostLower.startsWith('dummy.')
+          ) {
+            errors.push({
+              row: rowIndex,
+              collegeName,
+              field: fieldName,
+              message: `${fieldName} contains a placeholder/dummy domain and cannot be accepted.`,
+            });
+            rowErrors.push(`Dummy ${fieldName} URL`);
+            return { status: 'INVALID', isValid: false };
+          }
+          if (!hostLower.includes('.') && hostLower !== 'localhost') {
+            errors.push({
+              row: rowIndex,
+              collegeName,
+              field: fieldName,
+              message: `${fieldName} must point to a fully qualified domain name.`,
+            });
+            rowErrors.push(`Invalid ${fieldName} domain`);
+            return { status: 'INVALID', isValid: false };
+          }
+          return { status: 'VALID', isValid: true };
+        } catch {
+          errors.push({
+            row: rowIndex,
+            collegeName,
+            field: fieldName,
+            message: `${fieldName} is a malformed URL.`,
+          });
+          rowErrors.push(`Malformed ${fieldName}`);
+          return { status: 'INVALID', isValid: false };
+        }
       };
 
-      validateUrl(row.logo, 'logo');
-      validateUrl(row.banner, 'banner');
-      validateUrl(row.website, 'website');
+      const logoCheck = validateMediaUrl(row.logo, 'logo');
+      const bannerCheck = validateMediaUrl(row.banner, 'banner');
+      const brochureCheck = validateMediaUrl(row.brochureUrl, 'brochureUrl');
+      if (row.website) {
+        validateMediaUrl(row.website, 'website');
+      }
 
       // Gallery URLs validation
       const galleryUrls = this.parseStringArray(row.galleryUrls);
       for (const gUrl of galleryUrls) {
-        validateUrl(gUrl, 'galleryUrls');
+        validateMediaUrl(gUrl, 'galleryUrls');
       }
 
       // Check intra-batch duplicate
@@ -1054,7 +1443,13 @@ export class CollegesBulkService {
 
       // Build sanitized data object ready for database
       const sanitizedData = !isInvalid
-        ? this.buildSanitizedCollegeData(row, candidateSlug, existingMatch)
+        ? this.buildSanitizedCollegeData(
+            row,
+            candidateSlug,
+            existingMatch,
+            matchedState?.id,
+            matchedDistrict?.id,
+          )
         : undefined;
 
       previewRows.push({
@@ -1063,8 +1458,8 @@ export class CollegesBulkService {
         name: collegeName || '(Empty Name)',
         city: city || '(Empty City)',
         state: state || '(Empty State)',
-        ownership: sanitizedData ? sanitizedData.ownership : 'PRIVATE',
-        type: sanitizedData ? sanitizedData.type : 'PRIVATE',
+        ownership: sanitizedData ? sanitizedData.ownership : (row.ownership || 'PRIVATE'),
+        type: sanitizedData ? sanitizedData.type : (row.type || 'PRIVATE'),
         fees: row.defaultCourseFees || row.applicationFee || '-',
         placementRate:
           placementPercentage !== undefined ? `${placementPercentage}%` : '-',
@@ -1077,6 +1472,11 @@ export class CollegesBulkService {
         coursesCount: row.defaultCourseName ? 1 : 0,
         status: sanitizedData ? sanitizedData.status : 'PUBLISHED',
         errors: rowErrors,
+        mediaStatus: {
+          logo: logoCheck.status,
+          banner: bannerCheck.status,
+          brochure: brochureCheck.status,
+        },
         sanitizedData,
       });
     }
@@ -1107,6 +1507,15 @@ export class CollegesBulkService {
       );
     }
 
+    const [dbStates, dbDistricts] = await Promise.all([
+      this.prisma.state.findMany({
+        select: { id: true, name: true, code: true },
+      }),
+      this.prisma.district.findMany({
+        select: { id: true, name: true, code: true, stateId: true },
+      }),
+    ]);
+
     let successfullyCreated = 0;
     let successfullyUpdated = 0;
     let skipped = 0;
@@ -1120,7 +1529,7 @@ export class CollegesBulkService {
       const chunk = validatedRows.slice(i, i + CHUNK_SIZE);
 
       for (const item of chunk) {
-        let row = item.sanitizedData;
+        let row = item.sanitizedData || (item.name ? item : null);
         if (!row) {
           const normalized = this.normalizeRow(item);
           if (normalized.name && normalized.city && normalized.state) {
@@ -1141,6 +1550,24 @@ export class CollegesBulkService {
               'Invalid row data: missing mandatory name, city, or state.',
           });
           continue;
+        }
+
+        // Ensure stateId and districtId are resolved from master tables
+        if (!row.stateId || !row.districtId) {
+          const matchedSt = this.matchState(row.state, dbStates);
+          if (matchedSt) {
+            row.stateId = matchedSt.id;
+            row.state = matchedSt.name;
+          }
+          const distResult = this.matchDistrict(row.city, matchedSt, dbDistricts);
+          if (distResult.matched && distResult.district) {
+            row.districtId = distResult.district.id;
+            if (!row.stateId) {
+              row.stateId = distResult.district.stateId;
+              const parentState = dbStates.find((s) => s.id === distResult.district!.stateId);
+              if (parentState) row.state = parentState.name;
+            }
+          }
         }
 
         try {
@@ -1204,6 +1631,8 @@ export class CollegesBulkService {
               fullDescription: row.fullDescription,
               city: row.city,
               state: row.state,
+              stateId: row.stateId || undefined,
+              districtId: row.districtId || undefined,
               address: row.address,
               pincode: row.pincode,
               website: row.website,
@@ -1230,6 +1659,7 @@ export class CollegesBulkService {
               scholarshipAvailable: row.scholarshipAvailable,
               logo: row.logo,
               banner: row.banner,
+              brochureUrl: row.brochureUrl,
               featured: row.featured,
               verified: row.verified,
               status: row.status,
@@ -1347,6 +1777,8 @@ export class CollegesBulkService {
               fullDescription: row.fullDescription,
               city: row.city,
               state: row.state,
+              stateId: row.stateId || undefined,
+              districtId: row.districtId || undefined,
               address: row.address,
               pincode: row.pincode,
               website: row.website,
@@ -1373,6 +1805,7 @@ export class CollegesBulkService {
               scholarshipAvailable: row.scholarshipAvailable ?? false,
               logo: row.logo,
               banner: row.banner,
+              brochureUrl: row.brochureUrl,
               featured: row.featured ?? false,
               verified: row.verified ?? false,
               status: row.status || CollegeStatus.PUBLISHED,

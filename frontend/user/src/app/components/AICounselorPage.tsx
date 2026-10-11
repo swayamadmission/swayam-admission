@@ -45,7 +45,9 @@ import {
   ComparisonCardData,
   CounselorHandoffData,
 } from "../../api/ai-counselor.api";
-import { useAuth } from "./Navbar";
+import { useAuth as useNavAuth } from "./Navbar";
+import { useAuth } from "../../context/AuthContext";
+import PolicyViewerModal from "./PolicyViewerModal";
 
 // Initial Welcome Message
 const INITIAL_MESSAGES: Message[] = [
@@ -250,7 +252,8 @@ class AICounselorErrorBoundary extends React.Component<
 }
 
 function AICounselorContent() {
-  const { isLoggedIn, openAuth } = useAuth();
+  const { isLoggedIn, openAuth } = useNavAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // State
@@ -265,6 +268,7 @@ function AICounselorContent() {
   const [lastFailedText, setLastFailedText] = useState<string | null>(null);
   const [assignedCounselorData, setAssignedCounselorData] = useState<any>(null);
   const [counselorRequestPending, setCounselorRequestPending] = useState(false);
+  const [viewingPolicySlug, setViewingPolicySlug] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -473,6 +477,16 @@ function AICounselorContent() {
       openAuth();
       return;
     }
+    if (!user?.phoneVerified && !user?.mobileVerified) {
+      window.dispatchEvent(
+        new CustomEvent("swayam:open-mobile-verification", {
+          detail: {
+            reason: "Mobile verification is required before speaking with an educational counselor.",
+          },
+        })
+      );
+      return;
+    }
     setCounselorRequestPending(true);
     try {
       await aiCounselorApi.escalate({
@@ -482,7 +496,20 @@ function AICounselorContent() {
       });
       alert("Counselor request submitted! A senior educational advisor will call/WhatsApp you shortly.");
       loadCounselorStatus();
-    } catch (err) {
+    } catch (err: any) {
+      if (
+        err?.response?.data?.code === "MOBILE_VERIFICATION_REQUIRED" ||
+        err?.response?.data?.message?.toLowerCase()?.includes("mobile")
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("swayam:open-mobile-verification", {
+            detail: {
+              reason: "Mobile verification is required before speaking with an educational counselor.",
+            },
+          })
+        );
+        return;
+      }
       console.error("Failed to request counselor:", err);
       alert("Request noted! Our team will contact you shortly.");
     }
@@ -1052,14 +1079,37 @@ function AICounselorContent() {
 
               <div className="flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 px-1 gap-1">
                 <p className="text-center sm:text-left leading-normal">
-                  AI guidance is for informational purposes only. Admission, eligibility, fees and other official information should be verified with Swayam Admission and the concerned institution.
+                  AI guidance is for informational purposes only. By using the assistant, you acknowledge the{" "}
+                  <button
+                    type="button"
+                    onClick={() => setViewingPolicySlug("ai-counselor-terms-and-disclaimer")}
+                    className="text-[#4A7B5B] underline hover:text-[#3d674c] font-semibold cursor-pointer"
+                  >
+                    AI Counselor Terms &amp; Disclaimer
+                  </button>{" "}
+                  and{" "}
+                  <button
+                    type="button"
+                    onClick={() => setViewingPolicySlug("privacy-policy")}
+                    className="text-[#4A7B5B] underline hover:text-[#3d674c] font-semibold cursor-pointer"
+                  >
+                    Privacy Policy
+                  </button>
+                  .
                 </p>
-                <span className="shrink-0 text-slate-400 font-medium">⚡ Powered by Swayam Verified Engine</span>
+                <span className="shrink-0 text-slate-400 font-medium">⚡ Powered by Swayam Admission Engine</span>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {viewingPolicySlug && (
+        <PolicyViewerModal
+          slug={viewingPolicySlug}
+          onClose={() => setViewingPolicySlug(null)}
+        />
+      )}
     </div>
   );
 }

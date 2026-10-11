@@ -24,7 +24,7 @@ describe('Document Vault Production Security Test Suite', () => {
     };
     auditService = new DocumentAuditService(mockPrisma);
     vaultStorage = new DocumentVaultStorageService();
-    dataScopeService = new DataScopeService({} as any);
+    dataScopeService = new DataScopeService({} as any, {} as any);
   });
 
   describe('1. Dynamic Server-Side Watermark Requirements', () => {

@@ -1,11 +1,13 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { DataScopeService } from '../auth/data-scope.service';
+import { LeadRoutingService } from '../lead/lead-routing.service';
 import { SubmitCounselorReviewDto } from './dto/counselor-review.dto';
 import { SubmitCollegeReviewDto } from './dto/college-review.dto';
 import {
@@ -41,10 +43,13 @@ import { DocumentsService } from '../documents/documents.service';
 
 @Injectable()
 export class JourneyService {
+  private readonly logger = new Logger(JourneyService.name);
+
   constructor(
     private prisma: PrismaService,
     private dataScopeService: DataScopeService,
     private documentsService: DocumentsService,
+    private leadRoutingService: LeadRoutingService,
   ) {}
 
   /**
@@ -283,7 +288,7 @@ export class JourneyService {
           ? {
               id: user.assignedCounselor.id,
               fullName: user.assignedCounselor.fullName,
-              email: user.assignedCounselor.email,
+              designation: (user.assignedCounselor as any).designation || 'Senior Educational Counselor',
             }
           : null,
       },
@@ -901,12 +906,19 @@ export class JourneyService {
       include: {
         profile: true,
         studentPreference: true,
-        assignedCounselor: { select: { id: true, fullName: true, email: true, mobile: true } },
+        assignedCounselor: { select: { id: true, fullName: true, designation: true } },
         applications: { take: 1, orderBy: { applicationDate: 'desc' }, include: { course: true, college: true } },
       },
     });
 
     if (!user) throw new NotFoundException('Student user not found.');
+
+    if (!user.phoneVerified) {
+      throw new ForbiddenException({
+        code: 'MOBILE_VERIFICATION_REQUIRED',
+        message: 'Please verify your mobile number before requesting a counselor.',
+      });
+    }
 
     if (user.assignedCounselor) {
       throw new BadRequestException(`You already have an assigned counselor: ${user.assignedCounselor.fullName}`);
@@ -956,31 +968,86 @@ export class JourneyService {
       },
     });
 
-    // Create or update Lead in the operational pipeline
+    // Resolve Student Profile Saved Geography Server-Side (DO NOT blindly trust client inputs)
+    const studentStateName = (user.profile?.state || user.state || '').trim();
+    const studentDistrictName = (user.profile?.district || user.profile?.city || '').trim();
+
+    let resolvedStateId: string | null = null;
+    let resolvedStateName: string | null = studentStateName || null;
+    if (studentStateName) {
+      const stateObj = await this.prisma.state.findFirst({
+        where: { name: { equals: studentStateName, mode: 'insensitive' } },
+      });
+      if (stateObj) {
+        resolvedStateId = stateObj.id;
+        resolvedStateName = stateObj.name;
+      }
+    }
+
+    let resolvedDistrictId: string | null = null;
+    let resolvedDistrictName: string | null = studentDistrictName || null;
+    if (resolvedStateId && studentDistrictName) {
+      const districtObj = await this.prisma.district.findFirst({
+        where: {
+          stateId: resolvedStateId,
+          name: { equals: studentDistrictName, mode: 'insensitive' },
+        },
+      });
+      if (districtObj) {
+        resolvedDistrictId = districtObj.id;
+        resolvedDistrictName = districtObj.name;
+      }
+    }
+
+    // Create or update Lead in the operational pipeline and execute Geographic Routing
+    let targetLeadId: string | null = null;
+    let routingResult: any = null;
+
     try {
+      const cleanMobile = user.mobile?.trim().replace(/\D/g, '').slice(-10) || null;
+      const cleanEmail = user.email?.trim().toLowerCase() || null;
+
       const existingLead = await this.prisma.lead.findFirst({
-        where: { mobile: user.mobile, isDeleted: false },
+        where: {
+          OR: [
+            ...(cleanMobile ? [{ mobile: cleanMobile }] : []),
+            ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ],
+          isDeleted: false,
+        },
+        orderBy: { createdAt: 'desc' },
       });
 
       if (existingLead) {
+        targetLeadId = existingLead.id;
         await this.prisma.lead.update({
           where: { id: existingLead.id },
           data: {
+            fullName: user.fullName || existingLead.fullName,
+            state: resolvedStateName || existingLead.state,
+            stateId: resolvedStateId || existingLead.stateId,
+            district: resolvedDistrictName || existingLead.district,
+            districtId: resolvedDistrictId || existingLead.districtId,
+            city: resolvedDistrictName || existingLead.city,
             status: 'NEW',
             priority: 'HOT',
             preferredCourse: courseName,
             preferredCollege: collegeName,
             remarks: `Counselor assignment requested on ${new Date().toLocaleDateString()}`,
+            updatedAt: new Date(),
           },
         });
       } else {
-        await this.prisma.lead.create({
+        const newLead = await this.prisma.lead.create({
           data: {
             fullName: user.fullName,
-            mobile: user.mobile,
-            email: user.email,
-            state: user.state || user.profile?.state || null,
-            city: user.profile?.district || null,
+            mobile: cleanMobile || user.mobile || 'N/A',
+            email: cleanEmail || user.email,
+            state: resolvedStateName,
+            stateId: resolvedStateId,
+            district: resolvedDistrictName,
+            districtId: resolvedDistrictId,
+            city: resolvedDistrictName,
             preferredCourse: courseName,
             preferredCollege: collegeName,
             source: 'WEBSITE',
@@ -989,9 +1056,14 @@ export class JourneyService {
             remarks: 'Counselor assignment requested via student portal',
           },
         });
+        targetLeadId = newLead.id;
       }
-    } catch (leadErr) {
-      console.warn('Non-blocking lead creation notice:', leadErr);
+
+      if (targetLeadId) {
+        routingResult = await this.leadRoutingService.routeLead(targetLeadId);
+      }
+    } catch (leadErr: any) {
+      this.logger.warn(`Lead routing notice for counselor request (user ${userId}): ${leadErr.message}`);
     }
 
     return {
@@ -1000,6 +1072,7 @@ export class JourneyService {
       ticketId: ticket.ticketId,
       status: 'PENDING_ASSIGNMENT',
       requestedAt: ticket.createdAt,
+      routing: routingResult,
     };
   }
 

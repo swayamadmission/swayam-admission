@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router";
 import { Search, Clock, ArrowRight, TrendingUp, BookOpen, Award, GraduationCap, Newspaper, Eye, ThumbsUp } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 import { useQuery } from "@tanstack/react-query";
 import { blogsApi, PublicBlogQueryParams } from "../../api/blogs.api";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -55,11 +56,14 @@ export default function BlogPage() {
   });
 
   const blogs = blogsRes?.data?.data || [];
-  const featured = blogs.length > 0 ? blogs[0] : null;
-  const rest = blogs.length > 0 ? blogs.slice(1) : [];
+  const featured = blogs.find((b: any) => b.featured) || (blogs.length > 0 ? blogs[0] : null);
+  const rest = featured ? blogs.filter((b: any) => b.id !== featured.id) : blogs;
 
   return (
     <div style={{ backgroundColor: "#F8FAFC" }} className="min-h-screen">
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="BLOGS_TOP" />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">

@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -125,6 +126,34 @@ export class ProfileService {
     const updateData: any = { ...dto };
     if (dto.dateOfBirth) updateData.dateOfBirth = new Date(dto.dateOfBirth);
 
+    if (dto.email !== undefined && dto.email !== null) {
+      const normalizedEmail = dto.email.trim().toLowerCase();
+      if (normalizedEmail !== (user.email ? user.email.toLowerCase() : '')) {
+        const existing = await this.prisma.user.findFirst({
+          where: {
+            email: normalizedEmail,
+            id: { not: userId },
+          },
+        });
+        if (existing) {
+          throw new ConflictException('This email address is already in use by another account.');
+        }
+        updateData.email = normalizedEmail;
+        updateData.emailVerified = false;
+        updateData.emailVerifiedAt = null;
+
+        await this.auditService.logAction({
+          module: 'AUTH',
+          action: 'AUTH_EMAIL_CHANGED',
+          description: `User ${userId} changed email from ${user.email || 'none'} to ${normalizedEmail}. Email reset to UNVERIFIED.`,
+          userId,
+          entityType: 'User',
+          entityId: userId,
+          metadata: { oldEmail: user.email, newEmail: normalizedEmail },
+        });
+      }
+    }
+
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
@@ -133,7 +162,7 @@ export class ProfileService {
     await this.auditService.logAction({
       module: 'PROFILE',
       action: 'PROFILE_UPDATED',
-      description: `User ${user.email} updated personal profile details`,
+      description: `User ${user.email || user.mobile} updated personal profile details`,
       userId,
       entityType: 'User',
       entityId: userId,

@@ -6,6 +6,7 @@ import logoImg from "../../assets/SA_logo-removebg-preview.png";
 import { notificationsApi } from "../../api/notifications.api";
 import { useAuth as useUserAuth } from "../../context/AuthContext";
 import { useUserLiveSync } from "../../hooks/useUserLiveSync";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 
 function formatDDMMYYYY(dateInput: any): string {
   if (!dateInput) return "N/A";
@@ -62,6 +63,7 @@ export default function Navbar() {
   const notifRef = useRef<HTMLDivElement>(null);
   const { isLoggedIn, openAuth, logout } = useAuth();
   const { user } = useUserAuth();
+  const { settings } = usePublicSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -121,10 +123,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <img src={logoImg} alt="Swayam Admission" className="h-9 w-auto" />
+            <img src={settings.logo || logoImg} alt={settings.brandName || settings.platformName || "Swayam Admission"} className="h-9 w-auto" />
             <div className="hidden sm:block leading-tight">
-              <div style={{ fontSize: "14px", fontWeight: 700, color: "#4A7B5B" }}>Swayam Admission</div>
-              <div style={{ fontSize: "9px", color: "#94a3b8" }}>Desh ki Shiksha</div>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: settings.primaryColor || "#4A7B5B" }}>
+                {settings.brandName || settings.platformName || "Swayam Admission"}
+              </div>
+              <div style={{ fontSize: "9px", color: "#64748b", fontWeight: 500 }}>
+                {settings.mainTagline || settings.tagline || "India Ka Mission Swayam Admission"}
+              </div>
             </div>
           </Link>
 

@@ -78,6 +78,8 @@ export interface GuideItem {
   views: number;
   likes: number;
   shares: number;
+  tldr?: string;
+  keyTakeaways?: string[];
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;

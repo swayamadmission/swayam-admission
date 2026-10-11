@@ -7,16 +7,20 @@ node_modules/
 
 # Environment Variables & Secrets (Keep .env.example tracked)
 .env
-.env*.local
+.env.*
 *.env
+*.env.*
 !.env.example
 !*.env.example
+!*.env.*.example
 
 # Build Outputs
 dist/
 */dist/
 build/
 */build/
+coverage/
+*/coverage/
 .next/
 */.next/
 out/

@@ -13,11 +13,14 @@ import { examsApi, Exam } from "../../api/exams.api";
 import { geographyApi } from "../../api/geography.api";
 
 import { scholarshipsApi, Scholarship } from "../../api/scholarships.api";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
 
 const TABS = ["Overview", "Colleges", "Scholarships", "Exam", "Cities", "Updates"];
 
 export default function StateDetailPage() {
   const { slug } = useParams();
+  const { settings } = usePublicSettings();
+  const phoneNum = settings.contactNumber1 || settings.supportPhone || "6284308664";
 
   // Find matching static metadata for banner, emoji, and static descriptions
   const staticState = ALL_STATES.find(s => s.slug === slug);
@@ -735,7 +738,7 @@ export default function StateDetailPage() {
               <Link to="/apply-now" className="w-full flex items-center justify-center gap-2 py-3 bg-[#4A7B5B] text-white rounded-xl hover:bg-[#3d6b4d] transition-colors mb-3" style={{ fontWeight: 600, fontSize: "14px" }}>
                 Apply Now Free <ArrowRight size={14} />
               </Link>
-              <a href="tel:+919000000000" className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors mb-4" style={{ fontSize: "13px" }}>
+              <a href={`tel:${phoneNum}`} className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors mb-4" style={{ fontSize: "13px" }}>
                 <Phone size={13} /> Free Counseling
               </a>
               <div className="space-y-2">

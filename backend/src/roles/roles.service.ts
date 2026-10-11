@@ -17,7 +17,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { RoleQueryDto } from './dto/role-query.dto';
-import { SYSTEM_PERMISSIONS } from './seed-permissions';
+import {
+  SYSTEM_PERMISSIONS,
+  ALL_35_MODULES,
+  MODULE_ALIASES,
+} from './seed-permissions';
 import { RoleHierarchyService } from './role-hierarchy.service';
 import { GovernanceService } from './governance.service';
 
@@ -42,6 +46,101 @@ export class RolesService implements OnModuleInit {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Match permission code or module against module id and action, checking aliases
+   */
+  isPermissionMatch(
+    p: { code: string; module: string; action: string },
+    mod: string,
+    act: string,
+  ): boolean {
+    const isActMatch =
+      p.action === act ||
+      (act === 'approve' && (p.action === 'publish' || p.action === 'approve')) ||
+      (act === 'publish' && (p.action === 'approve' || p.action === 'publish'));
+    if (!isActMatch) return false;
+
+    if (p.code === `${mod}.${act}` || p.code === `${mod}.${p.action}`) return true;
+    if (p.module === mod) return true;
+
+    const aliases = MODULE_ALIASES[mod] || [mod];
+    if (aliases.includes(p.module)) return true;
+    if (
+      aliases.some(
+        (a) =>
+          p.code === `${a}.${act}` ||
+          p.code === `${a}.${p.action}` ||
+          p.module === a,
+      )
+    ) {
+      return true;
+    }
+
+    const pAliases = MODULE_ALIASES[p.module] || [p.module];
+    if (pAliases.includes(mod)) return true;
+
+    return false;
+  }
+
+  /**
+   * Format Prisma RolePermissions array into synchronized matrix map for all 35 modules
+   */
+  formatPermissionsMap(
+    permissions: Array<{
+      allow: boolean;
+      permission: { module: string; action: string; code: string };
+    }>,
+  ): Record<string, Record<string, boolean>> {
+    const permissionsMap: Record<string, Record<string, boolean>> = {};
+
+    const allModuleKeys = new Set<string>();
+    for (const m of ALL_35_MODULES) {
+      allModuleKeys.add(m.id);
+      const aliases = MODULE_ALIASES[m.id] || [];
+      for (const a of aliases) allModuleKeys.add(a);
+    }
+    // Explicit UI module IDs:
+    allModuleKeys.add('guides');
+    allModuleKeys.add('blogs');
+    allModuleKeys.add('success-stories');
+    allModuleKeys.add('testimonials');
+    allModuleKeys.add('reviews');
+    allModuleKeys.add('review-moderation');
+    allModuleKeys.add('contacts');
+    allModuleKeys.add('contact-management');
+
+    for (const key of allModuleKeys) {
+      permissionsMap[key] = {
+        view: false,
+        create: false,
+        edit: false,
+        delete: false,
+        export: false,
+        approve: false,
+      };
+    }
+
+    for (const rp of permissions || []) {
+      if (!rp.allow) continue;
+      const p = rp.permission;
+      const act = p.action;
+      const normalizedAct = (act === 'publish' ? 'approve' : act);
+      if (!['view', 'create', 'edit', 'delete', 'export', 'approve'].includes(normalizedAct)) {
+        continue;
+      }
+
+      for (const key of allModuleKeys) {
+        if (this.isPermissionMatch(p, key, normalizedAct)) {
+          if (permissionsMap[key]) {
+            permissionsMap[key][normalizedAct] = true;
+          }
+        }
+      }
+    }
+
+    return permissionsMap;
   }
 
   async onModuleInit() {
@@ -549,6 +648,115 @@ export class RolesService implements OnModuleInit {
   }
 
   /**
+   * Get dynamic form options for Create / Edit Role modals
+   * Dynamic departments, active parent roles, and supported hierarchy levels
+   */
+  async getFormOptions() {
+    // 1. Departments from DB (Department table + distinct role departments)
+    const [deptsFromDb, roleDepts] = await Promise.all([
+      this.prisma.department.findMany({
+        where: { status: { not: 'ARCHIVED' } },
+        select: { id: true, name: true, code: true, slug: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.roleEntity.findMany({
+        where: { deletedAt: null, department: { not: null } },
+        select: { department: true },
+        distinct: ['department'],
+      }),
+    ]);
+
+    const deptMap = new Map<string, { id?: string; name: string; code?: string }>();
+    for (const d of deptsFromDb) {
+      deptMap.set(d.name.toLowerCase().trim(), {
+        id: d.id,
+        name: d.name,
+        code: d.code || undefined,
+      });
+    }
+    for (const rd of roleDepts) {
+      if (rd.department && !deptMap.has(rd.department.toLowerCase().trim())) {
+        deptMap.set(rd.department.toLowerCase().trim(), {
+          name: rd.department,
+        });
+      }
+    }
+    const departments = Array.from(deptMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+
+    // 2. Parent Roles: only ACTIVE non-archived roles from database
+    const parentRoles = await this.prisma.roleEntity.findMany({
+      where: {
+        status: RoleStatus.ACTIVE,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        level: true,
+        priority: true,
+        department: true,
+        isProtected: true,
+        parentRoleId: true,
+      },
+      orderBy: [{ level: 'asc' }, { name: 'asc' }],
+    });
+
+    // 3. Dynamic Hierarchy Levels from DB / configuration
+    const levelLabels: Record<number, string> = {
+      1: 'Level 1 (Executive / System Admin)',
+      2: 'Level 2 (Director / State Head)',
+      3: 'Level 3 (Regional / Zonal Manager)',
+      4: 'Level 4 (Senior Officer / Branch Lead)',
+      5: 'Level 5 (Operational / Counselor)',
+      6: 'Level 6 (Support / Associate)',
+      7: 'Level 7 (College Partner)',
+      8: 'Level 8 (External Viewer)',
+    };
+
+    let hierarchyConfig: Array<{ level: number; label: string }> | null = null;
+    try {
+      const config = await this.prisma.systemConfiguration.findFirst({
+        where: { key: 'ROLE_HIERARCHY_LEVELS' },
+      });
+      if (config && Array.isArray(config.value)) {
+        hierarchyConfig = config.value as any;
+      }
+    } catch {}
+
+    const dbLevels = await this.prisma.roleEntity.findMany({
+      where: { deletedAt: null },
+      select: { level: true },
+      distinct: ['level'],
+      orderBy: { level: 'asc' },
+    });
+
+    const levelSet = new Set<number>([1, 2, 3, 4, 5, 6]);
+    for (const l of dbLevels) {
+      if (typeof l.level === 'number') {
+        levelSet.add(l.level);
+      }
+    }
+
+    const levels =
+      hierarchyConfig ||
+      Array.from(levelSet)
+        .sort((a, b) => a - b)
+        .map((lvl) => ({
+          level: lvl,
+          label: levelLabels[lvl] || `Level ${lvl}`,
+        }));
+
+    return {
+      departments,
+      parentRoles,
+      levels,
+    };
+  }
+
+  /**
    * Get all roles with pagination, search, status, and permissions
    */
   async findAll(dto: RoleQueryDto) {
@@ -570,6 +778,9 @@ export class RolesService implements OnModuleInit {
       where.status = dto.status;
     } else if (dto.isActive !== undefined) {
       where.isActive = dto.isActive;
+    } else if (!dto.includeArchived) {
+      // By default exclude archived roles when not specifically requested
+      where.status = { not: RoleStatus.ARCHIVED };
     }
 
     if (dto.isProtected !== undefined) {
@@ -610,23 +821,7 @@ export class RolesService implements OnModuleInit {
 
     // Format roles for UI
     const formattedRoles = roles.map((r) => {
-      const permissionsMap: Record<string, Record<string, boolean>> = {};
-
-      for (const rp of r.permissions) {
-        const mod = rp.permission.module;
-        const act = rp.permission.action;
-        if (!permissionsMap[mod]) {
-          permissionsMap[mod] = {
-            view: false,
-            create: false,
-            edit: false,
-            delete: false,
-            export: false,
-            approve: false,
-          };
-        }
-        permissionsMap[mod][act] = rp.allow;
-      }
+      const permissionsMap = this.formatPermissionsMap(r.permissions);
 
       return {
         id: r.id,
@@ -730,6 +925,7 @@ export class RolesService implements OnModuleInit {
 
     return {
       ...role,
+      permissions: this.formatPermissionsMap(role.permissions),
       directPermissions: direct,
       inheritedPermissions: inherited,
       effectivePermissions: effective,
@@ -745,41 +941,102 @@ export class RolesService implements OnModuleInit {
     }
 
     const name = dto.name.trim();
-    const slug = name
+    if (name.length < 2) {
+      throw new BadRequestException('Role name must be at least 2 characters');
+    }
+
+    let slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
+    if (!slug) {
+      slug = 'role-' + Date.now();
+    }
+
+    // Check for collision across both active and archived roles
     const existing = await this.prisma.roleEntity.findFirst({
       where: {
         OR: [
           { name: { equals: name, mode: 'insensitive' } },
           { slug: { equals: slug, mode: 'insensitive' } },
         ],
-        deletedAt: null,
       },
     });
 
     if (existing) {
+      if (existing.deletedAt || existing.status === RoleStatus.ARCHIVED) {
+        throw new ConflictException(
+          `A role with name "${name}" or slug "${slug}" exists in archived records. Please use a unique name or restore the archived role.`,
+        );
+      }
       throw new ConflictException(`Role with name "${name}" already exists`);
     }
 
-    // Clean parentRoleId
+    // Clean and validate parentRoleId
     const parentRoleId =
       dto.parentRoleId && dto.parentRoleId.trim() !== ''
-        ? dto.parentRoleId
+        ? dto.parentRoleId.trim()
         : null;
 
     if (parentRoleId) {
       const parent = await this.prisma.roleEntity.findUnique({
         where: { id: parentRoleId },
       });
-      if (!parent) {
+      if (!parent || parent.deletedAt) {
         throw new NotFoundException(
           `Parent role with ID "${parentRoleId}" not found`,
         );
       }
+      if (parent.status === RoleStatus.ARCHIVED) {
+        throw new BadRequestException(
+          `Cannot select an archived role as a parent role.`,
+        );
+      }
+      if (dto.level !== undefined && dto.level < parent.level) {
+        throw new BadRequestException(
+          `Child role level (${dto.level}) cannot exceed parent role authority level (${parent.level})`,
+        );
+      }
     }
+
+    // Clean and validate departmentId
+    let departmentId =
+      dto.departmentId && dto.departmentId.trim() !== ''
+        ? dto.departmentId.trim()
+        : null;
+
+    if (departmentId) {
+      const dept = await this.prisma.department.findUnique({
+        where: { id: departmentId },
+      });
+      if (!dept) {
+        departmentId = null;
+      }
+    } else if (dto.department) {
+      const dept = await this.prisma.department.findFirst({
+        where: {
+          OR: [
+            { name: { equals: dto.department, mode: 'insensitive' } },
+            { slug: { equals: dto.department.toLowerCase().replace(/[^a-z0-9]+/g, '-'), mode: 'insensitive' } },
+          ],
+        },
+      });
+      if (dept) {
+        departmentId = dept.id;
+      }
+    }
+
+    // Normalize enums safely
+    const dataScope =
+      dto.dataScope && Object.values(DataScope).includes(dto.dataScope)
+        ? dto.dataScope
+        : DataScope.GLOBAL;
+
+    const status =
+      dto.status && Object.values(RoleStatus).includes(dto.status)
+        ? dto.status
+        : RoleStatus.ACTIVE;
 
     let auditUserId: string | null = null;
     if (userId) {
@@ -787,130 +1044,169 @@ export class RolesService implements OnModuleInit {
       if (u) auditUserId = userId;
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      const role = await tx.roleEntity.create({
-        data: {
-          name,
-          slug,
-          description: dto.description || '',
-          icon: dto.icon || 'Shield',
-          color: dto.color || '#4A7B5B',
-          level: dto.level || 5,
-          priority: dto.priority || 50,
-          department: dto.department || 'General',
-          departmentId: dto.departmentId || null,
-          parentRoleId,
-          status: dto.status || RoleStatus.ACTIVE,
-          isActive: dto.status
-            ? dto.status === RoleStatus.ACTIVE
-            : dto.isActive !== undefined
-              ? dto.isActive
-              : true,
-          isProtected: dto.isProtected || false,
-          selfRegistrable: dto.selfRegistrable || false,
-          approvalRequired:
-            dto.approvalRequired !== undefined ? dto.approvalRequired : true,
-          dataScope: dto.dataScope || DataScope.GLOBAL,
-          roleType: dto.roleType || 'CUSTOM',
-          stateRestricted: dto.stateRestricted || false,
-          createdById: auditUserId,
-        },
-      });
+    try {
+      const createdRole = await this.prisma.$transaction(async (tx) => {
+        const role = await tx.roleEntity.create({
+          data: {
+            name,
+            slug,
+            description: dto.description || '',
+            icon: dto.icon || 'Shield',
+            color: dto.color || '#4A7B5B',
+            level: dto.level || 5,
+            priority: dto.priority || 50,
+            department: dto.department || 'General',
+            departmentId,
+            parentRoleId,
+            status,
+            isActive:
+              status === RoleStatus.ACTIVE &&
+              (dto.isActive !== undefined ? dto.isActive : true),
+            isProtected: dto.isProtected || false,
+            selfRegistrable: dto.selfRegistrable || false,
+            approvalRequired:
+              dto.approvalRequired !== undefined ? dto.approvalRequired : true,
+            dataScope,
+            roleType: dto.roleType || 'CUSTOM',
+            stateRestricted:
+              dto.stateRestricted ||
+              dataScope === DataScope.STATE ||
+              dataScope === DataScope.DISTRICT ||
+              (dto.states && dto.states.length > 0) ||
+              false,
+            createdById: auditUserId,
+          },
+        });
 
-      // 1. Process permissions
-      const allPermissions = await tx.permission.findMany();
-      const addedPermissionIds = new Set<string>();
+        // 1. Process permissions matrix or codes
+        const allPermissions = await tx.permission.findMany();
+        const addedPermissionIds = new Set<string>();
 
-      if (dto.permissionsMatrix) {
-        for (const [mod, acts] of Object.entries(dto.permissionsMatrix)) {
-          for (const [action, allow] of Object.entries(acts)) {
-            if (allow) {
-              const code = `${mod === 'rbac' ? 'roles' : mod}.${action}`;
-              const match = allPermissions.find(
-                (p) =>
-                  p.code === code || (p.module === mod && p.action === action),
-              );
-              if (match && !addedPermissionIds.has(match.id)) {
-                addedPermissionIds.add(match.id);
-                await tx.rolePermission.create({
-                  data: {
-                    roleId: role.id,
-                    permissionId: match.id,
-                    allow: true,
-                  },
-                });
+        if (dto.permissionsMatrix) {
+          for (const [mod, acts] of Object.entries(dto.permissionsMatrix)) {
+            for (const [action, allow] of Object.entries(acts)) {
+              if (allow) {
+                const matches = allPermissions.filter((p) =>
+                  this.isPermissionMatch(p, mod, action),
+                );
+                for (const match of matches) {
+                  if (!addedPermissionIds.has(match.id)) {
+                    addedPermissionIds.add(match.id);
+                    await tx.rolePermission.create({
+                      data: {
+                        roleId: role.id,
+                        permissionId: match.id,
+                        allow: true,
+                      },
+                    });
+                  }
+                }
               }
             }
           }
-        }
-      } else if (dto.permissionCodes && dto.permissionCodes.length > 0) {
-        const matches = allPermissions.filter((p) =>
-          dto.permissionCodes?.includes(p.code),
-        );
-        for (const p of matches) {
-          if (!addedPermissionIds.has(p.id)) {
-            addedPermissionIds.add(p.id);
-            await tx.rolePermission.create({
-              data: { roleId: role.id, permissionId: p.id, allow: true },
-            });
+        } else if (dto.permissionCodes && dto.permissionCodes.length > 0) {
+          const matches = allPermissions.filter((p) =>
+            dto.permissionCodes?.includes(p.code),
+          );
+          for (const p of matches) {
+            if (!addedPermissionIds.has(p.id)) {
+              addedPermissionIds.add(p.id);
+              await tx.rolePermission.create({
+                data: { roleId: role.id, permissionId: p.id, allow: true },
+              });
+            }
           }
         }
-      }
 
-      // 2. Process State Restrictions
-      if (dto.states && dto.states.length > 0) {
-        const addedStates = new Set<string>();
-        for (const st of dto.states) {
-          if (st && !addedStates.has(st)) {
-            addedStates.add(st);
-            await tx.stateRestriction.create({
-              data: {
-                roleId: role.id,
-                state: st,
-                district: dto.restrictions?.district || null,
-              },
-            });
+        // 2. Process State Restrictions
+        if (dto.states && dto.states.length > 0) {
+          const addedStates = new Set<string>();
+          for (const st of dto.states) {
+            if (st && !addedStates.has(st)) {
+              addedStates.add(st);
+              await tx.stateRestriction.create({
+                data: {
+                  roleId: role.id,
+                  state: st,
+                  district: dto.restrictions?.district || null,
+                },
+              });
+            }
           }
         }
-      }
 
-      // 3. Process ABAC Policies
-      if (dto.policies) {
-        const addedPolicies = new Set<string>();
-        for (const [policyKey, enabled] of Object.entries(dto.policies)) {
-          if (enabled && !addedPolicies.has(policyKey)) {
-            addedPolicies.add(policyKey);
-            await tx.permissionPolicy.create({
-              data: {
-                roleId: role.id,
-                name: policyKey,
-                ruleType: policyKey.toUpperCase(),
-                enabled: true,
-              },
-            });
+        // 3. Process ABAC Policies
+        if (dto.policies) {
+          const addedPolicies = new Set<string>();
+          for (const [policyKey, enabled] of Object.entries(dto.policies)) {
+            if (enabled && !addedPolicies.has(policyKey)) {
+              addedPolicies.add(policyKey);
+              await tx.permissionPolicy.create({
+                data: {
+                  roleId: role.id,
+                  name: policyKey,
+                  ruleType: policyKey.toUpperCase(),
+                  enabled: true,
+                },
+              });
+            }
           }
         }
-      }
 
-      // 4. Audit log
-      await tx.roleAuditLog.create({
-        data: {
-          roleId: role.id,
-          userId: auditUserId,
-          action: 'ROLE_CREATED',
-          newValue: {
-            name: role.name,
-            department: role.department,
-            dataScope: role.dataScope,
-            level: role.level,
+        // 4. Audit log
+        await tx.roleAuditLog.create({
+          data: {
+            roleId: role.id,
+            userId: auditUserId,
+            action: 'ROLE_CREATED',
+            newValue: {
+              name: role.name,
+              department: role.department,
+              dataScope: role.dataScope,
+              level: role.level,
+              isProtected: role.isProtected,
+            },
+            reason: 'Dynamic role created via IAM portal',
           },
-          reason: 'Dynamic role created via IAM portal',
-        },
-      });
+        });
 
-      this.logger.log(`Role "${role.name}" (${role.id}) successfully created.`);
-      return role;
-    });
+        this.logger.log(`Role "${role.name}" (${role.id}) successfully created.`);
+        return role;
+      });
+      return this.findOne(createdRole.id);
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          const target = (err.meta?.target as string[]) || [];
+          const field = target.includes('name')
+            ? 'Role name'
+            : target.includes('slug')
+              ? 'Role identifier/slug'
+              : 'A unique field';
+          throw new ConflictException(
+            `${field} already exists. Please choose a different name.`,
+          );
+        }
+        if (err.code === 'P2003') {
+          throw new BadRequestException(
+            'Referenced parent role, department, or user record was not found.',
+          );
+        }
+      }
+      if (
+        err instanceof BadRequestException ||
+        err instanceof ConflictException ||
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException
+      ) {
+        throw err;
+      }
+      const errMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Failed to create role "${name}":`, err instanceof Error ? err.stack : err);
+      throw new BadRequestException(
+        errMessage || 'Failed to create role due to database validation failure.',
+      );
+    }
   }
 
   /**
@@ -935,52 +1231,167 @@ export class RolesService implements OnModuleInit {
       );
     }
 
-    const updated = await this.prisma.roleEntity.update({
-      where: { id },
-      data: {
-        name: dto.name || undefined,
-        description: dto.description,
-        icon: dto.icon,
-        color: dto.color,
-        level: dto.level,
-        priority: dto.priority,
-        department: dto.department,
-        departmentId: dto.departmentId,
-        parentRoleId: dto.parentRoleId,
-        dataScope: dto.dataScope,
-        roleType: dto.roleType,
-        stateRestricted: dto.stateRestricted,
-        selfRegistrable:
-          dto.selfRegistrable !== undefined ? dto.selfRegistrable : undefined,
-        approvalRequired:
-          dto.approvalRequired !== undefined ? dto.approvalRequired : undefined,
-      },
-    });
-
-    if (dto.permissionsMatrix) {
-      await this.updatePermissionsMatrix(id, dto.permissionsMatrix, userId);
+    let departmentId = dto.departmentId;
+    if (departmentId) {
+      const dept = await this.prisma.department.findUnique({
+        where: { id: departmentId },
+      });
+      if (!dept) departmentId = undefined;
     }
 
-    await this.prisma.roleAuditLog.create({
-      data: {
-        roleId: id,
-        userId: await this.resolveAuditUserId(userId),
-        action: 'ROLE_UPDATED',
-        oldValue: {
-          name: role.name,
-          department: role.department,
-          dataScope: role.dataScope,
-        },
-        newValue: {
-          name: updated.name,
-          department: updated.department,
-          dataScope: updated.dataScope,
-        },
-        reason: 'Role updated via IAM administration',
-      },
-    });
+    const dataScope =
+      dto.dataScope && Object.values(DataScope).includes(dto.dataScope)
+        ? dto.dataScope
+        : undefined;
 
-    return updated;
+    try {
+      const updated = await this.prisma.roleEntity.update({
+        where: { id },
+        data: {
+          name: dto.name || undefined,
+          description: dto.description,
+          icon: dto.icon,
+          color: dto.color,
+          level: dto.level,
+          priority: dto.priority,
+          department: dto.department,
+          departmentId,
+          parentRoleId:
+            dto.parentRoleId !== undefined
+              ? dto.parentRoleId && dto.parentRoleId.trim() !== ''
+                ? dto.parentRoleId.trim()
+                : null
+              : undefined,
+          dataScope,
+          roleType: dto.roleType,
+          stateRestricted: dto.stateRestricted,
+          isProtected:
+            dto.isProtected !== undefined ? dto.isProtected : undefined,
+          selfRegistrable:
+            dto.selfRegistrable !== undefined ? dto.selfRegistrable : undefined,
+          approvalRequired:
+            dto.approvalRequired !== undefined ? dto.approvalRequired : undefined,
+        },
+      });
+
+      if (dto.permissionsMatrix) {
+        await this.updatePermissionsMatrix(id, dto.permissionsMatrix, userId);
+      }
+
+      if (dto.states !== undefined) {
+        await this.prisma.stateRestriction.deleteMany({
+          where: { roleId: id },
+        });
+        if (dto.states.length > 0) {
+          const addedStates = new Set<string>();
+          const stateData: Array<{ roleId: string; state: string; district: string | null }> = [];
+          for (const st of dto.states) {
+            if (st && !addedStates.has(st)) {
+              addedStates.add(st);
+              stateData.push({
+                roleId: id,
+                state: st,
+                district: dto.restrictions?.district || null,
+              });
+            }
+          }
+          if (stateData.length > 0) {
+            await this.prisma.stateRestriction.createMany({
+              data: stateData,
+            });
+          }
+        }
+      }
+
+      if (dto.policies) {
+        await this.prisma.permissionPolicy.deleteMany({
+          where: { roleId: id },
+        });
+        for (const [policyKey, enabled] of Object.entries(dto.policies)) {
+          if (enabled) {
+            await this.prisma.permissionPolicy.create({
+              data: {
+                roleId: id,
+                name: policyKey,
+                ruleType: policyKey.toUpperCase(),
+                enabled: true,
+              },
+            });
+          }
+        }
+      }
+
+      if (dto.isProtected !== undefined && dto.isProtected !== role.isProtected) {
+        await this.prisma.roleAuditLog.create({
+          data: {
+            roleId: id,
+            userId: await this.resolveAuditUserId(userId),
+            action: dto.isProtected ? 'ROLE_PROTECTED' : 'ROLE_UNPROTECTED',
+            oldValue: { isProtected: role.isProtected },
+            newValue: { isProtected: dto.isProtected },
+            reason: `Role protection setting updated to ${dto.isProtected}`,
+          },
+        });
+      }
+
+      if (dto.dataScope && dto.dataScope !== role.dataScope) {
+        await this.prisma.roleAuditLog.create({
+          data: {
+            roleId: id,
+            userId: await this.resolveAuditUserId(userId),
+            action: 'SCOPE_CHANGED',
+            oldValue: { dataScope: role.dataScope },
+            newValue: { dataScope: dto.dataScope },
+            reason: `Data scope updated from ${role.dataScope} to ${dto.dataScope}`,
+          },
+        });
+      }
+
+      await this.prisma.roleAuditLog.create({
+        data: {
+          roleId: id,
+          userId: await this.resolveAuditUserId(userId),
+          action: 'ROLE_UPDATED',
+          oldValue: {
+            name: role.name,
+            department: role.department,
+            dataScope: role.dataScope,
+          },
+          newValue: {
+            name: updated.name,
+            department: updated.department,
+            dataScope: updated.dataScope,
+          },
+          reason: 'Role updated via IAM administration',
+        },
+      });
+
+      return this.findOne(id);
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError) {
+        if (err.code === 'P2002') {
+          throw new ConflictException(
+            'A role with this name or identifier already exists. Please choose a different name.',
+          );
+        }
+      }
+      if (
+        err instanceof BadRequestException ||
+        err instanceof ConflictException ||
+        err instanceof NotFoundException ||
+        err instanceof ForbiddenException
+      ) {
+        throw err;
+      }
+      const errMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Failed to update role "${id}":`,
+        err instanceof Error ? err.stack : err,
+      );
+      throw new BadRequestException(
+        errMessage || 'Failed to update role due to database validation failure.',
+      );
+    }
   }
 
   /**
@@ -997,12 +1408,11 @@ export class RolesService implements OnModuleInit {
 
     for (const [mod, acts] of Object.entries(permissionsMatrix)) {
       for (const [action, allow] of Object.entries(acts)) {
-        const code = `${mod === 'rbac' ? 'roles' : mod}.${action}`;
-        const match = allPermissions.find(
-          (p) => p.code === code || (p.module === mod && p.action === action),
+        const matches = allPermissions.filter((p) =>
+          this.isPermissionMatch(p, mod, action),
         );
 
-        if (match) {
+        for (const match of matches) {
           await this.prisma.rolePermission.upsert({
             where: {
               roleId_permissionId: {
@@ -1090,7 +1500,7 @@ export class RolesService implements OnModuleInit {
   /**
    * Disable a role (lifecycle: DISABLED)
    */
-  async disableRole(id: string, userId: string, reason?: string) {
+  async disableRole(id: string, userId?: string, reason?: string) {
     const role = await this.findOne(id);
 
     if (role.isProtected) {
@@ -1119,7 +1529,7 @@ export class RolesService implements OnModuleInit {
   /**
    * Enable a disabled role (lifecycle: ACTIVE)
    */
-  async enableRole(id: string, userId: string) {
+  async enableRole(id: string, userId?: string) {
     const role = await this.findOne(id);
 
     const updated = await this.prisma.roleEntity.update({
@@ -1142,9 +1552,44 @@ export class RolesService implements OnModuleInit {
   }
 
   /**
+   * Restore an archived or disabled role (lifecycle: ACTIVE)
+   */
+  async restoreRole(id: string, userId?: string, reason?: string) {
+    const role = await this.prisma.roleEntity.findUnique({ where: { id } });
+    if (!role) {
+      throw new NotFoundException(`Role with ID "${id}" not found`);
+    }
+
+    const updated = await this.prisma.roleEntity.update({
+      where: { id },
+      data: {
+        status: RoleStatus.ACTIVE,
+        isActive: true,
+        archivedAt: null,
+        deletedAt: null,
+        lockReason: null,
+        lockedAt: null,
+      },
+    });
+
+    await this.prisma.roleAuditLog.create({
+      data: {
+        roleId: id,
+        userId: await this.resolveAuditUserId(userId),
+        action: 'ROLE_RESTORED',
+        oldValue: { status: role.status, isActive: role.isActive },
+        newValue: { status: RoleStatus.ACTIVE, isActive: true },
+        reason: reason || `Role "${role.name}" restored to active status`,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
    * Emergency security lock on a role (lifecycle: LOCKED)
    */
-  async lockRole(id: string, userId: string, reason: string) {
+  async lockRole(id: string, userId?: string, reason?: string) {
     const role = await this.findOne(id);
 
     if (!reason || !reason.trim()) {
@@ -1188,7 +1633,7 @@ export class RolesService implements OnModuleInit {
   /**
    * Unlock a security-locked role (lifecycle: ACTIVE)
    */
-  async unlockRole(id: string, userId: string) {
+  async unlockRole(id: string, userId?: string) {
     const role = await this.findOne(id);
 
     const updated = await this.prisma.roleEntity.update({
@@ -1218,10 +1663,10 @@ export class RolesService implements OnModuleInit {
   /**
    * Archive a role for historical/audit purposes (lifecycle: ARCHIVED)
    */
-  async archiveRole(id: string, userId: string, reason?: string) {
+  async archiveRole(id: string, userId?: string, reason?: string) {
     const role = await this.findOne(id);
 
-    if (role.isProtected) {
+    if (role.isProtected || role.isSystem) {
       throw new ForbiddenException(
         'Protected system roles cannot be archived.',
       );
@@ -1233,7 +1678,7 @@ export class RolesService implements OnModuleInit {
         status: RoleStatus.ARCHIVED,
         isActive: false,
         archivedAt: new Date(),
-        deletedAt: new Date(),
+        deletedAt: null,
       },
     });
 
@@ -1293,7 +1738,7 @@ export class RolesService implements OnModuleInit {
       data: {
         roleId,
         userId: actorUserId,
-        action: 'USER_ROLE_ASSIGNED',
+        action: 'ROLE_ASSIGNED',
         newValue: { targetUserId, userEmail: user.email, roleName: role.name },
         reason: `Role "${role.name}" assigned to user "${user.fullName}" (${user.email})`,
       },
@@ -1327,7 +1772,7 @@ export class RolesService implements OnModuleInit {
       data: {
         roleId,
         userId: actorUserId,
-        action: 'USER_ROLE_REMOVED',
+        action: 'ROLE_REMOVED',
         oldValue: { targetUserId, roleName: role.name },
         reason: `Role "${role.name}" removed from user "${targetUserId}"`,
       },
@@ -1340,7 +1785,14 @@ export class RolesService implements OnModuleInit {
    * Clone an existing role
    */
   async cloneRole(id: string, newName?: string, userId?: string) {
-    const sourceRole = await this.findOne(id);
+    const sourceRole = await this.prisma.roleEntity.findUnique({
+      where: { id },
+      include: { permissions: true },
+    });
+    if (!sourceRole) {
+      throw new NotFoundException(`Role with ID "${id}" not found`);
+    }
+
     const clonedName = newName || `${sourceRole.name} (Copy)`;
     const slug = clonedName
       .toLowerCase()
@@ -1393,10 +1845,20 @@ export class RolesService implements OnModuleInit {
   }
 
   /**
-   * Delete role (soft delete / archive)
+   * Delete role (archive or permanent delete according to governance rules)
    */
-  async deleteRole(id: string, userId?: string) {
-    const role = await this.findOne(id);
+  async deleteRole(id: string, userId?: string, permanent = false) {
+    const role = await this.prisma.roleEntity.findUnique({
+      where: { id },
+      include: {
+        userRoles: true,
+        childRoles: true,
+      },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role with ID "${id}" not found`);
+    }
 
     if (role.isProtected || role.isSystem) {
       throw new ForbiddenException('Protected system roles cannot be deleted.');
@@ -1408,10 +1870,81 @@ export class RolesService implements OnModuleInit {
       );
     }
 
+    const auditUserId = await this.resolveAuditUserId(userId);
+
+    // If permanent deletion requested OR role is already ARCHIVED:
+    if (permanent || role.status === RoleStatus.ARCHIVED) {
+      return await this.prisma.$transaction(async (tx) => {
+        // 1. Reparent any child roles so they don't break
+        await tx.roleEntity.updateMany({
+          where: { parentRoleId: id },
+          data: { parentRoleId: role.parentRoleId || null },
+        });
+
+        // 2. Clear foreign key references on non-cascading relations
+        await tx.position.updateMany({
+          where: { roleId: id },
+          data: { roleId: null },
+        });
+
+        await tx.staffRegistrationRequest.updateMany({
+          where: { assignedRoleId: id },
+          data: { assignedRoleId: null },
+        });
+
+        await tx.governanceRequest.updateMany({
+          where: { targetRoleId: id },
+          data: { targetRoleId: null },
+        });
+
+        // 3. Clean up relations
+        await tx.roleAuditLog.deleteMany({
+          where: { roleId: id },
+        });
+
+        await tx.rolePermission.deleteMany({
+          where: { roleId: id },
+        });
+
+        await tx.stateRestriction.deleteMany({
+          where: { roleId: id },
+        });
+
+        await tx.permissionPolicy.deleteMany({
+          where: { roleId: id },
+        });
+
+        await tx.teamRole.deleteMany({
+          where: { roleId: id },
+        });
+
+        // 4. Delete role entity permanently
+        await tx.roleEntity.delete({
+          where: { id },
+        });
+
+        // 5. System audit log for permanent deletion
+        await tx.roleAuditLog.create({
+          data: {
+            userId: auditUserId,
+            action: 'ROLE_DELETED_PERMANENTLY',
+            oldValue: { id: role.id, name: role.name, status: role.status },
+            reason: `Role "${role.name}" permanently deleted from database`,
+          },
+        });
+
+        return {
+          success: true,
+          message: `Role "${role.name}" was permanently deleted.`,
+        };
+      });
+    }
+
+    // Otherwise, standard deletion moves role to ARCHIVED
     await this.archiveRole(
       id,
       userId || 'SYSTEM',
-      'Role deleted via IAM portal',
+      'Role moved to archive via IAM portal',
     );
 
     return {
@@ -1492,6 +2025,22 @@ export class RolesService implements OnModuleInit {
           where: { id: request.targetRoleId },
           data: { status: RoleStatus.DISABLED, isActive: false },
         });
+      } else if (
+        (request.actionType === 'ROLE_ENABLE' ||
+          request.actionType === 'ROLE_RESTORE') &&
+        request.targetRoleId
+      ) {
+        await tx.roleEntity.update({
+          where: { id: request.targetRoleId },
+          data: {
+            status: RoleStatus.ACTIVE,
+            isActive: true,
+            deletedAt: null,
+            archivedAt: null,
+            lockReason: null,
+            lockedAt: null,
+          },
+        });
       } else if (request.actionType === 'ROLE_LOCK' && request.targetRoleId) {
         await tx.roleEntity.update({
           where: { id: request.targetRoleId },
@@ -1502,15 +2051,93 @@ export class RolesService implements OnModuleInit {
             lockedAt: new Date(),
           },
         });
+      } else if (request.actionType === 'ROLE_UNLOCK' && request.targetRoleId) {
+        await tx.roleEntity.update({
+          where: { id: request.targetRoleId },
+          data: {
+            status: RoleStatus.ACTIVE,
+            isActive: true,
+            lockReason: null,
+            lockedAt: null,
+          },
+        });
+      } else if (
+        (request.actionType === 'ROLE_DELETE' ||
+          request.actionType === 'ROLE_ARCHIVE') &&
+        request.targetRoleId
+      ) {
+        await tx.roleEntity.update({
+          where: { id: request.targetRoleId },
+          data: {
+            status: RoleStatus.ARCHIVED,
+            isActive: false,
+            deletedAt: new Date(),
+            archivedAt: new Date(),
+          },
+        });
       } else if (
         request.actionType === 'ROLE_REPARENT' &&
         request.targetRoleId
       ) {
-        const payload = request.payload as any;
+        const payload = (request.payload || {}) as Record<string, unknown>;
+        const newParentRoleId = typeof payload.newParentRoleId === 'string' ? payload.newParentRoleId : null;
         await tx.roleEntity.update({
           where: { id: request.targetRoleId },
-          data: { parentRoleId: payload?.newParentRoleId || null },
+          data: { parentRoleId: newParentRoleId },
         });
+      } else if (
+        (request.actionType === 'ROLE_UPDATE' ||
+          request.actionType === 'ROLE_EDIT') &&
+        request.targetRoleId
+      ) {
+        const payload = (request.payload || {}) as Record<string, any>;
+        if (Object.keys(payload).length > 0) {
+          await tx.roleEntity.update({
+            where: { id: request.targetRoleId },
+            data: {
+              name: typeof payload.name === 'string' ? payload.name : undefined,
+              description: typeof payload.description === 'string' ? payload.description : undefined,
+              department: typeof payload.department === 'string' ? payload.department : undefined,
+              dataScope: payload.dataScope || undefined,
+              level: typeof payload.level === 'number' ? payload.level : undefined,
+              priority: typeof payload.priority === 'number' ? payload.priority : undefined,
+              color: typeof payload.color === 'string' ? payload.color : undefined,
+              icon: typeof payload.icon === 'string' ? payload.icon : undefined,
+            },
+          });
+        }
+      } else if (
+        request.actionType === 'PERMISSION_CHANGE' &&
+        request.targetRoleId
+      ) {
+        const payload = (request.payload || {}) as Record<string, any>;
+        const pMatrix = payload.permissionsMatrix as Record<string, Record<string, boolean>> | undefined;
+        if (pMatrix) {
+          const allPermissions = await tx.permission.findMany();
+          for (const [mod, acts] of Object.entries(pMatrix)) {
+            for (const [action, allow] of Object.entries(acts)) {
+              const matches = allPermissions.filter((p) =>
+                this.isPermissionMatch(p, mod, action),
+              );
+              for (const match of matches) {
+                await tx.rolePermission.upsert({
+                  where: {
+                    roleId_permissionId: {
+                      roleId: request.targetRoleId,
+                      permissionId: match.id,
+                    },
+                  },
+                  update: { allow: !!allow },
+                  create: {
+                    roleId: request.targetRoleId,
+                    permissionId: match.id,
+                    allow: !!allow,
+                  },
+                });
+              }
+            }
+          }
+        }
       }
 
       const updatedRequest = await tx.governanceRequest.update({
@@ -1526,7 +2153,7 @@ export class RolesService implements OnModuleInit {
         data: {
           roleId: request.targetRoleId,
           userId: approverUserId,
-          action: 'GOVERNANCE_REQUEST_APPROVED',
+          action: 'APPROVED',
           newValue: { requestId, actionType: request.actionType },
           reason: `Governance request #${requestId} approved and executed`,
         },

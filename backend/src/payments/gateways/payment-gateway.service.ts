@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
 
 export interface CreateOrderParams {
   amount: number;
@@ -91,7 +92,26 @@ export class RazorpayGateway implements IPaymentGateway {
   }
 
   async verifySignature(payload: VerifyPayload): Promise<boolean> {
-    return !!(payload.orderId && payload.paymentId);
+    if (!payload.orderId || !payload.paymentId || !payload.signature) {
+      return false;
+    }
+    const secret =
+      process.env.RAZORPAY_KEY_SECRET || 'rzp_test_secret_swayam_admission_2026';
+    const generatedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(`${payload.orderId}|${payload.paymentId}`)
+      .digest('hex');
+
+    try {
+      const generatedBuf = Buffer.from(generatedSignature, 'utf8');
+      const signatureBuf = Buffer.from(payload.signature, 'utf8');
+      if (generatedBuf.length !== signatureBuf.length) {
+        return false;
+      }
+      return crypto.timingSafeEqual(generatedBuf, signatureBuf);
+    } catch {
+      return false;
+    }
   }
 
   async refund(params: RefundParams): Promise<RefundResponse> {

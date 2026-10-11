@@ -16,6 +16,7 @@ import { UpdateNotificationSettingDto } from './dto/update-notification-setting.
 import { UpdateIntegrationSettingDto } from './dto/update-integration-setting.dto';
 import { UpdateSecuritySettingDto } from './dto/update-security-setting.dto';
 import { UpdateSEOSettingDto } from './dto/update-seo-setting.dto';
+import { UpdateBrandContactSettingDto } from './dto/update-brand-contact-setting.dto';
 import {
   CreateConfigurationDto,
   UpdateConfigurationDto,
@@ -44,6 +45,26 @@ export class SettingsController {
   @Get('public')
   getPublicSettings() {
     return this.settingsService.getPublicSettings();
+  }
+
+  /**
+   * Brand, Contact & Social Settings (Admin/Super Admin only)
+   */
+  @Get('brand-contact')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  getBrandContactSettings() {
+    return this.settingsService.getBrandContactSettings();
+  }
+
+  @Patch('brand-contact')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  updateBrandContactSettings(
+    @Body() dto: UpdateBrandContactSettingDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.settingsService.updateBrandContactSettings(dto, user);
   }
 
   // ─── CANONICAL ENTERPRISE CONFIGURATION ENGINE ───────────────────────────────

@@ -34,18 +34,40 @@ import {
   Receipt,
   Check,
   Info,
+  Tag,
 } from 'lucide-react';
 import CouponApplyWidget from './CouponApplyWidget';
 import { CouponValidationResponse } from '../../api/coupons.api';
+import OfficialAdmissionReceiptModal from './OfficialAdmissionReceiptModal';
+import ActionConsentSection, { AcceptedPolicyPayload } from './ActionConsentSection';
+
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
 
 interface ApplicationWorkflowFormProps {
   applicationId: string;
+  initialStep?: number;
+  autoScrollToSubmit?: boolean;
   onSubmitted?: () => void;
   onBack?: () => void;
 }
 
 export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = ({
   applicationId,
+  initialStep,
+  autoScrollToSubmit,
   onSubmitted,
   onBack,
 }) => {
@@ -126,9 +148,6 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
   // Step 6: Declarations & Financial Assistance
   const [privacyAccepted, setPrivacyAccepted] = useState<boolean>(false);
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
-  const [declarationAccepted, setDeclarationAccepted] = useState<boolean>(false);
-  const [verificationConsent, setVerificationConsent] = useState<boolean>(false);
-  const [communicationConsent, setCommunicationConsent] = useState<boolean>(false);
 
   // Financial Assistance
   const [financePreference, setFinancePreference] = useState<'DIRECT_PAYMENT' | 'STATE_SCHEME' | 'SCHOLARSHIP' | 'BOTH'>('DIRECT_PAYMENT');
@@ -144,7 +163,29 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
     payableAmount?: number;
     baseFee?: number;
     discountAmount?: number;
+    keyId?: string;
+    applicationNumber?: string;
   } | null>(null);
+  const [authoritativeFee, setAuthoritativeFee] = useState<{
+    baseFee: number;
+    discountAmount: number;
+    finalPayableAmount: number;
+    isWithinFreeQuota: boolean;
+    isZeroAmount: boolean;
+    freeApplicationsUsed?: number;
+    freeApplicationsRemaining?: number;
+  } | null>(null);
+
+  const [paymentTermsAccepted, setPaymentTermsAccepted] = useState<boolean>(false);
+  const [paymentPrivacyAccepted, setPaymentPrivacyAccepted] = useState<boolean>(false);
+
+  // Action-Based Legal Consent States
+  const [docConsentValid, setDocConsentValid] = useState<boolean>(false);
+  const [docAcceptedPolicies, setDocAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
+  const [appConsentValid, setAppConsentValid] = useState<boolean>(false);
+  const [appAcceptedPolicies, setAppAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
+  const [payConsentValid, setPayConsentValid] = useState<boolean>(false);
+  const [payAcceptedPolicies, setPayAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
 
   // Read-only state for submitted applications
   const isReadOnly =
@@ -274,23 +315,8 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           ? Boolean(itemMap.get('TERMS_CONDITIONS').accepted)
           : Boolean(decl.termsAccepted);
 
-        const isAuth = itemMap.has('AUTHENTICITY')
-          ? Boolean(itemMap.get('AUTHENTICITY').accepted)
-          : Boolean(decl.declarationAccepted || decl.studentDeclarationAccepted);
-
-        const isVerify = itemMap.has('VERIFICATION_AUTH')
-          ? Boolean(itemMap.get('VERIFICATION_AUTH').accepted)
-          : Boolean(decl.verificationConsent || decl.verificationAccepted);
-
-        const isComm = itemMap.has('COMMUNICATION_CONSENT')
-          ? Boolean(itemMap.get('COMMUNICATION_CONSENT').accepted)
-          : Boolean(decl.communicationConsent || decl.communicationAccepted);
-
         setPrivacyAccepted(isPriv);
         setTermsAccepted(isTerms);
-        setDeclarationAccepted(isAuth);
-        setVerificationConsent(isVerify);
-        setCommunicationConsent(isComm);
 
         const fin = formData.financialAssistance || {};
         if (fin.preference) {
@@ -298,13 +324,22 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           setSelectedSchemeId(fin.schemeId || fin.schemeCode || '');
           setScholarshipRemarks(fin.remarks || '');
         }
+
+        // If application is submitted and payment is pending, default to Step 6 (Pay Application Fee) unless another step was specified
+        if (
+          (current.status === 'SUBMITTED' || current.status === 'UNDER_REVIEW') &&
+          current.paymentStatus !== 'COMPLETED' &&
+          !initialStep
+        ) {
+          setActiveStep(6);
+        }
       }
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load application details.');
     } finally {
       setLoading(false);
     }
-  }, [applicationId]);
+  }, [applicationId, initialStep]);
 
   useEffect(() => {
     fetchInitialData();
@@ -342,6 +377,47 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
     };
     loadSchemes();
   }, [selectedStateId]);
+
+  // Authoritative Application Fee calculation directly from server-side Fee Catalog & Free Quota rules
+  useEffect(() => {
+    let isSubscribed = true;
+    const fetchFee = async () => {
+      try {
+        const res = await applicationsApi.getFeeSummary(applicationId, appliedCoupon?.code);
+        if (isSubscribed && res.data?.data) {
+          setAuthoritativeFee(res.data.data);
+        }
+      } catch (err) {
+        console.warn('Fee summary resolution notice:', err);
+      }
+    };
+    if (applicationId) {
+      fetchFee();
+    }
+    return () => {
+      isSubscribed = false;
+    };
+  }, [applicationId, appliedCoupon]);
+
+  // Initial step deep linking (1 through 6)
+  useEffect(() => {
+    if (initialStep && initialStep >= 1 && initialStep <= 6) {
+      setActiveStep(initialStep);
+    }
+  }, [initialStep]);
+
+  // Auto-scroll directly to Submit & Pay section when requested
+  useEffect(() => {
+    if (autoScrollToSubmit && !loading && activeStep === 5) {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('submit-section-container');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [autoScrollToSubmit, loading, activeStep]);
 
   // Authoritative PIN Code Validation on change/blur
   const handleValidatePincode = useCallback(async (pinToTest?: string) => {
@@ -478,9 +554,6 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           privacyVersion: 'v1.2',
           termsAccepted,
           termsVersion: 'v2.0',
-          declarationAccepted,
-          verificationConsent,
-          communicationConsent,
           acceptedAt: new Date().toISOString(),
         },
       };
@@ -564,16 +637,25 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
         return;
       }
     } else if (activeStep === 5) {
-      if (!declarationAccepted || !privacyAccepted || !termsAccepted || !verificationConsent || !communicationConsent) {
-        setError('Please accept all required declarations, privacy policy, and consent checkboxes.');
+      if (!appConsentValid) {
+        setError('Please review and accept all required legal policies and terms before proceeding.');
         return;
       }
     }
 
     const saved = await handleSaveDraft(`Step ${activeStep}`);
-    if (saved && activeStep < 5) {
-      setActiveStep(activeStep + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (saved) {
+      if (activeStep < 5) {
+        setActiveStep(activeStep + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (activeStep === 5) {
+        if (appData?.status === 'SUBMITTED' || appData?.status === 'UNDER_REVIEW' || appData?.status === 'APPROVED') {
+          setActiveStep(6);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          await handleSubmitApplication();
+        }
+      }
     }
   };
 
@@ -587,6 +669,10 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
   // Inline Document Upload Handler for Step 5
   const handleFileUpload = async (type: string, file: File, docId?: string) => {
     try {
+      if (!docConsentValid) {
+        setError('Please review and acknowledge the Data & Document Processing Consent before uploading documents.');
+        return;
+      }
       if (file.size > 300 * 1024) {
         setError('File size must not exceed 300 KB.');
         return;
@@ -594,9 +680,15 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
       setUploadingDocType(type);
       setError(null);
       if (docId) {
-        await documentsApi.replace(docId, file);
+        await documentsApi.replace(docId, file, {
+          consentAccepted: true,
+          acceptedPolicies: docAcceptedPolicies,
+        });
       } else {
-        await documentsApi.upload(type, file, applicationId, type.replace(/_/g, ' '));
+        await documentsApi.upload(type, file, applicationId, type.replace(/_/g, ' '), {
+          consentAccepted: true,
+          acceptedPolicies: docAcceptedPolicies,
+        });
       }
       setSuccessMessage(`Document "${type.replace(/_/g, ' ')}" uploaded successfully.`);
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -614,40 +706,31 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
   const isNextFree = progress?.quotaInfo?.isFreeSubmission ?? true;
   const freeRemaining = progress?.quotaInfo?.freeRemaining ?? 3;
 
-  // Single Action Final Submission & Authoritative Payment Handler
-  const handleFinalSubmitAndPay = async () => {
+  // 1. Submit Application (Phase 1: Validates & Submits Application Authoritatively)
+  const handleSubmitApplication = async () => {
     setError(null);
     setBlockingReason(null);
     setPaymentNotice(null);
 
-    // 1. Mandatory Declarations Validation
-    const missingClientDeclarations: string[] = [];
-    if (!privacyAccepted) missingClientDeclarations.push('Privacy Policy Agreement (Version v1.2)');
-    if (!termsAccepted) missingClientDeclarations.push('Terms & Conditions of Admission (Version v2.0)');
-    if (!declarationAccepted) missingClientDeclarations.push('Authenticity of Information & Documents');
-    if (!verificationConsent) missingClientDeclarations.push('Verification & Institutional Record Check Authorization');
-
-    if (missingClientDeclarations.length > 0) {
-      const msg = `Please accept all required statutory declarations before final submission: ${missingClientDeclarations.join(', ')}`;
+    // Mandatory Declarations & Action Consent Validation
+    if (!appConsentValid) {
+      const msg = 'Please review and accept all mandatory legal policies and application terms before final submission.';
       setBlockingReason(msg);
       setError(msg);
       return;
     }
 
     const declarationPayload = {
-      privacyAccepted,
-      privacyVersion: 'v1.2',
-      termsAccepted,
-      termsVersion: 'v2.0',
-      declarationAccepted,
-      verificationConsent,
-      communicationConsent,
+      privacyAccepted: true,
+      privacyVersion: appAcceptedPolicies.find(p => p.policyType.includes('PRIVACY'))?.policyVersion || 'v1.0',
+      termsAccepted: true,
+      termsVersion: appAcceptedPolicies.find(p => p.policyType.includes('APPLICATION') || p.policyType.includes('TERMS'))?.policyVersion || 'v1.0',
       acceptedAt: new Date().toISOString(),
     };
 
     // Auto-save Step 5 draft to synchronize authoritative backend state
+    const selectedScheme = financeSchemes.find((s: any) => s.id === selectedSchemeId || s.schemeCode === selectedSchemeId);
     try {
-      const selectedScheme = financeSchemes.find((s: any) => s.id === selectedSchemeId || s.schemeCode === selectedSchemeId);
       await applicationsApi.saveDraft(applicationId, {
         section: 'Step 5',
         declaration: declarationPayload,
@@ -674,7 +757,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
       console.warn('Failed to refresh progress', pErr);
     }
 
-    // 2. Authoritative readiness check from refreshed progress
+    // Authoritative readiness check from refreshed progress
     if (currentProgress && !currentProgress.isOfferingActive) {
       const msg = 'This program is no longer accepting applications.';
       setBlockingReason(msg);
@@ -689,28 +772,8 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
       return;
     }
 
-    // 3. Prevent duplicate click if already in flight (Idempotency)
+    // Prevent duplicate click if already in flight (Idempotency)
     if (submitting || paymentProcessing) {
-      return;
-    }
-
-    // Statutory declarations validation
-    if (!declarationAccepted) {
-      const msg = 'Please accept the declaration confirming all information provided is accurate.';
-      setError(msg);
-      setBlockingReason(msg);
-      return;
-    }
-    if (!termsAccepted) {
-      const msg = 'Please accept the terms and conditions to proceed with submission.';
-      setError(msg);
-      setBlockingReason(msg);
-      return;
-    }
-    if (!privacyAccepted) {
-      const msg = 'Please accept the privacy policy to proceed with submission.';
-      setError(msg);
-      setBlockingReason(msg);
       return;
     }
 
@@ -719,98 +782,110 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
     setBlockingReason(null);
     setPaymentNotice(null);
 
-    // 4. Authoritative Backend Payment Initiation
-    let paymentInitData: any = null;
     try {
-      const initRes = await applicationsApi.initiatePayment(applicationId, {
-        couponCode: appliedCoupon?.code,
-        declaration: declarationPayload,
-      });
-      paymentInitData = initRes.data;
-    } catch (initErr: any) {
-      const missing = initErr?.response?.data?.missingRequirements || initErr?.response?.data?.missingDeclarations;
-      let msg = initErr?.response?.data?.message || initErr?.message || 'Unable to start payment. Please try again.';
+      const res: any = await applicationsApi.submitApplication(
+        applicationId,
+        true,
+        'v2.0',
+        appliedCoupon?.code,
+        undefined,
+        undefined,
+        {
+          financialAssistance: {
+            preference: financePreference,
+            schemeId: selectedScheme?.id,
+            schemeCode: selectedScheme?.schemeCode,
+            schemeName: selectedScheme?.schemeName,
+            maximumFinancing: selectedScheme?.maximumFinancing,
+            remarks: scholarshipRemarks,
+          },
+        },
+        declarationPayload,
+        undefined,
+        undefined,
+        appAcceptedPolicies
+      );
+
+      const appObj = res.data?.data || res.data?.application || appData;
+      const publicAppCode = res.data?.applicationNumber || appObj?.applicationNumber || appObj?.applicationId || applicationId;
+      const isPaymentReq = res.data?.paymentRequired === true;
+      const isFree = res.data?.isWithinFreeQuota || res.data?.payableAmount === 0 || (!isPaymentReq && res.data?.paymentStatus === 'COMPLETED');
+      const receiptNo = res.data?.receiptNumber || `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      if (!isPaymentReq) {
+        // Free Quota or 100% Coupon: emit zero rupee receipt immediately
+        setSubmissionReceipt({
+          receiptNumber: receiptNo,
+          applicationId: applicationId,
+          applicationNumber: publicAppCode,
+          studentName: fullName || (appData as any)?.user?.fullName || 'Student',
+          studentEmail: email || (appData as any)?.user?.email || '',
+          studentMobile: mobile || (appData as any)?.user?.mobile || '',
+          collegeName: appData?.college?.name || 'Partner College',
+          courseName: appData?.course?.name || 'Academic Program',
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          paymentDate: new Date().toISOString(),
+          feeDescription: isFree ? 'Free Application Quota Allocation' : '100% Coupon Fee Waiver',
+          originalAmount: res.data?.baseFee || authoritativeFee?.baseFee || 1500,
+          discountAmount: res.data?.baseFee || authoritativeFee?.baseFee || 1500,
+          couponCode: appliedCoupon?.code || (isFree ? 'FREE_APPLICATION_QUOTA' : 'FEE_WAIVER'),
+          paidAmount: 0,
+          netAmount: 0,
+          paymentStatus: 'FREE_QUOTA',
+          paymentMethod: isFree ? 'FREE APPLICATION QUOTA (₹0)' : 'COUPON WAIVER (₹0)',
+          transactionReference: res.data?.transactionId || `TXN_FREE_${Date.now()}`,
+          remarks: 'Free application quota authorized by Swayam Admission',
+        });
+        setSuccessMessage('Application submitted successfully. No application fee is required for this submission.');
+        await fetchInitialData();
+        if (onSubmitted) {
+          onSubmitted();
+        }
+      } else {
+        // Payment required: Application is submitted! Student immediately redirected to Step 6 (Pay Application Fee)
+        const payable = res.data?.payableAmount ?? authoritativeFee?.finalPayableAmount ?? 1500;
+        const base = res.data?.baseFee ?? authoritativeFee?.baseFee ?? 1500;
+        setPendingPaymentInfo({
+          payableAmount: payable,
+          baseFee: base,
+          discountAmount: base - payable,
+          applicationNumber: publicAppCode,
+        });
+        setSuccessMessage('Application submitted successfully! Redirecting to application fee payment...');
+        setActiveStep(6);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        await fetchInitialData();
+      }
+    } catch (err: any) {
+      const missing = err?.response?.data?.missingDeclarations || err?.response?.data?.missing;
+      let msg = err?.response?.data?.message || err?.message || 'Failed to submit application.';
       if (Array.isArray(missing) && missing.length > 0) {
-        msg = `Application is incomplete: ${missing.join('; ')}`;
+        msg = `Required statutory declarations missing: ${missing.join(', ')}`;
       }
       setError(msg);
       setBlockingReason(msg);
+    } finally {
       setSubmitting(false);
-      return;
-    }
-
-    // CASE A — FINAL PAYABLE = ₹0 (Free Quota or 100% Coupon)
-    if (paymentInitData?.isZeroAmount || paymentInitData?.payableAmount === 0) {
-      try {
-        const res: any = await applicationsApi.submitApplication(
-          applicationId,
-          true,
-          'v2.0',
-          appliedCoupon?.code,
-          undefined,
-          undefined,
-          {
-            financialAssistance: {
-              preference: financePreference,
-              schemeId: selectedSchemeId,
-              remarks: scholarshipRemarks,
-            },
-          },
-          declarationPayload,
-          paymentInitData.paymentId,
-          paymentInitData.orderId
-        );
-
-        const appObj = res.data?.data || res.data?.application || appData;
-        const publicAppCode = res.data?.applicationNumber || appObj?.applicationNumber || appObj?.applicationId || applicationId;
-        const receiptNo = res.data?.receiptNumber || `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-
-        setSubmissionReceipt({
-          applicationCode: publicAppCode,
-          receiptNumber: receiptNo,
-          originalAmount: paymentInitData.baseFee || 1500,
-          discount: paymentInitData.discountAmount || (paymentInitData.isFreeQuota ? (paymentInitData.baseFee || 1500) : (appliedCoupon?.discountAmount || 0)),
-          coupon: appliedCoupon?.code || (paymentInitData.isFreeQuota ? 'FREE_APPLICATION_QUOTA' : 'FEE_WAIVER'),
-          netAmount: 0,
-          paymentMethod: paymentInitData.isFreeQuota ? 'FREE APPLICATION QUOTA (₹0)' : '100% COUPON WAIVER (₹0)',
-          transactionReference: res.data?.transactionId || `TXN_SETTLED_${Date.now()}`,
-          studentId: appData?.userId || (appData as any)?.user?.id || 'N/A',
-          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-          paymentStatus: 'COMPLETED / WAIVED',
-          collegeName: appData?.college?.name || 'Partner College',
-          courseName: appData?.course?.name || 'Academic Program',
-        });
-
-        setSuccessMessage('Application Submitted Successfully');
-        await fetchInitialData();
-      } catch (err: any) {
-        const missing = err?.response?.data?.missingDeclarations || err?.response?.data?.missing;
-        let msg = err?.response?.data?.message || err?.message || 'Failed to submit application.';
-        if (Array.isArray(missing) && missing.length > 0) {
-          msg = `Required statutory declarations missing: ${missing.join(', ')}`;
-        }
-        setError(msg);
-        setBlockingReason(msg);
-      } finally {
-        setSubmitting(false);
-      }
-    } else {
-      // CASE B — FINAL PAYABLE > ₹0 (Opens Authoritative Payment Gateway Window)
-      setPendingPaymentInfo({
-        orderId: paymentInitData?.orderId,
-        paymentId: paymentInitData?.paymentId,
-        payableAmount: paymentInitData?.payableAmount,
-        baseFee: paymentInitData?.baseFee,
-        discountAmount: paymentInitData?.discountAmount,
-      });
-      setSubmitting(false);
-      setShowPaymentModal(true);
     }
   };
 
-  // Complete Payment and Atomically Submit
+  // 2. Open Payment Window (Phase 2 Action: Triggered by "Pay Application Fee")
+  const handleOpenPaymentModal = () => {
+    setPaymentTermsAccepted(false);
+    setPaymentPrivacyAccepted(false);
+    setError(null);
+    setBlockingReason(null);
+    setShowPaymentModal(true);
+  };
+
+  // 3. Initiate & Execute Payment with official Razorpay Checkout and server-side verification
   const handleExecutePayment = async () => {
     if (paymentProcessing) return;
+
+    if (!payConsentValid) {
+      setError('Please review and accept the mandatory Payment Terms & Conditions and Refund Policy before proceeding to payment.');
+      return;
+    }
 
     try {
       setPaymentProcessing(true);
@@ -818,79 +893,163 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
       setBlockingReason(null);
       setPaymentNotice(null);
 
-      const txnRef = `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-      const finalPayable = pendingPaymentInfo?.payableAmount ?? (appliedCoupon ? appliedCoupon.finalAmount : 1500);
-
-      const declarationPayload = {
-        privacyAccepted,
-        privacyVersion: 'v1.2',
-        termsAccepted,
-        termsVersion: 'v2.0',
-        declarationAccepted,
-        verificationConsent,
-        communicationConsent,
-        acceptedAt: new Date().toISOString(),
-      };
-
-      const res: any = await applicationsApi.submitApplication(
-        applicationId,
-        true,
-        'v2.0',
-        appliedCoupon?.code,
-        txnRef,
-        txnRef,
-        {
-          paymentMethod: selectedPaymentMethod,
-          financialAssistance: {
-            preference: financePreference,
-            schemeId: selectedSchemeId,
-            remarks: scholarshipRemarks,
-          },
-        },
-        declarationPayload,
-        pendingPaymentInfo?.paymentId,
-        pendingPaymentInfo?.orderId
-      );
-
-      const appObj = res.data?.data || res.data?.application || appData;
-      const publicAppCode = res.data?.applicationNumber || appObj?.applicationNumber || appObj?.applicationId || applicationId;
-      const receiptNo = res.data?.receiptNumber || `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
-
-      setSubmissionReceipt({
-        applicationCode: publicAppCode,
-        receiptNumber: receiptNo,
-        originalAmount: pendingPaymentInfo?.baseFee || 1500,
-        discount: pendingPaymentInfo?.discountAmount || (appliedCoupon?.discountAmount || 0),
-        coupon: appliedCoupon?.code || 'NONE',
-        netAmount: finalPayable,
+      // Authoritative Backend Payment Initiation
+      const initRes = await applicationsApi.initiatePayment(applicationId, {
+        couponCode: appliedCoupon?.code,
+        paymentTermsAccepted: true,
+        paymentPrivacyAccepted: true,
         paymentMethod: selectedPaymentMethod,
-        transactionReference: txnRef,
-        studentId: appData?.userId || (appData as any)?.user?.id || 'N/A',
-        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        paymentStatus: 'COMPLETED / SUCCESS',
-        collegeName: appData?.college?.name || 'Partner College',
-        courseName: appData?.course?.name || 'Academic Program',
+        acceptedPolicies: payAcceptedPolicies,
       });
 
-      setSuccessMessage('Application and payment processed successfully!');
-      setShowPaymentModal(false);
-      await fetchInitialData();
-    } catch (err: any) {
-      const missing = err?.response?.data?.missingDeclarations || err?.response?.data?.missing;
-      let msg = err?.response?.data?.message || err?.message || 'Payment processing or submission failed.';
-      if (Array.isArray(missing) && missing.length > 0) {
-        msg = `Required statutory declarations missing: ${missing.join(', ')}`;
+      const paymentInitData = initRes.data;
+
+      // In case resolved to zero amount (e.g. 100% coupon or free quota)
+      if (paymentInitData?.isZeroAmount || paymentInitData?.payableAmount === 0) {
+        setShowPaymentModal(false);
+        const receiptNo = paymentInitData?.receiptNumber || `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+        const publicAppCode = paymentInitData?.applicationNumber || pendingPaymentInfo?.applicationNumber || appData?.applicationNumber || appData?.applicationId || applicationId;
+        const base = paymentInitData?.baseFee || authoritativeFee?.baseFee || 1500;
+        setSubmissionReceipt({
+          receiptNumber: receiptNo,
+          applicationId: applicationId,
+          applicationNumber: publicAppCode,
+          studentName: fullName || (appData as any)?.user?.fullName || 'Student',
+          studentEmail: email || (appData as any)?.user?.email || '',
+          studentMobile: mobile || (appData as any)?.user?.mobile || '',
+          collegeName: appData?.college?.name || 'Partner College',
+          courseName: appData?.course?.name || 'Academic Program',
+          date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          paymentDate: new Date().toISOString(),
+          feeDescription: 'Application Fee (100% Coupon Waiver)',
+          originalAmount: base,
+          discountAmount: base,
+          couponCode: appliedCoupon?.code || '100%_WAIVER',
+          paidAmount: 0,
+          netAmount: 0,
+          paymentStatus: 'FEE_WAIVED',
+          paymentMethod: 'COUPON WAIVER (₹0)',
+          transactionReference: paymentInitData?.transactionId || `TXN_WAIVED_${Date.now()}`,
+          remarks: 'Application fee settled via 100% discount waiver in Swayam Admission',
+        });
+        setSuccessMessage('Application fee settled successfully (₹0).');
+        await fetchInitialData();
+        if (onSubmitted) {
+          onSubmitted();
+        }
+        return;
       }
-      setError(msg);
-      setBlockingReason(msg);
-    } finally {
+
+      const hasRazorpay = await loadRazorpayScript();
+      if (!hasRazorpay || !(window as any).Razorpay) {
+        throw new Error('Unable to initialize secure Razorpay gateway. Please check your internet connection and try again.');
+      }
+
+      const finalPayable = paymentInitData?.payableAmount ?? pendingPaymentInfo?.payableAmount ?? 1500;
+      const publicAppCode = paymentInitData?.applicationNumber || pendingPaymentInfo?.applicationNumber || appData?.applicationNumber || appData?.applicationId || applicationId;
+
+      const options = {
+        key: paymentInitData?.keyId || (window as any).RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+        amount: Math.round(finalPayable * 100),
+        currency: 'INR',
+        name: 'Swayam Admission',
+        description: `Application Fee - ${publicAppCode}`,
+        order_id: paymentInitData?.orderId,
+        handler: async (response: any) => {
+          try {
+            setPaymentProcessing(true);
+            setSuccessMessage('Verifying payment signature with central admission server...');
+
+            // Authoritative Server-side Cryptographic Signature Verification
+            const verifyRes = await applicationsApi.verifyPayment(applicationId, {
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id || paymentInitData?.orderId,
+              razorpaySignature: response.razorpay_signature,
+              paymentId: paymentInitData?.paymentId,
+            });
+
+            if (!verifyRes.data?.success) {
+              throw new Error(verifyRes.data?.message || 'Payment signature verification failed.');
+            }
+
+            const receiptNo = verifyRes.data?.receiptNumber || `REC-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+            setSubmissionReceipt({
+              receiptNumber: receiptNo,
+              applicationId: applicationId,
+              applicationNumber: publicAppCode,
+              studentName: fullName || (appData as any)?.user?.fullName || 'Student',
+              studentEmail: email || (appData as any)?.user?.email || '',
+              studentMobile: mobile || (appData as any)?.user?.mobile || '',
+              collegeName: appData?.college?.name || 'Partner College',
+              courseName: appData?.course?.name || 'Academic Program',
+              date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+              paymentDate: new Date().toISOString(),
+              feeDescription: 'Application Fee Payment',
+              originalAmount: paymentInitData?.baseFee || authoritativeFee?.baseFee || 1500,
+              discountAmount: paymentInitData?.discountAmount || (appliedCoupon?.discountAmount || 0),
+              couponCode: appliedCoupon?.code || 'NONE',
+              paidAmount: finalPayable,
+              netAmount: finalPayable,
+              paymentStatus: 'PAID',
+              paymentMethod: selectedPaymentMethod,
+              transactionReference: response.razorpay_payment_id,
+              remarks: 'Official admission fee verified via Swayam Admission gateway',
+            });
+
+            setSuccessMessage('Payment verified and Application Fee Completed Successfully!');
+            setShowPaymentModal(false);
+            await fetchInitialData();
+            if (onSubmitted) {
+              onSubmitted();
+            }
+          } catch (verErr: any) {
+            console.error('Payment verification failed:', verErr);
+            const msg = verErr?.response?.data?.message || verErr?.message || 'Payment signature verification failed.';
+            setError(msg);
+            setBlockingReason(msg);
+          } finally {
+            setPaymentProcessing(false);
+          }
+        },
+        prefill: {
+          name: fullName || (appData as any)?.user?.fullName || '',
+          email: email || (appData as any)?.user?.email || '',
+          contact: mobile || (appData as any)?.user?.mobile || '',
+        },
+        notes: {
+          applicationId,
+          applicationNumber: publicAppCode,
+          feeType: 'APPLICATION_FEE',
+        },
+        theme: {
+          color: '#4A7B5B',
+        },
+        modal: {
+          ondismiss: () => {
+            setPaymentProcessing(false);
+            setPaymentNotice('Payment checkout window was closed. Your application remains submitted and you can retry payment anytime.');
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function (resp: any) {
+        setPaymentProcessing(false);
+        setError(`Payment failed: ${resp.error?.description || 'Payment was declined by provider.'}`);
+        setPaymentNotice('Payment attempt failed. Your application remains submitted and you can safely retry payment.');
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error('Payment gateway execution failed:', err);
+      setError(err?.response?.data?.message || err?.message || 'Unable to start payment gateway.');
       setPaymentProcessing(false);
     }
   };
 
   const handleCancelPayment = () => {
     setShowPaymentModal(false);
-    setPaymentNotice('Payment was not completed. Your application remains pending payment.');
+    setPaymentNotice('Payment was not completed. Your application remains submitted and pending payment.');
   };
 
   if (loading) {
@@ -905,93 +1064,15 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
 
   if (submissionReceipt) {
     return (
-      <div className="bg-white rounded-3xl border border-emerald-100 shadow-xl p-8 max-w-3xl mx-auto space-y-6 animate-fadeIn">
-        <div className="text-center space-y-3">
-          <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle2 className="w-10 h-10" />
-          </div>
-          <h2 className="text-2xl font-black text-gray-950">Application Submitted Successfully</h2>
-          <p className="text-xs text-gray-600 max-w-md mx-auto leading-relaxed">
-            Your admission application for <strong>{submissionReceipt.courseName}</strong> at <strong>{submissionReceipt.collegeName}</strong> has been officially logged in the Central Admission Registry.
-          </p>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-300 text-xs font-bold font-mono">
-            Application Code: {submissionReceipt.applicationCode}
-          </div>
-        </div>
-
-        {/* Authoritative Settlement Receipt Card */}
-        <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-6 space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#4A7B5B]" />
-              <span className="text-sm font-black text-gray-900">Official Settlement Receipt</span>
-            </div>
-            <span className="font-mono text-xs font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border">
-              {submissionReceipt.receiptNumber}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Original Amount</span>
-              <span className="font-bold text-gray-900">₹{submissionReceipt.originalAmount?.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Discount / Waiver</span>
-              <span className="font-bold text-emerald-700">₹{submissionReceipt.discount?.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Coupon Applied</span>
-              <span className="font-mono font-bold text-slate-800">{submissionReceipt.coupon}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Net Amount</span>
-              <span className="font-black text-base text-[#4A7B5B]">₹{submissionReceipt.netAmount?.toLocaleString()}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Payment Method</span>
-              <span className="font-bold text-gray-900">{submissionReceipt.paymentMethod}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Payment Status</span>
-              <span className="font-bold text-emerald-700">{submissionReceipt.paymentStatus}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Student ID</span>
-              <span className="font-mono font-bold text-slate-800 truncate block">{submissionReceipt.studentId}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Transaction Reference</span>
-              <span className="font-mono font-bold text-slate-800 truncate block">{submissionReceipt.transactionReference}</span>
-            </div>
-            <div>
-              <span className="text-gray-400 block text-[10px] uppercase font-bold">Submission Date</span>
-              <span className="font-bold text-gray-900">{submissionReceipt.date}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => {
-              if (onSubmitted) onSubmitted();
-              if (onBack) onBack();
-            }}
-            className="flex-1 py-3 px-6 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <CheckCircle2 className="w-4 h-4" /> View in My Applications
-          </button>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="flex-1 py-3 px-6 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Printer className="w-4 h-4" /> Print / Save Receipt
-          </button>
-        </div>
-      </div>
+      <OfficialAdmissionReceiptModal
+        receipt={submissionReceipt}
+        isInline={true}
+        onClose={() => setSubmissionReceipt(null)}
+        onViewApplications={() => {
+          if (onSubmitted) onSubmitted();
+          if (onBack) onBack();
+        }}
+      />
     );
   }
 
@@ -1091,6 +1172,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
             { step: 3, label: '3. Program Summary', icon: Building2 },
             { step: 4, label: '4. Documents & Finance', icon: FileCheck },
             { step: 5, label: '5. Declaration & Review', icon: ShieldCheck },
+            { step: 6, label: '6. Pay Application Fee', icon: CreditCard },
           ].map((item) => {
             const isCompleted = activeStep > item.step;
             const isCurrent = activeStep === item.step;
@@ -1935,6 +2017,19 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                 </span>
               </div>
 
+              {/* Document Processing Legal Consent */}
+              {!isReadOnly && (
+                <div className="p-4 rounded-xl border border-emerald-100 bg-white">
+                  <ActionConsentSection
+                    actionType="DOCUMENT_UPLOAD"
+                    onChange={(valid, policies) => {
+                      setDocConsentValid(valid);
+                      setDocAcceptedPolicies(policies);
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Checklist Items */}
               <div className="space-y-3">
                 {(progress?.documentChecklist?.checklist || []).map((docItem: any) => {
@@ -2159,47 +2254,23 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               )}
             </div>
 
-            {/* Part 3: Fee & Quota Summary Box */}
-            <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3">
+            {/* Part 3: Fee & Quota Summary Box (Coupon application moved exclusively to Step 6: Pay Application Fee) */}
+            <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-sm text-white">Application Fee & Quota Check</h4>
+                  <h4 className="font-bold text-sm text-white">Application Fee & Quota Summary</h4>
                   <p className="text-xs text-slate-400">
-                    {isNextFree
-                      ? `First 3 applications are ₹0 Free. You have ${freeRemaining} free remaining.`
-                      : 'Standard application submission fee.'}
+                    {authoritativeFee?.isWithinFreeQuota ?? isNextFree
+                      ? `🎉 Free Application Quota: You have ${authoritativeFee?.freeApplicationsRemaining ?? freeRemaining} free submission${(authoritativeFee?.freeApplicationsRemaining ?? freeRemaining) > 1 ? 's' : ''} remaining.`
+                      : 'Standard admission fee applies. Applicable promo/coupon codes can be applied during payment.'}
                   </p>
                 </div>
                 <span className="text-xl font-black text-amber-400">
-                  {isNextFree ? '₹0 FREE' : appliedCoupon ? `₹${appliedCoupon.finalAmount}` : '₹1,500'}
+                  {authoritativeFee?.isWithinFreeQuota ?? isNextFree
+                    ? '₹0 FREE'
+                    : `₹${(authoritativeFee?.baseFee || 1500).toLocaleString()}`}
                 </span>
               </div>
-
-              {!isNextFree && (
-                <div className="pt-3 border-t border-slate-800 space-y-3">
-                  <CouponApplyWidget
-                    transactionAmount={1500}
-                    applicableScope="APPLICATION_FEE"
-                    collegeId={appData?.collegeId}
-                    courseId={appData?.courseId}
-                    appliedCoupon={appliedCoupon}
-                    onCouponApplied={(c) => setAppliedCoupon(c)}
-                    onCouponRemoved={() => setAppliedCoupon(null)}
-                  />
-                  <div className="flex items-center gap-2 pt-1">
-                    <input
-                      type="checkbox"
-                      id="feePaidCheckbox"
-                      checked={isFeePaidLocally}
-                      onChange={(e) => setIsFeePaidLocally(e.target.checked)}
-                      className="w-4 h-4 rounded text-[#4A7B5B]"
-                    />
-                    <label htmlFor="feePaidCheckbox" className="text-xs text-slate-300 cursor-pointer">
-                      I authorize processing of application fee of {appliedCoupon ? `₹${appliedCoupon.finalAmount}` : '₹1,500'}
-                    </label>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -2294,139 +2365,374 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               </div>
 
               <div className="space-y-3">
-                {/* 1. Privacy Policy */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white flex items-start gap-3 hover:border-emerald-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    id="privacyCheckbox"
-                    checked={privacyAccepted}
-                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    disabled={isReadOnly}
-                    className="w-4 h-4 rounded text-[#4A7B5B] focus:ring-[#4A7B5B] mt-0.5 cursor-pointer"
+                {/* 1. Dynamic Action-Based Legal Policies (Terms, Privacy, Document Processing) */}
+                <div className="p-4 rounded-xl border border-emerald-100 bg-white">
+                  <ActionConsentSection
+                    actionType="APPLICATION_SUBMISSION"
+                    onChange={(valid, policies) => {
+                      setAppConsentValid(valid);
+                      setAppAcceptedPolicies(policies);
+                      setPrivacyAccepted(valid);
+                      setTermsAccepted(valid);
+                    }}
                   />
-                  <label htmlFor="privacyCheckbox" className="text-xs text-gray-700 cursor-pointer">
-                    <span className="font-bold text-gray-900">Privacy Policy Agreement (Version v1.2) <span className="text-rose-500">*</span></span>
-                    <p className="text-gray-500 mt-0.5">
-                      I have read and consent to Swayam Admission's Privacy Policy regarding data storage, admission processing, and secure communication.
-                    </p>
-                  </label>
                 </div>
 
-                {/* 2. Terms & Conditions */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white flex items-start gap-3 hover:border-emerald-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    id="termsCheckbox"
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                    disabled={isReadOnly}
-                    className="w-4 h-4 rounded text-[#4A7B5B] focus:ring-[#4A7B5B] mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="termsCheckbox" className="text-xs text-gray-700 cursor-pointer">
-                    <span className="font-bold text-gray-900">Terms & Conditions of Admission (Version v2.0) <span className="text-rose-500">*</span></span>
-                    <p className="text-gray-500 mt-0.5">
-                      I agree to the terms governing counseling, quota allocation, document verification, and admission processing rules.
-                    </p>
-                  </label>
-                </div>
 
-                {/* 3. Student Declaration */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white flex items-start gap-3 hover:border-emerald-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    id="declarationCheckbox"
-                    checked={declarationAccepted}
-                    onChange={(e) => setDeclarationAccepted(e.target.checked)}
-                    disabled={isReadOnly}
-                    className="w-4 h-4 rounded text-[#4A7B5B] focus:ring-[#4A7B5B] mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="declarationCheckbox" className="text-xs text-gray-700 cursor-pointer">
-                    <span className="font-bold text-gray-900">Authenticity of Information & Documents <span className="text-rose-500">*</span></span>
-                    <p className="text-gray-500 mt-0.5">
-                      I solemnly affirm that all credentials, marks, certificates, and address details submitted in this application are authentic. I understand that submission of fraudulent data leads to immediate cancellation of admission and statutory reporting.
-                    </p>
-                  </label>
-                </div>
-
-                {/* 4. Verification Consent */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white flex items-start gap-3 hover:border-emerald-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    id="verifyCheckbox"
-                    checked={verificationConsent}
-                    onChange={(e) => setVerificationConsent(e.target.checked)}
-                    disabled={isReadOnly}
-                    className="w-4 h-4 rounded text-[#4A7B5B] focus:ring-[#4A7B5B] mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="verifyCheckbox" className="text-xs text-gray-700 cursor-pointer">
-                    <span className="font-bold text-gray-900">Verification & Institutional Record Check Authorization <span className="text-rose-500">*</span></span>
-                    <p className="text-gray-500 mt-0.5">
-                      I authorize Swayam Admission and the target college to verify my academic mark sheets, caste certificates, and identity records with examining boards.
-                    </p>
-                  </label>
-                </div>
-
-                {/* 5. Communication Consent */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white flex items-start gap-3 hover:border-emerald-300 transition-colors">
-                  <input
-                    type="checkbox"
-                    id="commCheckbox"
-                    checked={communicationConsent}
-                    onChange={(e) => setCommunicationConsent(e.target.checked)}
-                    disabled={isReadOnly}
-                    className="w-4 h-4 rounded text-[#4A7B5B] focus:ring-[#4A7B5B] mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="commCheckbox" className="text-xs text-gray-700 cursor-pointer">
-                    <span className="font-bold text-gray-900">SMS, Email & WhatsApp Counseling Updates <span className="text-rose-500">*</span></span>
-                    <p className="text-gray-500 mt-0.5">
-                      I consent to receive important application status alerts, counseling schedules, and verification notifications.
-                    </p>
-                  </label>
-                </div>
               </div>
             </div>
 
-            {/* Single Final Submit Trigger Button: Exactly "Submit & Pay" */}
-            {!isReadOnly && (
-              <div className="pt-6 flex flex-col items-end gap-3">
-                {blockingReason && (
-                  <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold max-w-lg animate-fadeIn shadow-2xs">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span>{blockingReason}</span>
+            {/* Step 5 Action Controls: Separate Submit Application and Pay Application Fee */}
+            <div id="submit-section-container" className="pt-6 flex flex-col items-end gap-3 scroll-mt-8">
+              {blockingReason && (
+                <div className="flex items-center gap-2.5 p-3.5 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold max-w-lg animate-fadeIn shadow-2xs">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{blockingReason}</span>
+                </div>
+              )}
+              {paymentNotice && (
+                <div className="flex items-center gap-2.5 p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold max-w-lg animate-fadeIn shadow-2xs">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{paymentNotice}</span>
+                </div>
+              )}
+
+              {/* State A: Application is already submitted */}
+              {appData?.status === 'SUBMITTED' || appData?.status === 'UNDER_REVIEW' || appData?.status === 'APPROVED' ? (
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-sm">Application Submitted</span>
+                        <span className="text-xs px-2 py-0.5 rounded-md font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {appData.applicationNumber || appData.applicationId}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {appData.paymentStatus === 'COMPLETED'
+                          ? 'Application fee is settled. No further payment required.'
+                          : 'Application details saved. Application fee payment required.'}
+                      </p>
+                    </div>
                   </div>
-                )}
-                {paymentNotice && (
-                  <div className="flex items-center gap-2.5 p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold max-w-lg animate-fadeIn shadow-2xs">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>{paymentNotice}</span>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    {appData.paymentStatus === 'COMPLETED' ? (
+                      <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs">
+                        <CheckCircle2 className="w-4 h-4" />
+                        {authoritativeFee?.isWithinFreeQuota || (appData.formData as any)?.submittedSnapshot?.quota?.isFreeSubmission
+                          ? '₹0 — Free Application'
+                          : 'Payment Completed'}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveStep(6);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        disabled={paymentProcessing}
+                        className="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-[#2D5A3C] hover:from-emerald-700 hover:to-[#22442D] text-white font-bold text-sm flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      >
+                        <CreditCard className="w-4 h-4" />
+                        Proceed to Pay Application Fee (₹{(authoritativeFee?.finalPayableAmount ?? 1500).toLocaleString()})
+                      </button>
+                    )}
                   </div>
-                )}
+                </div>
+              ) : (
+                /* State B: Application is not yet submitted -> Show "Submit Application" */
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <span className="text-[10px] uppercase font-bold text-gray-400 block">Authoritative Total</span>
                     <span className="text-base font-black text-[#4A7B5B]">
-                      {isNextFree ? '₹0 FREE (Quota)' : appliedCoupon ? `₹${appliedCoupon.finalAmount}` : '₹1,500'}
+                      {authoritativeFee?.isZeroAmount || (authoritativeFee?.isWithinFreeQuota && !appliedCoupon)
+                        ? '₹0 FREE (Quota)'
+                        : authoritativeFee
+                        ? `₹${authoritativeFee.finalPayableAmount.toLocaleString()}`
+                        : isNextFree
+                        ? '₹0 FREE (Quota)'
+                        : appliedCoupon && appliedCoupon.finalAmount !== undefined
+                        ? `₹${appliedCoupon.finalAmount.toLocaleString()}`
+                        : '₹1,500'}
                     </span>
                   </div>
                   <button
                     type="button"
-                    onClick={handleFinalSubmitAndPay}
+                    onClick={handleSubmitApplication}
                     disabled={submitting || paymentProcessing}
                     className="px-8 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-[#2D5A3C] hover:from-emerald-700 hover:to-[#22442D] text-white font-bold text-sm flex items-center gap-2.5 shadow-lg transition-all disabled:opacity-50 cursor-pointer"
                   >
-                    {submitting || paymentProcessing ? (
+                    {submitting ? (
                       <>
                         <RefreshCw className="w-4 h-4 animate-spin" />
-                        Processing...
+                        Submitting Application...
                       </>
                     ) : (
                       <>
-                        <CreditCard className="w-4 h-4" />
-                        Submit & Pay
+                        <CheckCircle2 className="w-4 h-4" />
+                        Submit Application
                       </>
                     )}
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 6: PAY APPLICATION FEE */}
+        {/* ========================================================================= */}
+        {activeStep === 6 && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="border-b pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-[#4A7B5B]" /> Pay Application Fee
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Complete official application fee payment for Application #{appData?.applicationNumber || appData?.applicationId || applicationId} to finalize your admission processing.
+                </p>
+              </div>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                appData?.paymentStatus === 'COMPLETED'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                {appData?.paymentStatus === 'COMPLETED' ? '✓ Payment Completed' : 'Payment Required'}
+              </span>
+            </div>
+
+            {/* If application is already paid, show payment status and receipt trigger */}
+            {appData?.paymentStatus === 'COMPLETED' ? (
+              <div className="p-8 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black text-gray-900">Application Fee Already Settled</h4>
+                  <p className="text-xs text-gray-600 max-w-md mx-auto mt-1">
+                    The application fee for this application has been verified and settled. No further payment is needed.
+                  </p>
+                </div>
+                <div className="flex justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const rec = (appData as any).payments?.[0] || (appData as any).receipts?.[0] || {};
+                      const dateSource = rec.paidAt || (appData as any).submittedAt || appData.createdAt || Date.now();
+                      setSubmissionReceipt({
+                        receiptNumber: rec.receiptNumber || `REC-${appData.applicationNumber || appData.id}`,
+                        applicationId: appData.id,
+                        applicationNumber: appData.applicationNumber || appData.applicationId,
+                        studentName: fullName || (appData as any)?.user?.fullName || 'Student',
+                        studentEmail: email || (appData as any)?.user?.email || '',
+                        studentMobile: mobile || (appData as any)?.user?.mobile || '',
+                        collegeName: appData?.college?.name || 'Partner College',
+                        courseName: appData?.course?.name || 'Academic Program',
+                        date: new Date(dateSource).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                        paymentDate: new Date(dateSource).toISOString(),
+                        feeDescription: 'Application Fee Payment',
+                        originalAmount: rec.amount || 1500,
+                        discountAmount: (rec.amount || 1500) - (rec.paidAmount || 0),
+                        paidAmount: rec.paidAmount || 0,
+                        paymentStatus: 'PAID',
+                        paymentMethod: rec.paymentMethod || 'Online Gateway',
+                        transactionReference: rec.transactionId || rec.utrNumber || 'N/A',
+                        remarks: 'Official admission fee verified via Swayam Admission gateway',
+                      });
+                    }}
+                    className="px-5 py-2.5 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+                  >
+                    <Receipt className="w-4 h-4" /> View / Print Official Receipt
+                  </button>
+                  {onBack && (
+                    <button
+                      type="button"
+                      onClick={onBack}
+                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                    >
+                      Return to My Applications
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* 1. Target Offering Snapshot */}
+                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Application Code</span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      {appData?.applicationNumber || appData?.applicationId || applicationId}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Target Institution</span>
+                    <span className="font-bold text-slate-900 truncate block">
+                      {appData?.college?.name || 'Partner College'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Selected Program</span>
+                    <span className="font-bold text-slate-900 truncate block">
+                      {appData?.course?.name} ({appData?.branch?.name || 'Core'})
+                    </span>
+                  </div>
+                </div>
+
+                {/* 2. Coupon & Promo Code Section */}
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-50 to-emerald-50/30 border border-emerald-200/80 space-y-4">
+                  <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-[#4A7B5B]" />
+                      <h4 className="font-bold text-sm text-gray-900">Have a Promo or Coupon Code?</h4>
+                    </div>
+                    <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-100/70 px-2.5 py-0.5 rounded-full">
+                      Verified Server-Side
+                    </span>
+                  </div>
+
+                  <CouponApplyWidget
+                    transactionAmount={authoritativeFee?.baseFee || pendingPaymentInfo?.baseFee || 1500}
+                    applicableScope="APPLICATION_FEE"
+                    collegeId={appData?.collegeId}
+                    courseId={appData?.courseId}
+                    appliedCoupon={appliedCoupon}
+                    onCouponApplied={(c) => {
+                      setAppliedCoupon(c);
+                      setSuccessMessage(`Coupon "${c.code}" applied! You saved ₹${c.discountAmount}.`);
+                      setTimeout(() => setSuccessMessage(null), 3000);
+                    }}
+                    onCouponRemoved={() => {
+                      setAppliedCoupon(null);
+                      setSuccessMessage('Coupon removed.');
+                      setTimeout(() => setSuccessMessage(null), 2000);
+                    }}
+                  />
+                </div>
+
+                {/* 3. Authoritative Fee Breakdown */}
+                {(() => {
+                  const baseFee = authoritativeFee?.baseFee ?? pendingPaymentInfo?.baseFee ?? 1500;
+                  const discount = authoritativeFee?.discountAmount ?? appliedCoupon?.discountAmount ?? 0;
+                  const payable = authoritativeFee
+                    ? authoritativeFee.finalPayableAmount
+                    : appliedCoupon
+                    ? Math.max(0, baseFee - discount)
+                    : pendingPaymentInfo?.payableAmount ?? 1500;
+                  const isZero = payable === 0;
+
+                  return (
+                    <div className="space-y-6">
+                      <div className="p-6 rounded-2xl bg-slate-900 text-white space-y-4 shadow-sm">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                          <span className="text-xs uppercase tracking-wider text-slate-400 font-bold">Authoritative Fee Assessment</span>
+                          <span className="text-xs font-mono text-emerald-400">Official Gateway Rates</span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between text-slate-300">
+                            <span>Original Application Fee:</span>
+                            <span className="font-semibold text-white">₹{baseFee.toLocaleString()}</span>
+                          </div>
+                          {discount > 0 && (
+                            <div className="flex justify-between text-emerald-400">
+                              <span>Coupon Discount {appliedCoupon?.code ? `(${appliedCoupon.code})` : ''}:</span>
+                              <span className="font-bold">-₹{discount.toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="pt-3 border-t border-slate-800 flex justify-between items-center">
+                            <span className="font-bold text-white text-sm">Final Payable Amount:</span>
+                            <span className="font-black text-2xl text-amber-400">
+                              {isZero ? '₹0 FREE' : `₹${payable.toLocaleString()}`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {isZero && (
+                          <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-600/50 text-emerald-300 text-xs flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>100% Fee Waiver: Your application fee is completely waived. No payment gateway transaction required.</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 4. Payment Method & Declarations */}
+                      {!isZero && (
+                        <div className="space-y-3">
+                          <label className="text-xs font-bold text-gray-700 block">Select Preferred Payment Gateway Route</label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {[
+                              { id: 'UPI', label: 'UPI / QR', icon: '📱', sub: 'GPay, PhonePe, Paytm' },
+                              { id: 'DEBIT_CARD', label: 'Cards', icon: '💳', sub: 'Debit & Credit' },
+                              { id: 'NET_BANKING', label: 'Net Banking', icon: '🏦', sub: 'All Indian Banks' },
+                            ].map((pm) => (
+                              <button
+                                key={pm.id}
+                                type="button"
+                                onClick={() => setSelectedPaymentMethod(pm.id)}
+                                className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
+                                  selectedPaymentMethod === pm.id
+                                    ? 'border-[#4A7B5B] bg-emerald-50/70 text-[#4A7B5B] ring-2 ring-emerald-500/20 shadow-sm'
+                                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                <div className="text-2xl mb-1">{pm.icon}</div>
+                                <div className="text-xs font-bold">{pm.label}</div>
+                                <div className="text-[10px] text-gray-500 mt-0.5">{pm.sub}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Payment Action-Based Legal Consent */}
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs">
+                        <ActionConsentSection
+                          actionType="PAYMENT"
+                          onChange={(isValid, policies) => {
+                            setPayConsentValid(isValid);
+                            setPayAcceptedPolicies(policies);
+                            setPaymentTermsAccepted(isValid);
+                            setPaymentPrivacyAccepted(isValid);
+                          }}
+                        />
+                      </div>
+
+                      {/* Action Trigger */}
+                      <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={handleExecutePayment}
+                          disabled={paymentProcessing || !payConsentValid}
+                          className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-[#2D5A3C] hover:from-emerald-700 hover:to-[#22442D] text-white font-bold text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+                        >
+                          {paymentProcessing ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              {isZero ? 'Completing Application...' : 'Initiating Secure Gateway...'}
+                            </>
+                          ) : isZero ? (
+                            <>
+                              <CheckCircle2 className="w-5 h-5" />
+                              Complete Application Submission (₹0)
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4" />
+                              Pay ₹{payable.toLocaleString()} via Secure Gateway
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -2454,12 +2760,16 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               </button>
             )}
 
-            {activeStep < 5 ? (
+            {activeStep < 6 ? (
               <button
                 onClick={handleNext}
                 className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#4A7B5B] hover:bg-[#3B6349] text-white text-xs font-bold transition-all shadow-md"
               >
-                Next Step <ArrowRight className="w-4 h-4" />
+                {activeStep === 5
+                  ? (appData?.status === 'SUBMITTED' || appData?.status === 'UNDER_REVIEW' || appData?.status === 'APPROVED'
+                    ? 'Proceed to Payment'
+                    : 'Submit & Proceed to Payment')
+                  : 'Next Step'} <ArrowRight className="w-4 h-4" />
               </button>
             ) : null}
           </div>
@@ -2476,7 +2786,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-black text-gray-900">Submit & Pay Application Fee</h3>
+                  <h3 className="text-base font-black text-gray-900">Pay Application Fee</h3>
                   <p className="text-[11px] text-gray-500">Secure Central Admission Payment Gateway</p>
                 </div>
               </div>
@@ -2551,6 +2861,34 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               </div>
             </div>
 
+            {/* Payment Specific Declarations */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-2">
+              <div className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="modalPaymentTermsCheckbox"
+                  checked={paymentTermsAccepted}
+                  onChange={(e) => setPaymentTermsAccepted(e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300 text-[#4A7B5B] focus:ring-[#4A7B5B] cursor-pointer"
+                />
+                <label htmlFor="modalPaymentTermsCheckbox" className="text-xs text-gray-700 cursor-pointer select-none">
+                  I accept the <span className="font-bold text-gray-900">Swayam Admission Payment Terms & Conditions <span className="text-rose-500">*</span></span>
+                </label>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="modalPaymentPrivacyCheckbox"
+                  checked={paymentPrivacyAccepted}
+                  onChange={(e) => setPaymentPrivacyAccepted(e.target.checked)}
+                  className="mt-0.5 rounded border-gray-300 text-[#4A7B5B] focus:ring-[#4A7B5B] cursor-pointer"
+                />
+                <label htmlFor="modalPaymentPrivacyCheckbox" className="text-xs text-gray-700 cursor-pointer select-none">
+                  I accept the <span className="font-bold text-gray-900">Swayam Admission Payment Privacy Policy <span className="text-rose-500">*</span></span>
+                </label>
+              </div>
+            </div>
+
             {/* Payment Actions */}
             <div className="flex items-center gap-3 pt-2">
               <button
@@ -2564,7 +2902,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               <button
                 type="button"
                 onClick={handleExecutePayment}
-                disabled={paymentProcessing}
+                disabled={paymentProcessing || !paymentTermsAccepted || !paymentPrivacyAccepted}
                 className="w-2/3 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-[#2D5A3C] hover:from-emerald-700 hover:to-[#22442D] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {paymentProcessing ? (
@@ -2574,8 +2912,8 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Pay ₹{(pendingPaymentInfo?.payableAmount ?? (appliedCoupon ? appliedCoupon.finalAmount : 1500) ?? 1500).toLocaleString()} & Submit
+                    <CreditCard className="w-4 h-4" />
+                    Pay ₹{(pendingPaymentInfo?.payableAmount ?? (appliedCoupon ? appliedCoupon.finalAmount : 1500) ?? 1500).toLocaleString()} Now
                   </>
                 )}
               </button>

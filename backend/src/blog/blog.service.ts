@@ -104,6 +104,12 @@ export class BlogService {
         { title: { contains: query.q, mode: 'insensitive' } },
         { content: { contains: query.q, mode: 'insensitive' } },
         { excerpt: { contains: query.q, mode: 'insensitive' } },
+        { stream: { contains: query.q, mode: 'insensitive' } },
+        { specialization: { contains: query.q, mode: 'insensitive' } },
+        { careerPath: { contains: query.q, mode: 'insensitive' } },
+        { career: { contains: query.q, mode: 'insensitive' } },
+        { state: { contains: query.q, mode: 'insensitive' } },
+        { city: { contains: query.q, mode: 'insensitive' } },
         { tags: { has: query.q } },
       ];
     }
@@ -112,12 +118,28 @@ export class BlogService {
       where.category = { equals: query.category, mode: 'insensitive' };
     }
 
+    if (query.guideType && query.guideType !== 'All') {
+      where.guideType = query.guideType;
+    }
+
+    if (query.educationLevel && query.educationLevel !== 'All') {
+      where.educationLevel = { equals: query.educationLevel, mode: 'insensitive' };
+    }
+
+    if (query.stream && query.stream !== 'All') {
+      where.stream = { equals: query.stream, mode: 'insensitive' };
+    }
+
+    if (query.specialization && query.specialization !== 'All') {
+      where.specialization = { contains: query.specialization, mode: 'insensitive' };
+    }
+
     if (query.status && query.status !== 'All') {
       where.status = query.status;
     }
 
     if (query.featured !== undefined) {
-      where.featured = query.featured;
+      where.featured = String(query.featured) === 'true' || query.featured === true;
     }
 
     if (query.tag) {
@@ -227,7 +249,7 @@ export class BlogService {
     }
 
     if (query.featured !== undefined) {
-      where.featured = query.featured;
+      where.featured = String(query.featured) === 'true' || query.featured === true;
     }
 
     const [data, total] = await Promise.all([
@@ -354,72 +376,303 @@ export class BlogService {
   }
 
   /**
-   * Creates a new blog article.
+   * Helper to safely generate a unique slug, guaranteeing zero P2002 unique constraint crashes.
    */
-  async create(createDto: CreateBlogDto, userId?: string) {
-    let slug = createDto.slug
-      ? GeoSeoUtility.generateSlug(createDto.slug)
-      : GeoSeoUtility.generateSlug(createDto.title);
+  private async generateUniqueSlug(
+    titleOrSlug: string,
+    excludeId?: string,
+  ): Promise<string> {
+    const raw = (titleOrSlug || 'guide').trim();
+    let base = GeoSeoUtility.generateSlug(raw);
+    if (!base) base = `guide-${Date.now().toString().slice(-4)}`;
 
-    // Ensure slug uniqueness
-    const existingSlug = await this.prisma.blog.findUnique({ where: { slug } });
-    if (existingSlug) {
-      slug = `${slug}-${Date.now().toString().slice(-4)}`;
+    let slug = base;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.prisma.blog.findFirst({
+        where: {
+          slug,
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+        select: { id: true },
+      });
+      if (!existing) {
+        return slug;
+      }
+      slug = `${base}-${counter}`;
+      counter++;
+    }
+  }
+
+  /**
+   * Sanitizes input data before sending to Prisma.
+   * - Strips nested relation models and read-only DB fields.
+   * - Converts empty string foreign key IDs to null or verifies existence.
+   * - Normalizes JSON and array fields.
+   */
+  private async sanitizeBlogData(dto: any) {
+    const data: any = { ...dto };
+
+    // Strip read-only and relational objects
+    delete data.id;
+    delete data.createdAt;
+    delete data.updatedAt;
+    delete data.deletedAt;
+    delete data.author;
+    delete data.college;
+    delete data.course;
+    delete data.exam;
+    delete data.scholarship;
+    delete data.StudyMaterial;
+    delete data.revisions;
+    delete data.FAQ;
+    delete data.savedGuides;
+    delete data._count;
+    delete data.views;
+    delete data.likes;
+    delete data.shares;
+
+    // String arrays
+    const arrayFields = [
+      'tags',
+      'gallery',
+      'keyTakeaways',
+      'seoKeywords',
+      'skills',
+      'entranceExams',
+      'higherStudyOptions',
+      'jobRoles',
+      'requiredDocuments',
+      'relatedCourseIds',
+      'relatedCollegeIds',
+      'relatedExamIds',
+      'relatedScholarshipIds',
+      'relatedBlogs',
+    ];
+    for (const field of arrayFields) {
+      if (data[field] !== undefined) {
+        if (Array.isArray(data[field])) {
+          data[field] = data[field]
+            .map((item: any) =>
+              typeof item === 'string' ? item.trim() : String(item || '').trim(),
+            )
+            .filter((item: string) => item.length > 0);
+        } else if (typeof data[field] === 'string' && data[field].trim()) {
+          data[field] = [data[field].trim()];
+        } else {
+          data[field] = [];
+        }
+      }
     }
 
+    // JSON fields: faqs, admissionStages, importantTimelines, entities, openGraph, twitterCard
+    if (data.faqs !== undefined) {
+      if (Array.isArray(data.faqs)) {
+        const cleanFaqs = data.faqs.filter(
+          (f: any) =>
+            f &&
+            (typeof f.question === 'string'
+              ? f.question.trim()
+              : Boolean(f.question)) &&
+            (typeof f.answer === 'string'
+              ? f.answer.trim()
+              : Boolean(f.answer)),
+        );
+        data.faqs = cleanFaqs.length > 0 ? (cleanFaqs as Prisma.InputJsonValue) : Prisma.DbNull;
+      } else if (!data.faqs) {
+        data.faqs = Prisma.DbNull;
+      }
+    }
+
+    if (data.admissionStages !== undefined) {
+      if (typeof data.admissionStages === 'string') {
+        const trimmed = data.admissionStages.trim();
+        if (!trimmed) {
+          data.admissionStages = Prisma.DbNull;
+        } else {
+          try {
+            data.admissionStages = JSON.parse(trimmed) as Prisma.InputJsonValue;
+          } catch {
+            data.admissionStages = { stages: trimmed } as Prisma.InputJsonValue;
+          }
+        }
+      } else if (!data.admissionStages) {
+        data.admissionStages = Prisma.DbNull;
+      }
+    }
+
+    if (data.importantTimelines !== undefined) {
+      if (typeof data.importantTimelines === 'string') {
+        const trimmed = data.importantTimelines.trim();
+        if (!trimmed) {
+          data.importantTimelines = Prisma.DbNull;
+        } else {
+          try {
+            data.importantTimelines = JSON.parse(trimmed) as Prisma.InputJsonValue;
+          } catch {
+            data.importantTimelines = { timelines: trimmed } as Prisma.InputJsonValue;
+          }
+        }
+      } else if (!data.importantTimelines) {
+        data.importantTimelines = Prisma.DbNull;
+      }
+    }
+
+    for (const jsonField of ['entities', 'openGraph', 'twitterCard']) {
+      if (data[jsonField] !== undefined) {
+        if (typeof data[jsonField] === 'string') {
+          const trimmed = data[jsonField].trim();
+          if (!trimmed) {
+            data[jsonField] = Prisma.DbNull;
+          } else {
+            try {
+              data[jsonField] = JSON.parse(trimmed) as Prisma.InputJsonValue;
+            } catch {
+              data[jsonField] = { value: trimmed } as Prisma.InputJsonValue;
+            }
+          }
+        } else if (!data[jsonField]) {
+          data[jsonField] = Prisma.DbNull;
+        }
+      }
+    }
+
+    // Foreign key validation (convert empty string to null and ensure existing record)
+    const fkFields = [
+      { key: 'collegeId', model: this.prisma.college },
+      { key: 'courseId', model: this.prisma.course },
+      { key: 'examId', model: this.prisma.exam },
+      { key: 'scholarshipId', model: this.prisma.scholarship },
+      { key: 'studyMaterialId', model: this.prisma.studyMaterial },
+      { key: 'authorId', model: this.prisma.user },
+    ];
+
+    for (const { key, model } of fkFields) {
+      if (data[key] !== undefined) {
+        const val =
+          typeof data[key] === 'string' ? data[key].trim() : data[key];
+        if (!val) {
+          data[key] = null;
+        } else {
+          const exists = await (model as any).findUnique({
+            where: { id: val },
+            select: { id: true },
+          });
+          data[key] = exists ? val : null;
+        }
+      }
+    }
+
+    // Scalar optional strings: trim and convert empty string to null
+    const strFields = [
+      'stateId',
+      'districtId',
+      'state',
+      'city',
+      'educationLevel',
+      'stream',
+      'specialization',
+      'careerPath',
+      'eligibility',
+      'salaryRange',
+      'averageSalary',
+      'growthRate',
+      'govPrivatePaths',
+      'admissionProcess',
+      'applicationProcess',
+      'feesInfo',
+      'counsellingInfo',
+      'scholarshipInfo',
+      'stateSchemesInfo',
+      'prepGuidance',
+      'seoTitle',
+      'seoDescription',
+      'canonicalUrl',
+      'aiSummary',
+      'tldr',
+      'featuredImage',
+      'thumbnail',
+      'excerpt',
+      'career',
+      'governmentScheme',
+    ];
+
+    for (const field of strFields) {
+      if (data[field] !== undefined) {
+        if (typeof data[field] === 'string') {
+          data[field] = data[field].trim() || null;
+        }
+      }
+    }
+
+    if (!data.guideType) {
+      data.guideType = 'CAREER';
+    }
+
+    if (data.status) {
+      data.status = String(data.status).toUpperCase();
+    }
+
+    if (data.featured !== undefined) {
+      data.featured = Boolean(data.featured);
+    }
+
+    return data;
+  }
+
+  /**
+   * Creates a new blog article / guide.
+   */
+  async create(createDto: CreateBlogDto, userId?: string) {
+    const sanitized = await this.sanitizeBlogData(createDto);
+
+    const slug = await this.generateUniqueSlug(
+      sanitized.slug || sanitized.title,
+    );
+    sanitized.slug = slug;
+
     const readingTime =
-      createDto.readingTime ||
-      GeoSeoUtility.calculateReadingTime(createDto.content);
-    const scores = GeoSeoUtility.calculateScores(createDto);
+      sanitized.readingTime ||
+      GeoSeoUtility.calculateReadingTime(sanitized.content || '');
+    const scores = GeoSeoUtility.calculateScores(sanitized);
+
+    sanitized.readingTime = readingTime;
+    sanitized.authorId = sanitized.authorId || userId;
+    sanitized.createdBy = userId;
+    sanitized.publishedAt =
+      sanitized.status === 'PUBLISHED'
+        ? new Date()
+        : sanitized.publishedAt
+          ? new Date(sanitized.publishedAt)
+          : null;
+    sanitized.readabilityScore =
+      sanitized.readabilityScore || scores.readabilityScore;
+    sanitized.seoScore = sanitized.seoScore || scores.seoScore;
+    sanitized.geoScore = sanitized.geoScore || scores.geoScore;
+    sanitized.aiReadinessScore =
+      sanitized.aiReadinessScore || scores.aiReadinessScore;
 
     const blog = await this.prisma.blog.create({
       data: {
-        ...createDto,
-        faqs: createDto.faqs
-          ? (createDto.faqs as Prisma.InputJsonValue)
-          : undefined,
-        entities: createDto.entities
-          ? (createDto.entities as Prisma.InputJsonValue)
-          : undefined,
-        openGraph: createDto.openGraph
-          ? (createDto.openGraph as Prisma.InputJsonValue)
-          : undefined,
-        twitterCard: createDto.twitterCard
-          ? (createDto.twitterCard as Prisma.InputJsonValue)
-          : undefined,
-        slug,
-        readingTime,
-        authorId: createDto.authorId || userId,
-        publishedAt:
-          createDto.status === 'PUBLISHED'
-            ? new Date()
-            : createDto.publishedAt
-              ? new Date(createDto.publishedAt)
-              : null,
-        readabilityScore: createDto.readabilityScore || scores.readabilityScore,
-        seoScore: createDto.seoScore || scores.seoScore,
-        geoScore: createDto.geoScore || scores.geoScore,
-        aiReadinessScore: createDto.aiReadinessScore || scores.aiReadinessScore,
-        createdBy: userId,
+        ...sanitized,
         revisions: {
           create: {
             versionNumber: 1,
-            title: createDto.title,
-            content: createDto.content,
-            excerpt: createDto.excerpt || null,
-            seoTitle: createDto.seoTitle || null,
-            seoDescription: createDto.seoDescription || null,
-            faqs: createDto.faqs
-              ? (createDto.faqs as Prisma.InputJsonValue)
-              : Prisma.DbNull,
-            keyTakeaways: createDto.keyTakeaways || [],
+            title: sanitized.title,
+            content: sanitized.content,
+            excerpt: sanitized.excerpt || null,
+            seoTitle: sanitized.seoTitle || null,
+            seoDescription: sanitized.seoDescription || null,
+            faqs:
+              sanitized.faqs !== undefined ? sanitized.faqs : Prisma.DbNull,
+            keyTakeaways: sanitized.keyTakeaways || [],
             createdBy: userId,
           },
         },
       },
     });
 
-    // Log Activity
     await this.logAuditAction('CREATE', 'BLOG', blog.id, null, blog, userId);
 
     try {
@@ -429,6 +682,7 @@ export class BlogService {
           guideId: blog.id,
           title: blog.title,
           status: blog.status,
+          featured: blog.featured,
           guideType: blog.guideType,
         },
       );
@@ -440,91 +694,78 @@ export class BlogService {
   }
 
   /**
-   * Updates an existing blog article.
+   * Updates an existing blog article / guide.
    */
   async update(id: string, updateDto: UpdateBlogDto, userId?: string) {
     const existing = await this.findById(id);
+    const sanitized = await this.sanitizeBlogData(updateDto);
 
     let slug = existing.slug;
-    if (updateDto.slug && updateDto.slug !== existing.slug) {
-      slug = GeoSeoUtility.generateSlug(updateDto.slug);
-      const duplicateSlug = await this.prisma.blog.findFirst({
-        where: { slug, id: { not: id } },
-      });
-      if (duplicateSlug) {
-        slug = `${slug}-${Date.now().toString().slice(-4)}`;
-      }
+    if (sanitized.slug && sanitized.slug !== existing.slug) {
+      slug = await this.generateUniqueSlug(sanitized.slug, id);
     }
+    sanitized.slug = slug;
 
     const content =
-      updateDto.content !== undefined ? updateDto.content : existing.content;
+      sanitized.content !== undefined ? sanitized.content : existing.content;
     const readingTime =
-      updateDto.readingTime || GeoSeoUtility.calculateReadingTime(content);
+      sanitized.readingTime || GeoSeoUtility.calculateReadingTime(content);
     const scores = GeoSeoUtility.calculateScores({
       ...existing,
-      ...updateDto,
+      ...sanitized,
       content,
     });
 
     let publishedAt = existing.publishedAt;
-    if (updateDto.status === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
+    if (sanitized.status === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
       publishedAt = new Date();
-    } else if (updateDto.publishedAt) {
-      publishedAt = new Date(updateDto.publishedAt);
+    } else if (sanitized.status && sanitized.status !== 'PUBLISHED') {
+      publishedAt = null;
+    } else if (sanitized.publishedAt) {
+      publishedAt = new Date(sanitized.publishedAt);
     }
+
+    sanitized.readingTime = readingTime;
+    sanitized.publishedAt = publishedAt;
+    sanitized.readabilityScore =
+      sanitized.readabilityScore || scores.readabilityScore;
+    sanitized.seoScore = sanitized.seoScore || scores.seoScore;
+    sanitized.geoScore = sanitized.geoScore || scores.geoScore;
+    sanitized.aiReadinessScore =
+      sanitized.aiReadinessScore || scores.aiReadinessScore;
+    sanitized.updatedBy = userId;
 
     const nextVersion = (existing.revisions?.length || 0) + 1;
 
     const updated = await this.prisma.blog.update({
       where: { id },
       data: {
-        ...updateDto,
-        faqs:
-          updateDto.faqs !== undefined
-            ? (updateDto.faqs as Prisma.InputJsonValue)
-            : (existing.faqs as Prisma.InputJsonValue),
-        entities:
-          updateDto.entities !== undefined
-            ? (updateDto.entities as Prisma.InputJsonValue)
-            : (existing.entities as Prisma.InputJsonValue),
-        openGraph:
-          updateDto.openGraph !== undefined
-            ? (updateDto.openGraph as Prisma.InputJsonValue)
-            : (existing.openGraph as Prisma.InputJsonValue),
-        twitterCard:
-          updateDto.twitterCard !== undefined
-            ? (updateDto.twitterCard as Prisma.InputJsonValue)
-            : (existing.twitterCard as Prisma.InputJsonValue),
-        slug,
-        readingTime,
-        publishedAt,
-        readabilityScore: updateDto.readabilityScore || scores.readabilityScore,
-        seoScore: updateDto.seoScore || scores.seoScore,
-        geoScore: updateDto.geoScore || scores.geoScore,
-        aiReadinessScore: updateDto.aiReadinessScore || scores.aiReadinessScore,
-        updatedBy: userId,
+        ...sanitized,
         revisions: {
           create: {
             versionNumber: nextVersion,
-            title: updateDto.title || existing.title,
+            title: sanitized.title || existing.title,
             content,
             excerpt:
-              updateDto.excerpt !== undefined
-                ? updateDto.excerpt
+              sanitized.excerpt !== undefined
+                ? sanitized.excerpt
                 : existing.excerpt,
             seoTitle:
-              updateDto.seoTitle !== undefined
-                ? updateDto.seoTitle
+              sanitized.seoTitle !== undefined
+                ? sanitized.seoTitle
                 : existing.seoTitle,
             seoDescription:
-              updateDto.seoDescription !== undefined
-                ? updateDto.seoDescription
+              sanitized.seoDescription !== undefined
+                ? sanitized.seoDescription
                 : existing.seoDescription,
             faqs:
-              updateDto.faqs !== undefined
-                ? (updateDto.faqs as Prisma.InputJsonValue)
-                : (existing.faqs as Prisma.InputJsonValue),
-            keyTakeaways: updateDto.keyTakeaways || existing.keyTakeaways || [],
+              sanitized.faqs !== undefined
+                ? sanitized.faqs
+                : existing.faqs
+                  ? (existing.faqs as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+            keyTakeaways:
+              sanitized.keyTakeaways || existing.keyTakeaways || [],
             createdBy: userId,
           },
         },
@@ -552,6 +793,46 @@ export class BlogService {
         guideId: updated.id,
         title: updated.title,
         status: updated.status,
+        featured: updated.featured,
+        guideType: updated.guideType,
+      });
+    } catch {
+      // ignore
+    }
+
+    return updated;
+  }
+
+  /**
+   * Toggles or sets the featured state of a guide.
+   */
+  async toggleFeatured(id: string, featured?: boolean, userId?: string) {
+    const existing = await this.findById(id);
+    const newFeatured = featured !== undefined ? featured : !existing.featured;
+
+    const updated = await this.prisma.blog.update({
+      where: { id },
+      data: {
+        featured: newFeatured,
+        updatedBy: userId,
+      },
+    });
+
+    await this.logAuditAction(
+      'UPDATE_FEATURED',
+      'BLOG',
+      id,
+      { featured: existing.featured },
+      { featured: newFeatured },
+      userId,
+    );
+
+    try {
+      this.liveSyncService.publishEvent('guide.updated', {
+        guideId: updated.id,
+        title: updated.title,
+        status: updated.status,
+        featured: updated.featured,
         guideType: updated.guideType,
       });
     } catch {
@@ -631,12 +912,12 @@ export class BlogService {
   }
 
   /**
-   * Duplicates an existing blog.
+   * Duplicates an existing blog / guide with full ERP fields and collision-free slug.
    */
   async duplicate(id: string, userId?: string) {
     const source = await this.findById(id);
     const newTitle = `${source.title} (Copy)`;
-    const newSlug = `${source.slug}-copy-${Date.now().toString().slice(-4)}`;
+    const newSlug = await this.generateUniqueSlug(`${source.slug}-copy`);
 
     const copy = await this.prisma.blog.create({
       data: {
@@ -646,24 +927,24 @@ export class BlogService {
         content: source.content,
         featuredImage: source.featuredImage,
         thumbnail: source.thumbnail,
-        gallery: source.gallery,
+        gallery: source.gallery || [],
         category: source.category,
-        tags: source.tags,
+        tags: source.tags || [],
         authorId: userId || source.authorId,
         status: 'DRAFT',
         featured: false,
-        seoTitle: source.seoTitle ? `${source.seoTitle} (Copy)` : undefined,
+        seoTitle: source.seoTitle ? `${source.seoTitle} (Copy)` : null,
         seoDescription: source.seoDescription,
-        seoKeywords: source.seoKeywords,
+        seoKeywords: source.seoKeywords || [],
         canonicalUrl: source.canonicalUrl,
         metaRobots: source.metaRobots,
         aiSummary: source.aiSummary,
         tldr: source.tldr,
-        keyTakeaways: source.keyTakeaways,
-        faqs: source.faqs ? (source.faqs as Prisma.InputJsonValue) : undefined,
+        keyTakeaways: source.keyTakeaways || [],
+        faqs: source.faqs ? (source.faqs as Prisma.InputJsonValue) : Prisma.DbNull,
         entities: source.entities
           ? (source.entities as Prisma.InputJsonValue)
-          : undefined,
+          : Prisma.DbNull,
         readabilityScore: source.readabilityScore,
         seoScore: source.seoScore,
         geoScore: source.geoScore,
@@ -674,6 +955,46 @@ export class BlogService {
         scholarshipId: source.scholarshipId,
         studyMaterialId: source.studyMaterialId,
         readingTime: source.readingTime,
+        state: source.state,
+        city: source.city,
+        governmentScheme: source.governmentScheme,
+        career: source.career,
+
+        // Career & Admission Guide ERP Attributes
+        guideType: source.guideType || 'CAREER',
+        educationLevel: source.educationLevel,
+        stream: source.stream,
+        specialization: source.specialization,
+        careerPath: source.careerPath,
+        skills: source.skills || [],
+        eligibility: source.eligibility,
+        entranceExams: source.entranceExams || [],
+        salaryRange: source.salaryRange,
+        averageSalary: source.averageSalary,
+        growthRate: source.growthRate,
+        higherStudyOptions: source.higherStudyOptions || [],
+        jobRoles: source.jobRoles || [],
+        govPrivatePaths: source.govPrivatePaths,
+        admissionProcess: source.admissionProcess,
+        applicationProcess: source.applicationProcess,
+        requiredDocuments: source.requiredDocuments || [],
+        admissionStages: source.admissionStages
+          ? (source.admissionStages as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+        feesInfo: source.feesInfo,
+        counsellingInfo: source.counsellingInfo,
+        scholarshipInfo: source.scholarshipInfo,
+        stateSchemesInfo: source.stateSchemesInfo,
+        importantTimelines: source.importantTimelines
+          ? (source.importantTimelines as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+        prepGuidance: source.prepGuidance,
+        relatedCourseIds: source.relatedCourseIds || [],
+        relatedCollegeIds: source.relatedCollegeIds || [],
+        relatedExamIds: source.relatedExamIds || [],
+        relatedScholarshipIds: source.relatedScholarshipIds || [],
+        stateId: source.stateId,
+        districtId: source.districtId,
         createdBy: userId,
       },
     });
@@ -686,6 +1007,18 @@ export class BlogService {
       copy,
       userId,
     );
+
+    try {
+      this.liveSyncService.publishEvent('guide.created', {
+        guideId: copy.id,
+        title: copy.title,
+        status: copy.status,
+        featured: copy.featured,
+        guideType: copy.guideType,
+      });
+    } catch {
+      // ignore
+    }
 
     return copy;
   }
@@ -729,6 +1062,9 @@ export class BlogService {
       'Title',
       'Slug',
       'Category',
+      'Guide Type',
+      'Education Level',
+      'Stream',
       'Status',
       'Featured',
       'Author',
@@ -745,6 +1081,9 @@ export class BlogService {
       `"${(b.title || '').replace(/"/g, '""')}"`,
       `"${b.slug}"`,
       `"${b.category}"`,
+      `"${b.guideType || 'CAREER'}"`,
+      `"${b.educationLevel || ''}"`,
+      `"${b.stream || ''}"`,
       `"${b.status}"`,
       `"${b.featured}"`,
       `"${b.author?.fullName || 'N/A'}"`,
@@ -1114,22 +1453,29 @@ export class BlogService {
     if (!userId || !guideId) {
       throw new BadRequestException('User ID and Guide ID required');
     }
-    const guide = await this.prisma.blog.findUnique({
+    let guide = await this.prisma.blog.findUnique({
       where: { id: guideId },
     });
+    if (!guide) {
+      guide = await this.prisma.blog.findUnique({
+        where: { slug: guideId },
+      });
+    }
     if (!guide || guide.status !== 'PUBLISHED' || guide.deletedAt) {
       throw new NotFoundException('Published guide not found');
     }
 
+    const targetGuideId = guide.id;
+
     await this.prisma.savedGuide.upsert({
       where: {
-        userId_guideId: { userId, guideId },
+        userId_guideId: { userId, guideId: targetGuideId },
       },
-      create: { userId, guideId },
+      create: { userId, guideId: targetGuideId },
       update: {},
     });
 
-    return { success: true, message: 'Guide saved successfully', guideId };
+    return { success: true, message: 'Guide saved successfully', guideId: targetGuideId };
   }
 
   /**
@@ -1139,10 +1485,21 @@ export class BlogService {
     if (!userId || !guideId) {
       throw new BadRequestException('User ID and Guide ID required');
     }
-    await this.prisma.savedGuide.deleteMany({
-      where: { userId, guideId },
+    let targetGuideId = guideId;
+    const guide = await this.prisma.blog.findFirst({
+      where: {
+        OR: [{ id: guideId }, { slug: guideId }],
+      },
+      select: { id: true },
     });
-    return { success: true, message: 'Guide removed from saved', guideId };
+    if (guide) {
+      targetGuideId = guide.id;
+    }
+
+    await this.prisma.savedGuide.deleteMany({
+      where: { userId, guideId: targetGuideId },
+    });
+    return { success: true, message: 'Guide removed from saved', guideId: targetGuideId };
   }
 
   /**
@@ -1209,10 +1566,9 @@ export class BlogService {
           select: {
             id: true,
             fullName: true,
-            email: true,
-            mobile: true,
             avatar: true,
             designation: true,
+            qualification: true,
           },
         },
       },
@@ -1243,7 +1599,13 @@ export class BlogService {
 
     return {
       hasCounselor: true,
-      counselor: user.assignedCounselor,
+      counselor: {
+        id: user.assignedCounselor.id,
+        fullName: user.assignedCounselor.fullName,
+        designation: user.assignedCounselor.designation || 'Senior Educational Counselor',
+        qualification: user.assignedCounselor.qualification || 'Career & Admission Guidance',
+        avatar: user.assignedCounselor.avatar,
+      },
       guides: counselorGuides,
     };
   }

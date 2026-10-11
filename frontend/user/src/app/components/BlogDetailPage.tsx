@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Bookmark,
+  BookmarkCheck,
   CheckCircle2,
   Sparkles,
   BookOpen,
@@ -21,6 +22,8 @@ import {
 } from "lucide-react";
 import { blogsApi } from "../../api/blogs.api";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useAuth } from "../../context/AuthContext";
+import { toast } from "sonner";
 
 export default function BlogDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -53,6 +56,55 @@ export default function BlogDetailPage() {
   const blog = blogData?.data?.blog;
   const relatedBlogs = blogData?.data?.relatedBlogs || [];
   const schemaOrg = blogData?.data?.schemaOrg || [];
+
+  const { user } = useAuth();
+  const studentId = (user as any)?.id;
+
+  const { data: savedRes } = useQuery({
+    queryKey: ["saved_guides", studentId],
+    queryFn: () => blogsApi.getSavedGuides(studentId),
+    enabled: !!studentId,
+  });
+
+  const isSaved = useMemo(() => {
+    const list = Array.isArray(savedRes?.data) ? savedRes.data : [];
+    return list.some((g: any) => g.id === blog?.id || (blog?.slug && g.slug === blog.slug));
+  }, [savedRes, blog?.id, blog?.slug]);
+
+  const saveGuideMutation = useMutation({
+    mutationFn: () => (blog?.id ? blogsApi.saveGuide(blog.id, studentId) : Promise.reject()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved_guides"] });
+      toast.success("Guide saved to bookmarks");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to save guide");
+    },
+  });
+
+  const unsaveGuideMutation = useMutation({
+    mutationFn: () => (blog?.id ? blogsApi.unsaveGuide(blog.id, studentId) : Promise.reject()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved_guides"] });
+      toast.success("Guide removed from bookmarks");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to remove saved guide");
+    },
+  });
+
+  const handleToggleSave = () => {
+    if (!studentId) {
+      toast.error("Please log in to bookmark guides to your profile");
+      return;
+    }
+    if (!blog?.id) return;
+    if (isSaved) {
+      unsaveGuideMutation.mutate();
+    } else {
+      saveGuideMutation.mutate();
+    }
+  };
 
   // Inject Schema.org JSON-LD dynamically into head for LLMs
   useEffect(() => {
@@ -154,6 +206,18 @@ export default function BlogDetailPage() {
                 >
                   {copiedLink ? <Check size={15} className="text-emerald-600" /> : <Share2 size={15} />}
                   <span>{copiedLink ? "Link Copied!" : `${blog.shares || 0} Shares`}</span>
+                </button>
+                <button
+                  onClick={handleToggleSave}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    isSaved
+                      ? "bg-[#4A7B5B] text-white shadow-xs"
+                      : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  }`}
+                  title={isSaved ? "Remove from bookmarks" : "Save Guide"}
+                >
+                  {isSaved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+                  <span>{isSaved ? "Saved" : "Save Guide"}</span>
                 </button>
               </div>
 

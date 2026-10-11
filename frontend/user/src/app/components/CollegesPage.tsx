@@ -1,12 +1,15 @@
 import React, { useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router";
-import { Search, MapPin, Star, SlidersHorizontal, X, GraduationCap, Scale } from "lucide-react";
+import { Search, MapPin, Star, SlidersHorizontal, X, GraduationCap, Scale, Bookmark } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi, CollegeQueryParams } from "../../api/colleges.api";
 import { geographyApi } from "../../api/geography.api";
+import { usersApi } from "../../api/users.api";
+import { useAuth as useAuthContext } from "../../context/AuthContext";
 import { useDebounce } from "../../hooks/useDebounce";
+import PageBannerSlider from "./common/PageBannerSlider";
 
 const COURSES_FILTER = ["All Courses","B.Tech","MBA","BCA","MCA","Nursing","Law","BBA","Hotel Management"];
 const TYPES = ["All Types","Government","Private","Deemed"];
@@ -76,8 +79,60 @@ export default function CollegesPage() {
     navigate(`/colleges/compare?ids=${compareList.map(c => c.id).join(",")}`);
   };
 
+  const { isLoggedIn } = useAuthContext();
+  const queryClient = useQueryClient();
+
+  const { data: shortlistIdsRes } = useQuery({
+    queryKey: ["shortlist_ids"],
+    queryFn: () => usersApi.getShortlistIds(),
+    enabled: isLoggedIn,
+  });
+
+  const rawShortlist = shortlistIdsRes?.data;
+  const savedIds: string[] = Array.isArray(rawShortlist)
+    ? rawShortlist
+    : Array.isArray(rawShortlist?.data)
+    ? rawShortlist.data
+    : Array.isArray(rawShortlist?.collegeIds)
+    ? rawShortlist.collegeIds
+    : [];
+  const [savingCollegeId, setSavingCollegeId] = useState<string | null>(null);
+
+  const toggleShortlistMutation = useMutation({
+    mutationFn: (collegeId: string) => usersApi.toggleShortlist(collegeId),
+    onSuccess: (res: any) => {
+      const savedNow = res?.data?.saved ?? res?.data?.isSaved;
+      if (savedNow) {
+        toast.success("College saved to your shortlist!");
+      } else {
+        toast.success("College removed from shortlist");
+      }
+      queryClient.invalidateQueries({ queryKey: ["shortlist_ids"] });
+      queryClient.invalidateQueries({ queryKey: ["shortlist"] });
+      setSavingCollegeId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to update saved college");
+      setSavingCollegeId(null);
+    },
+  });
+
+  const handleToggleSave = (e: React.MouseEvent, collegeId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isLoggedIn) {
+      toast.error("Please login to save colleges to your shortlist");
+      return;
+    }
+    setSavingCollegeId(collegeId);
+    toggleShortlistMutation.mutate(collegeId);
+  };
+
   return (
     <div style={{ backgroundColor: "#F8FAFC", minHeight: "100vh", position: "relative", paddingBottom: "100px" }}>
+      {/* Top Banner Slot (Navbar ke bilkul neeche) */}
+      <PageBannerSlider slot="COLLEGES_TOP" />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -163,7 +218,7 @@ export default function CollegesPage() {
           {filtered.map(c=>(
             <Link key={c.id} to={`/colleges/${c.id}`} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all hover:-translate-y-1 relative">
               <div className="h-44 overflow-hidden relative">
-                <ImageWithFallback src={c.img || "https://images.unsplash.com/photo-1680084521816-cc1ad0433ceb?w=400&q=80"} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
+                <ImageWithFallback src={c.banner || c.img || "https://images.unsplash.com/photo-1680084521816-cc1ad0433ceb?w=400&q=80"} alt={c.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"/>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"/>
                 <div className="absolute top-3 left-3">
                   <span className={`px-2 py-0.5 rounded-full text-white ${c.type==="Government"?"bg-[#4A7B5B]":"bg-[#3B82F6]"}`} style={{fontSize:"9px",fontWeight:600}}>{c.type}</span>
@@ -173,18 +228,48 @@ export default function CollegesPage() {
                     <span key={a} className="px-2 py-0.5 bg-white/90 rounded-full text-gray-700" style={{fontSize:"9px",fontWeight:600}}>{a}</span>
                   ))}
                 </div>
-                {/* Compare Checkbox */}
-                <button 
-                  onClick={(e) => toggleCompare(e, c.id, c.name)}
-                  className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-lg text-xs font-bold shadow-md transition-colors ${compareList.find(item => item.id === c.id) ? "bg-[#F0AE1A] text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
-                >
-                  {compareList.find(item => item.id === c.id) ? "Added to Compare" : "+ Compare"}
-                </button>
+                {/* Actions: Save & Compare */}
+                <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                  <button 
+                    type="button"
+                    onClick={(e) => handleToggleSave(e, c.id)}
+                    disabled={savingCollegeId === c.id}
+                    title={savedIds.includes(c.id) ? "Saved to your shortlist" : "Save to shortlist"}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all flex items-center gap-1 ${
+                      savedIds.includes(c.id)
+                        ? "bg-[#4A7B5B] text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    <Bookmark size={13} className={savedIds.includes(c.id) ? "fill-white text-white" : "text-gray-600"} />
+                    {savingCollegeId === c.id ? "..." : savedIds.includes(c.id) ? "Saved" : "Save"}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={(e) => toggleCompare(e, c.id, c.name)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-colors ${compareList.find(item => item.id === c.id) ? "bg-[#F0AE1A] text-white" : "bg-white text-gray-700 hover:bg-gray-100"}`}
+                  >
+                    {compareList.find(item => item.id === c.id) ? "Comparing" : "+ Compare"}
+                  </button>
+                </div>
               </div>
               <div className="p-4">
-                <h3 className="mb-1 group-hover:text-[#4A7B5B] transition-colors" style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{c.name}</h3>
-                <div className="flex items-center gap-1 text-gray-400 mb-3">
-                  <MapPin size={11}/><span style={{fontSize:"11px"}}>{c.city}, {c.state}</span>
+                <div className="flex items-start gap-3 mb-3">
+                  {c.logo ? (
+                    <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-xs p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                      <img src={c.logo} alt={`${c.name} logo`} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[#E8F3EC] text-[#4A7B5B] font-bold text-xs shrink-0 flex items-center justify-center">
+                      {c.name ? c.name.charAt(0) : "C"}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="mb-0.5 group-hover:text-[#4A7B5B] transition-colors line-clamp-1" style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{c.name}</h3>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <MapPin size={11}/><span style={{fontSize:"11px"}}>{c.city}, {c.state}</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-1 flex-wrap mb-3">
                   {c.courses && c.courses.slice(0,3).map((co: any)=>(

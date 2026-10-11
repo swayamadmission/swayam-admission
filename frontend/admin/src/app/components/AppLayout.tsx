@@ -14,11 +14,14 @@ import SettingsPage from "./SettingsPage";
 import RBACPage from "./RBACPage";
 import { OrganizationPage } from "./OrganizationPage";
 import StaffOnboardingPage from "./StaffOnboardingPage";
+import HrRecruitmentPage from "./HrRecruitmentPage";
 import MobileBottomNav from "./MobileBottomNav";
+import BannersPage from "./BannersPage";
 import BlogsPage from "./BlogsPage";
 import ExamsPage from "./ExamsPage";
 import ScholarshipsPage from "./ScholarshipsPage";
 import FAQsPage from "./FAQsPage";
+import TestimonialsPage from "./TestimonialsPage";
 import DocumentsPage from "./DocumentsPage";
 import PaymentsPage from "./PaymentsPage";
 import ReportingEnrollmentPage from "./ReportingEnrollmentPage";
@@ -36,6 +39,9 @@ import ReferralManagementPage from "./ReferralManagementPage";
 import CouponManagementPage from "./CouponManagementPage";
 import FeeManagementPage from "./FeeManagementPage";
 import StatesManagementPage from "./StatesManagementPage";
+import ContactManagementPage from "./ContactManagementPage";
+import LegalPoliciesPage from "./LegalPoliciesPage";
+import { AuthOtpSettingsPage } from "./AuthOtpSettingsPage";
 import ErrorBoundary from "./ErrorBoundary";
 import {
   LayoutDashboard, Users, BarChart3, Building2, Settings,
@@ -77,6 +83,8 @@ export default function AppLayout({ user, currentPage, onPageChange, onLogout }:
       case "leads": return <LeadsPage />;
       case "tasks": return <CrmTasksPage />;
       case "counselors": return <CounselorsPage />;
+      case "hr":
+      case "hr-recruitment": return <HrRecruitmentPage />;
       case "staff-onboarding": return <StaffOnboardingPage />;
       case "students": return <StudentsPage />;
       case "colleges": return <CollegesPage />;
@@ -91,8 +99,13 @@ export default function AppLayout({ user, currentPage, onPageChange, onLogout }:
       case "college-rankings":
       case "rankings": return <CollegeRankingAdminPage />;
       case "settings": return <SettingsPage />;
+      case "auth-otp": return <AuthOtpSettingsPage />;
       case "rbac": return <RBACPage />;
+      case "legal-policies":
+      case "policies": return <LegalPoliciesPage />;
       case "organization": return <OrganizationPage />;
+      case "banners":
+      case "page-banners": return <BannersPage />;
       case "blogs": return <BlogsPage />;
       case "courses": return <CoursesPage />;
       case "states":
@@ -101,6 +114,11 @@ export default function AppLayout({ user, currentPage, onPageChange, onLogout }:
       case "exams": return <ExamsPage />;
       case "scholarships": return <ScholarshipsPage />;
       case "faqs": return <FAQsPage />;
+      case "testimonials":
+      case "success-stories": return <TestimonialsPage />;
+      case "contact-management":
+      case "contacts":
+      case "contact": return <ContactManagementPage />;
       case "materials": return <StudyMaterialsPage />;
       case "ai": return <AiCounselorAdminPage />;
       case "notifications": return <NotificationsPage />;

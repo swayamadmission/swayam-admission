@@ -401,8 +401,10 @@ export default function BulkCollegeUploadModal({
                         <th className="py-2.5 px-3">Row</th>
                         <th className="py-2.5 px-3">Action</th>
                         <th className="py-2.5 px-3">College Name</th>
-                        <th className="py-2.5 px-3">Location</th>
+                        <th className="py-2.5 px-3">City</th>
+                        <th className="py-2.5 px-3">State</th>
                         <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Media Status</th>
                         <th className="py-2.5 px-3">Hostel</th>
                         <th className="py-2.5 px-3">Gallery</th>
                         <th className="py-2.5 px-3">Status</th>
@@ -425,13 +427,50 @@ export default function BulkCollegeUploadModal({
                               {row.action}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 font-semibold text-gray-800 max-w-[200px] truncate">
+                          <td className="py-2.5 px-3 font-semibold text-gray-800 max-w-[200px] truncate" title={row.name}>
                             {row.name}
                           </td>
-                          <td className="py-2.5 px-3 text-gray-600">
-                            {row.city}, {row.state}
+                          <td className="py-2.5 px-3 text-gray-700 font-medium">
+                            {row.city}
+                          </td>
+                          <td className="py-2.5 px-3 text-gray-700 font-medium">
+                            {row.state}
                           </td>
                           <td className="py-2.5 px-3 text-gray-500">{row.ownership}</td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-col gap-0.5 text-[10px]">
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-400 font-semibold w-12">Logo:</span>
+                                <span className={`px-1.5 py-0.2 rounded font-bold ${
+                                  row.mediaStatus?.logo === 'VALID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                  row.mediaStatus?.logo === 'INVALID' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {row.mediaStatus?.logo || 'MISSING'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-400 font-semibold w-12">Banner:</span>
+                                <span className={`px-1.5 py-0.2 rounded font-bold ${
+                                  row.mediaStatus?.banner === 'VALID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                  row.mediaStatus?.banner === 'INVALID' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {row.mediaStatus?.banner || 'MISSING'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-gray-400 font-semibold w-12">Brochure:</span>
+                                <span className={`px-1.5 py-0.2 rounded font-bold ${
+                                  row.mediaStatus?.brochure === 'VALID' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                  row.mediaStatus?.brochure === 'INVALID' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {row.mediaStatus?.brochure || 'MISSING'}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
                           <td className="py-2.5 px-3">
                             {row.hasHostel ? (
                               <span className="text-[#4A7B5B] font-semibold">Yes</span>
@@ -442,7 +481,7 @@ export default function BulkCollegeUploadModal({
                           <td className="py-2.5 px-3 text-gray-500">{row.galleryCount} imgs</td>
                           <td className="py-2.5 px-3">
                             {row.errors.length > 0 ? (
-                              <span className="text-rose-600 font-semibold truncate block max-w-[150px]">
+                              <span className="text-rose-600 font-semibold truncate block max-w-[150px]" title={row.errors.join(", ")}>
                                 {row.errors[0]}
                               </span>
                             ) : (

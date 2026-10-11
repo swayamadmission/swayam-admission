@@ -39,6 +39,7 @@ export default function LeadsPage() {
   const debouncedSearch = useDebounce(search, 400);
   const [selectedStage, setSelectedStage] = useState<Stage | "All">("All");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   // Bulk Selection State
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
@@ -184,6 +185,7 @@ export default function LeadsPage() {
       setSelectedSeniorForRoute("");
       setRouteReason("");
       queryClient.invalidateQueries({ queryKey: ["leads_list"] });
+      queryClient.invalidateQueries({ queryKey: ["senior_stats"] });
       queryClient.invalidateQueries({ queryKey: ["routing_exceptions"] });
       queryClient.invalidateQueries({ queryKey: ["senior_counselor_stats"] });
       queryClient.invalidateQueries({ queryKey: ["admin_lead_detail", selectedLeadId] });
@@ -192,6 +194,39 @@ export default function LeadsPage() {
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to route lead")
   });
+
+  const retryRoutingMutation = useMutation({
+    mutationFn: (leadId: string) => leadsApi.retryRouting(leadId),
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ["leads_list"] });
+      queryClient.invalidateQueries({ queryKey: ["senior_stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_lead_detail", selectedLeadId] });
+      setManualRouteModalLead(null);
+      if (res?.data?.isRoutingException) {
+        toast.warning(`Routing re-evaluated: Still flagged as exception (${res.data.reason || 'No match'})`);
+      } else {
+        toast.success("Lead successfully routed to Senior Counselor!");
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to retry routing");
+    }
+  });
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["leads_list"] }),
+        queryClient.invalidateQueries({ queryKey: ["senior_stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["counselor_stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["senior_team_summary"] }),
+      ]);
+      toast.success("Queues refreshed");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const addNoteMutation = useMutation({
     mutationFn: ({ id, content }: { id: string; content: string }) =>
@@ -397,6 +432,15 @@ export default function LeadsPage() {
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#94A3B8] pointer-events-none" />
               </div>
+
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="h-9 px-3 rounded-xl border border-[#E2E8F0] bg-white text-sm text-[#475569] flex items-center gap-1.5 hover:bg-[#F8FAFC] disabled:opacity-50 cursor-pointer"
+                title="Refresh current queue"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#4A7B5B]" : ""}`} /> Refresh
+              </button>
 
               <button onClick={handleExport} className="h-9 px-3 rounded-xl border border-[#E2E8F0] bg-white text-sm text-[#475569] flex items-center gap-1.5 hover:bg-[#F8FAFC]">
                 <Download className="w-3.5 h-3.5" /> Export CSV
@@ -624,12 +668,22 @@ export default function LeadsPage() {
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 {isException && (
-                                  <button
-                                    onClick={() => setManualRouteModalLead(lead)}
-                                    className="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700"
-                                  >
-                                    Resolve Exception
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => retryRoutingMutation.mutate(lead.id)}
+                                      disabled={retryRoutingMutation.isPending}
+                                      title="Auto-retry geographic routing"
+                                      className="px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-medium hover:bg-red-100 flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                    >
+                                      <RefreshCw className={`w-3 h-3 ${retryRoutingMutation.isPending ? "animate-spin" : ""}`} /> Retry
+                                    </button>
+                                    <button
+                                      onClick={() => setManualRouteModalLead(lead)}
+                                      className="px-2.5 py-1 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 cursor-pointer"
+                                    >
+                                      Resolve Exception
+                                    </button>
+                                  </>
                                 )}
 
                                 <button
@@ -958,6 +1012,15 @@ export default function LeadsPage() {
                 className="flex-1 h-10 rounded-xl border border-[#E2E8F0] text-[#475569] text-sm font-medium hover:bg-[#F8FAFC]"
               >
                 Cancel
+              </button>
+              <button
+                disabled={retryRoutingMutation.isPending}
+                onClick={() => retryRoutingMutation.mutate(manualRouteModalLead.id)}
+                className="h-10 px-4 rounded-xl border border-[#4A7B5B] text-[#4A7B5B] text-sm font-medium hover:bg-emerald-50 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Retry auto-routing with current assignments"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${retryRoutingMutation.isPending ? "animate-spin" : ""}`} />
+                {retryRoutingMutation.isPending ? "Retrying..." : "Auto Retry"}
               </button>
               <button
                 disabled={!selectedSeniorForRoute || !routeReason.trim() || manualRouteMutation.isPending}

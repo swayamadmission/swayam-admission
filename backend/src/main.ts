@@ -46,6 +46,59 @@ async function bootstrap() {
     prefix: '/uploads',
   });
 
+  // Health Check Alias Middleware: Route /health to /v1/health seamlessly
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.path === '/health' || req.path === '/health/') {
+      req.url = '/v1/health';
+    } else if (req.path.startsWith('/users/me/shortlist')) {
+      req.url = `/v1${req.url}`;
+    }
+    next();
+  });
+
+  // Authoritative CORS Configuration
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5174',
+    'http://127.0.0.1:3000',
+    process.env.FRONTEND_URL,
+    process.env.ADMIN_URL,
+    process.env.CORS_ORIGIN,
+  ].filter(Boolean) as string[];
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (curl, server-to-server, mobile)
+      if (!origin) return callback(null, true);
+      if (
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/localhost:(5173|5174|3000)$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:(5173|5174|3000)$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'X-Access-Token',
+      'X-Refresh-Token',
+      'Range',
+      'Access-Control-Request-Method',
+      'Access-Control-Request-Headers',
+    ],
+    exposedHeaders: ['Content-Range', 'X-Total-Count', 'Authorization'],
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -57,11 +110,28 @@ async function bootstrap() {
     exclude: ['uploads/(.*)'],
   });
 
-  app.enableCors();
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  await app.listen(3000);
-
-  console.log('🚀 Server running on http://localhost:3000');
+  try {
+    await app.listen(port);
+    console.log('✅ Backend Started');
+    console.log(`🚀 Server running on http://localhost:${port}`);
+    console.log(`🚀 Listening on configured port ${port}`);
+  } catch (err: unknown) {
+    const errorWithCode = err as { code?: string };
+    if (errorWithCode?.code === 'EADDRINUSE') {
+      console.error(
+        `\n[NestApplication Error] Backend port ${port} is already in use.\n` +
+          `Another process is listening on port ${port}. Please ensure any stale or duplicate dev server is stopped.\n`,
+      );
+    } else {
+      console.error('[NestApplication Error]', err);
+    }
+    process.exit(1);
+  }
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  console.error('[NestApplication Fatal]', err);
+  process.exit(1);
+});

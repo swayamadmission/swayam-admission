@@ -50,6 +50,53 @@ export default function FAQDetailPage() {
   const relatedBlogs = faqData?.data?.relatedBlogs || [];
   const schemaOrg = faqData?.data?.schemaOrg || [];
 
+  // Safe anti-duplication view tracking
+  useEffect(() => {
+    if (slug) {
+      try {
+        const viewed: string[] = JSON.parse(
+          sessionStorage.getItem("swayam_viewed_faqs") || "[]"
+        );
+        if (!viewed.includes(slug)) {
+          viewed.push(slug);
+          sessionStorage.setItem("swayam_viewed_faqs", JSON.stringify(viewed));
+          faqsApi.recordView(slug).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [slug]);
+
+  // Dynamic SEO Metadata (Title, Description, Canonical URL)
+  useEffect(() => {
+    if (faq) {
+      const pageTitle = faq.seoTitle || `${faq.question} | Swayam Admission FAQs`;
+      document.title = pageTitle;
+
+      let metaDesc = document.querySelector('meta[name="description"]');
+      if (!metaDesc) {
+        metaDesc = document.createElement("meta");
+        metaDesc.setAttribute("name", "description");
+        document.head.appendChild(metaDesc);
+      }
+      metaDesc.setAttribute(
+        "content",
+        faq.seoDescription || faq.aiSummary || faq.answer.substring(0, 160)
+      );
+
+      if (faq.canonicalUrl) {
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!canonical) {
+          canonical = document.createElement("link");
+          canonical.setAttribute("rel", "canonical");
+          document.head.appendChild(canonical);
+        }
+        canonical.setAttribute("href", faq.canonicalUrl);
+      }
+    }
+  }, [faq]);
+
   // Inject Schema.org JSON-LD dynamically into head for LLMs
   useEffect(() => {
     if (schemaOrg && schemaOrg.length > 0) {
@@ -120,7 +167,7 @@ export default function FAQDetailPage() {
         <article className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden p-6 sm:p-10 space-y-6">
           <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <span className="px-3 py-1 bg-emerald-50 text-[#4A7B5B] rounded-full text-xs font-bold uppercase tracking-wider">
-              {faq.category}
+              {typeof faq.category === "object" ? (faq.category?.name || faq.category?.category || "General") : (faq.category || "General")}
             </span>
             <div className="flex items-center gap-3 text-xs text-slate-400">
               <span>{faq.views || 0} views</span>

@@ -20,12 +20,15 @@ import {
   ImageIcon,
   Sparkles,
   Calendar,
+  Bookmark,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi } from "../../api/colleges.api";
 import { recommendationApi } from "../../api/recommendation.api";
 import { studyMaterialsApi, StudyMaterial } from "../../api/study-materials.api";
+import { usersApi } from "../../api/users.api";
 import { useAuth as useAuthContext } from "../../context/AuthContext";
 
 const TABS = ["Overview", "Courses & Fees", "Hostel", "Placement", "Study Materials", "Gallery"];
@@ -33,6 +36,49 @@ const TABS = ["Overview", "Courses & Fees", "Hostel", "Placement", "Study Materi
 export default function CollegeDetailPage() {
   const { id } = useParams();
   const { isLoggedIn } = useAuthContext();
+  const queryClient = useQueryClient();
+
+  const { data: shortlistIdsRes } = useQuery({
+    queryKey: ["shortlist_ids"],
+    queryFn: () => usersApi.getShortlistIds(),
+    enabled: isLoggedIn,
+  });
+
+  const rawShortlist = shortlistIdsRes?.data;
+  const savedIds: string[] = Array.isArray(rawShortlist)
+    ? rawShortlist
+    : Array.isArray(rawShortlist?.data)
+    ? rawShortlist.data
+    : Array.isArray(rawShortlist?.collegeIds)
+    ? rawShortlist.collegeIds
+    : [];
+  const isSaved = id ? savedIds.includes(id) : false;
+
+  const toggleSaveMutation = useMutation({
+    mutationFn: () => usersApi.toggleShortlist(id as string),
+    onSuccess: (res: any) => {
+      const savedNow = res?.data?.saved ?? res?.data?.isSaved ?? !isSaved;
+      if (savedNow) {
+        toast.success("College bookmarked and saved to your dashboard!");
+      } else {
+        toast.success("College removed from saved list");
+      }
+      queryClient.invalidateQueries({ queryKey: ["shortlist_ids"] });
+      queryClient.invalidateQueries({ queryKey: ["shortlist"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to update saved college");
+    },
+  });
+
+  const handleToggleSave = () => {
+    if (!isLoggedIn) {
+      toast.error("Please login to save colleges to your shortlist");
+      return;
+    }
+    if (!id) return;
+    toggleSaveMutation.mutate();
+  };
 
   const { data: collegeRes, isLoading } = useQuery({
     queryKey: ["college", id],
@@ -139,64 +185,105 @@ export default function CollegeDetailPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 pb-6 max-w-7xl mx-auto">
           <div className="flex items-end justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-white ${
-                    apiCollege.type === "GOVERNMENT" ? "bg-[#4A7B5B]" : "bg-[#3B82F6]"
-                  }`}
-                  style={{ fontSize: "11px", fontWeight: 600 }}
-                >
-                  {apiCollege.type || "College"} {apiCollege.establishedYear ? `· Est. ${apiCollege.establishedYear}` : ""}
-                </span>
-                {apiCollege.ownership && (
-                  <span className="px-2.5 py-0.5 rounded-full text-white bg-slate-700/80" style={{ fontSize: "11px", fontWeight: 600 }}>
-                    {apiCollege.ownership}
-                  </span>
-                )}
-                {apiCollege.naacGrade && (
-                  <span className="px-2.5 py-0.5 rounded-full text-white bg-[#F0AE1A]" style={{ fontSize: "11px", fontWeight: 700 }}>
-                    NAAC {apiCollege.naacGrade}
-                  </span>
-                )}
-                {matchData?.matchScore && (
-                  <span className="px-2.5 py-0.5 rounded-full text-white bg-[#F0AE1A] inline-flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 800 }}>
-                    <Bot size={11} /> {matchData.matchScore}% AI Match
-                  </span>
-                )}
-              </div>
-
-              <h1 className="text-white mb-2" style={{ fontSize: "clamp(20px,3.2vw,32px)", fontWeight: 800 }}>
-                {apiCollege.name}
-              </h1>
-
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-1 text-white/90">
-                  <MapPin size={14} className="text-[#F0AE1A]" />
-                  <span style={{ fontSize: "13px" }}>
-                    {apiCollege.city}, {apiCollege.state}
-                  </span>
+            <div className="flex items-start sm:items-center gap-4">
+              {apiCollege.logo ? (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-1.5 shadow-lg border border-white/20 shrink-0 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={apiCollege.logo}
+                    alt={`${apiCollege.name} logo`}
+                    className="w-full h-full object-contain rounded-xl"
+                  />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Star size={14} className="fill-[#F0AE1A] text-[#F0AE1A]" />
-                  <span className="text-white" style={{ fontSize: "13px", fontWeight: 700 }}>
-                    {apiCollege.rating ? apiCollege.rating.toFixed(1) : "4.2"}
+              ) : (
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shrink-0 flex items-center justify-center text-white font-bold text-xl sm:text-2xl shadow-lg">
+                  {apiCollege.name ? apiCollege.name.charAt(0) : "C"}
+                </div>
+              )}
+              <div>
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-white ${
+                      apiCollege.type === "GOVERNMENT" ? "bg-[#4A7B5B]" : "bg-[#3B82F6]"
+                    }`}
+                    style={{ fontSize: "11px", fontWeight: 600 }}
+                  >
+                    {apiCollege.type || "College"} {apiCollege.establishedYear ? `· Est. ${apiCollege.establishedYear}` : ""}
                   </span>
-                  <span className="text-white/70" style={{ fontSize: "12px" }}>
-                    ({apiCollege._count?.applications ? `${apiCollege._count.applications * 12}+ reviews` : "Verified Institution"})
-                  </span>
+                  {apiCollege.ownership && (
+                    <span className="px-2.5 py-0.5 rounded-full text-white bg-slate-700/80" style={{ fontSize: "11px", fontWeight: 600 }}>
+                      {apiCollege.ownership}
+                    </span>
+                  )}
+                  {apiCollege.naacGrade && (
+                    <span className="px-2.5 py-0.5 rounded-full text-white bg-[#F0AE1A]" style={{ fontSize: "11px", fontWeight: 700 }}>
+                      NAAC {apiCollege.naacGrade}
+                    </span>
+                  )}
+                  {matchData?.matchScore && (
+                    <span className="px-2.5 py-0.5 rounded-full text-white bg-[#F0AE1A] inline-flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 800 }}>
+                      <Bot size={11} /> {matchData.matchScore}% AI Match
+                    </span>
+                  )}
+                </div>
+
+                <h1 className="text-white mb-2" style={{ fontSize: "clamp(20px,3.2vw,32px)", fontWeight: 800 }}>
+                  {apiCollege.name}
+                </h1>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-1 text-white/90">
+                    <MapPin size={14} className="text-[#F0AE1A]" />
+                    <span style={{ fontSize: "13px" }}>
+                      {apiCollege.city}, {apiCollege.state}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Star size={14} className="fill-[#F0AE1A] text-[#F0AE1A]" />
+                    <span className="text-white" style={{ fontSize: "13px", fontWeight: 700 }}>
+                      {apiCollege.rating ? apiCollege.rating.toFixed(1) : "4.2"}
+                    </span>
+                    <span className="text-white/70" style={{ fontSize: "12px" }}>
+                      ({apiCollege._count?.applications ? `${apiCollege._count.applications * 12}+ reviews` : "Verified Institution"})
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Direct Apply Button on banner for desktop */}
-            <div className="hidden sm:block">
-              <Link
-                to="/apply-now"
-                className="px-6 py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl font-bold text-sm shadow-lg transition-all inline-flex items-center gap-2"
+            {/* Direct Apply & Save Buttons on banner */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {apiCollege.brochureUrl && (
+                <a
+                  href={apiCollege.brochureUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="px-4 py-3 rounded-xl font-bold text-sm shadow-md transition-all inline-flex items-center gap-2 bg-[#F0AE1A] hover:bg-[#d99b14] text-white"
+                >
+                  <Download size={16} /> Download Brochure
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                disabled={toggleSaveMutation.isPending}
+                className={`px-4 py-3 rounded-xl font-bold text-sm shadow-md transition-all inline-flex items-center gap-2 backdrop-blur-sm border ${
+                  isSaved
+                    ? "bg-[#4A7B5B] text-white border-[#4A7B5B]"
+                    : "bg-white/15 text-white hover:bg-white/25 border-white/25"
+                }`}
               >
-                Apply for Admission <ArrowRight size={16} />
-              </Link>
+                <Bookmark size={16} className={isSaved ? "fill-white text-white" : "text-white"} />
+                {toggleSaveMutation.isPending ? "..." : isSaved ? "Saved" : "Save College"}
+              </button>
+              <div className="hidden sm:block">
+                <Link
+                  to="/apply-now"
+                  className="px-6 py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl font-bold text-sm shadow-lg transition-all inline-flex items-center gap-2"
+                >
+                  Apply for Admission <ArrowRight size={16} />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -621,10 +708,36 @@ export default function CollegeDetailPage() {
 
               <Link
                 to="/apply-now"
-                className="w-full flex items-center justify-center gap-2 py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl transition-all shadow-md mb-2.5 font-bold text-sm"
+                className="w-full flex items-center justify-center gap-2 py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white rounded-xl transition-all shadow-md mb-2 font-bold text-sm"
               >
                 Apply Now <ArrowRight size={15} />
               </Link>
+
+              {apiCollege.brochureUrl && (
+                <a
+                  href={apiCollege.brochureUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#EFF6F1] hover:bg-[#E2EFE5] text-[#4A7B5B] border border-[#4A7B5B]/30 rounded-xl transition-all mb-2 font-bold text-sm"
+                >
+                  <Download size={15} /> Download Brochure
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={handleToggleSave}
+                disabled={toggleSaveMutation.isPending}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold transition-all mb-2.5 ${
+                  isSaved
+                    ? "bg-[#E8F3EC] text-[#4A7B5B] border-[#4A7B5B]"
+                    : "border-gray-200 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <Bookmark size={15} className={isSaved ? "fill-[#4A7B5B] text-[#4A7B5B]" : "text-gray-500"} />
+                {toggleSaveMutation.isPending ? "Updating..." : isSaved ? "Saved to My Shortlist" : "Bookmark & Save"}
+              </button>
 
               <a
                 href={apiCollege.phone ? `tel:${apiCollege.phone}` : "tel:+919000000000"}

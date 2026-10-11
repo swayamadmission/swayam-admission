@@ -398,15 +398,28 @@ export const SearchResultsPage: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-[#4A7B5B] transition-colors line-clamp-2">
-                          {c.name}
-                        </h3>
-                        <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                          <MapPin size={13} className="shrink-0 text-gray-400" />
-                          <span className="truncate">
-                            {c.city ? `${c.city}, ` : ""}
-                            {c.state || "India"}
-                          </span>
+                        <div className="flex items-start gap-3 mb-2">
+                          {c.logo ? (
+                            <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-2xs p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                              <img src={c.logo} alt={`${c.name} logo`} className="w-full h-full object-contain" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-[#E8F3EC] text-[#4A7B5B] font-bold text-xs shrink-0 flex items-center justify-center">
+                              {c.name ? c.name.charAt(0) : "C"}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-900 text-sm sm:text-base group-hover:text-[#4A7B5B] transition-colors line-clamp-2">
+                              {c.name}
+                            </h3>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                              <MapPin size={13} className="shrink-0 text-gray-400" />
+                              <span className="truncate">
+                                {c.city ? `${c.city}, ` : ""}
+                                {c.state || "India"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
 

@@ -10,6 +10,7 @@ import {
   NotificationType,
   Role,
   CommunicationChannel,
+  CommunicationDeliveryStatus,
 } from '@prisma/client';
 
 import { LiveSyncService } from '../events/live-sync.service';
@@ -31,6 +32,31 @@ export interface EventNotificationPayload {
   reportingDate?: string;
   rejectionReason?: string;
   actionUrl?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface RecruitmentEventPayload {
+  candidateUserId?: string;
+  candidateName: string;
+  candidateEmail?: string;
+  candidateMobile?: string;
+  applicationId: string;
+  vacancyId?: string;
+  vacancyTitle: string;
+  offerId?: string;
+  joiningDate?: string;
+  department?: string;
+  designation?: string;
+  salary?: string;
+  companyName?: string;
+  recruiterId?: string;
+  recruiterName?: string;
+  recruiterEmail?: string;
+  reason?: string;
+  employeeId?: string;
+  actorUserId?: string;
+  actionUrl?: string;
+  notifyHr?: boolean;
   metadata?: Record<string, any>;
 }
 
@@ -531,6 +557,172 @@ export class NotificationsService {
       return { success: true, eventCode };
     } catch (err: any) {
       this.logger.error(`Failed to emit event notification ${eventCode}: ${err.message}`);
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
+   * Central Recruitment Event Notification Handler:
+   * Delivers In-App, Email, and WhatsApp notifications for the complete recruitment lifecycle.
+   * Persists delivery traces in CommunicationDelivery and never fails silently.
+   */
+  async emitRecruitmentEvent(eventCode: string, payload: RecruitmentEventPayload) {
+    try {
+      this.logger.log(
+        `[RECRUITMENT EVENT] ${eventCode} for Application: ${payload.applicationId} | Candidate: ${payload.candidateName}`,
+      );
+
+      const template = await this.prisma.communicationTemplate.findUnique({
+        where: { code: eventCode },
+      });
+
+      const context = {
+        candidateName: payload.candidateName || 'Candidate',
+        applicationId: payload.applicationId || 'N/A',
+        vacancyTitle: payload.vacancyTitle || 'Position',
+        offerId: payload.offerId || '',
+        joiningDate: payload.joiningDate || 'Scheduled joining date',
+        department: payload.department || 'Admissions',
+        designation: payload.designation || 'Specialist',
+        salary: payload.salary || '',
+        companyName: payload.companyName || 'Swayam Admission',
+        recruiterName: payload.recruiterName || 'HR Recruitment Team',
+        reason: payload.reason || '',
+        employeeId: payload.employeeId || '',
+        actionUrl: payload.actionUrl || '/admin/hr',
+        currentYear: '2026',
+        ...(payload.metadata || {}),
+      };
+
+      const title = template?.inAppTitle
+        ? this.templateEngine.render(template.inAppTitle, context)
+        : `Recruitment Update: ${eventCode.replace(/_/g, ' ')}`;
+
+      const message = template?.inAppMessage
+        ? this.templateEngine.render(template.inAppMessage, context)
+        : `Your application status has updated to ${eventCode}.`;
+
+      // 1. Candidate In-App Notification (if user account exists)
+      if (payload.candidateUserId) {
+        await this.createNotification({
+          userId: payload.candidateUserId,
+          receiverId: payload.candidateUserId,
+          title,
+          message,
+          type: NotificationType.APPLICATION,
+          priority: NotificationPriority.HIGH,
+          category: 'RECRUITMENT',
+          actionUrl: payload.actionUrl || '/careers',
+          relatedApplicationId: payload.applicationId,
+          metadata: {
+            eventCode,
+            offerId: payload.offerId,
+            employeeId: payload.employeeId,
+            vacancyId: payload.vacancyId,
+          },
+        });
+      }
+
+      // 2. Candidate External Multi-Channel Dispatch (Email, WhatsApp)
+      if (template) {
+        const channels = template.channels;
+        const candidateRecipient = {
+          id: payload.candidateUserId || payload.applicationId,
+          name: payload.candidateName,
+          email: payload.candidateEmail,
+          mobile: payload.candidateMobile,
+          type: 'CANDIDATE',
+        };
+
+        const messagePayload = {
+          title,
+          subject: this.templateEngine.render(template.subject, context),
+          message,
+          smsBody: this.templateEngine.render(template.smsBody, context),
+          whatsAppTemplateName: template.whatsAppTemplateName || undefined,
+          whatsAppBody: this.templateEngine.render(template.whatsAppBody, context),
+          emailHtml: this.templateEngine.render(template.emailHtml, context),
+          actionUrl: payload.actionUrl,
+        };
+
+        for (const ch of channels) {
+          if (ch !== CommunicationChannel.IN_APP) {
+            try {
+              const sendResult = await this.dispatcher.dispatchChannel(
+                ch,
+                candidateRecipient,
+                messagePayload,
+                { eventCode, applicationId: payload.applicationId, offerId: payload.offerId },
+              );
+
+              // Persist delivery audit trace in database
+              await this.prisma.communicationDelivery.create({
+                data: {
+                  channel: ch,
+                  recipientType: 'CANDIDATE',
+                  recipientId: payload.candidateUserId || null,
+                  recipientName: payload.candidateName,
+                  recipientEmail: payload.candidateEmail || null,
+                  recipientMobile: payload.candidateMobile || null,
+                  status: sendResult.status,
+                  providerMessageId: sendResult.providerMessageId || null,
+                  errorMessage: sendResult.errorMessage || null,
+                  failureReason: sendResult.failureReason || null,
+                  isRetryable: sendResult.isRetryable !== undefined ? sendResult.isRetryable : true,
+                  sentAt: sendResult.success ? new Date() : null,
+                  deliveredAt:
+                    sendResult.status === CommunicationDeliveryStatus.DELIVERED ? new Date() : null,
+                  failedAt: !sendResult.success ? new Date() : null,
+                },
+              });
+            } catch (dispatchErr: any) {
+              this.logger.warn(
+                `Dispatch failed on ${ch} for ${payload.applicationId}: ${dispatchErr.message}`,
+              );
+            }
+          }
+        }
+      }
+
+      // 3. HR / Admin Internal Notifications
+      const isHrEvent = eventCode.startsWith('RECRUITMENT_HR_') || payload.notifyHr;
+      if (isHrEvent) {
+        const hrAlertTitle = `HR Alert: ${eventCode.replace('RECRUITMENT_HR_', '').replace(/_/g, ' ')}`;
+        const hrAlertMessage = `${payload.candidateName} (${payload.vacancyTitle}) — ${payload.reason || eventCode}`;
+
+        // Alert assigned recruiter
+        if (payload.recruiterId) {
+          await this.createNotification({
+            userId: payload.recruiterId,
+            receiverId: payload.recruiterId,
+            title: hrAlertTitle,
+            message: hrAlertMessage,
+            type: NotificationType.APPLICATION,
+            priority: NotificationPriority.HIGH,
+            category: 'RECRUITMENT',
+            actionUrl: `/admin/hr?applicationId=${payload.applicationId}`,
+            relatedApplicationId: payload.applicationId,
+          });
+        }
+
+        // Alert Admin & Super Admin Roles
+        await this.createNotification({
+          receiverRole: Role.ADMIN,
+          title: hrAlertTitle,
+          message: hrAlertMessage,
+          type: NotificationType.SYSTEM,
+          priority: NotificationPriority.MEDIUM,
+          category: 'RECRUITMENT',
+          actionUrl: `/admin/hr?applicationId=${payload.applicationId}`,
+          relatedApplicationId: payload.applicationId,
+        });
+      }
+
+      return { success: true, eventCode };
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to emit recruitment event notification ${eventCode}: ${err.message}`,
+      );
       return { success: false, error: err.message };
     }
   }

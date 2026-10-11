@@ -6,13 +6,14 @@ import {
   User, LogOut, CheckCircle2, Clock, AlertCircle, Award,
   Map as MapIcon, CircleDot, BookOpen, Download, Bookmark, BookmarkX, HelpCircle, CreditCard, RotateCcw, Search, Phone, MessageSquare, Filter,
   LifeBuoy, Building2, ArrowRight, Receipt, Lock, X, Settings, Mail, Gift, Paperclip, Send,
-  Edit, Plus, Trash2, Check, RefreshCw
+  Edit, Plus, Trash2, Check, RefreshCw, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { useAuth } from "./Navbar";
 import { useAuth as useAuthContext } from "../../context/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { authApi } from "../../api/auth.api";
 import { applicationsApi, Application } from "../../api/applications.api";
 import { aiCounselorApi } from "../../api/ai-counselor.api";
 import { usersApi } from "../../api/users.api";
@@ -23,7 +24,7 @@ import { collegesApi } from "../../api/colleges.api";
 import { documentsApi } from "../../api/documents.api";
 import { notificationsApi, Notification } from "../../api/notifications.api";
 import { studyMaterialsApi, StudyMaterial } from "../../api/study-materials.api";
-import { blogsApi } from "../../api/blogs.api";
+import { blogsApi, GuideItem } from "../../api/blogs.api";
 import { faqsApi } from "../../api/faqs.api";
 import { paymentsApi } from "../../api/payments.api";
 import { reportingEnrollmentApi } from "../../api/reporting-enrollment.api";
@@ -32,11 +33,17 @@ import ErrorState from "./ui/ErrorState";
 import ErrorBoundary from "./ui/ErrorBoundary";
 import { ApplicationWorkflowForm } from "./ApplicationWorkflowForm";
 import ReferralDashboard from "./ReferralDashboard";
+import ActionConsentSection, { AcceptedPolicyPayload } from "./ActionConsentSection";
 import CouponApplyWidget from "./CouponApplyWidget";
 import FirstLoginReferralModal from "./FirstLoginReferralModal";
 import { CouponValidationResponse } from "../../api/coupons.api";
 import CareerAdmissionGuides from "./CareerAdmissionGuides";
 import FAQPage from "./FAQPage";
+import StudentPaymentCenter from "./StudentPaymentCenter";
+import AssignedCounselorChatModal from "./AssignedCounselorChatModal";
+import { usePublicSettings } from "../../context/PublicSettingsContext";
+import { useUserLiveSync } from "../../hooks/useUserLiveSync";
+import { PageBannerSlider } from "./common/PageBannerSlider";
 
 const SIDEBAR_ITEMS = [
   { id:"overview", label:"Overview", icon:LayoutDashboard },
@@ -47,7 +54,6 @@ const SIDEBAR_ITEMS = [
   { id:"payments", label:"Payments & Fees", icon:CreditCard },
   { id:"referrals", label:"Refer a Student", icon:Gift },
   { id:"support", label:"Help & Support Center", icon:LifeBuoy },
-  { id:"ai", label:"AI Recommendations", icon:Bot },
   { id:"materials", label:"Study Materials", icon:BookOpen },
   { id:"blogs", label:"Career & Admission Guides", icon:FileText },
   { id:"faqs", label:"Frequently Asked Questions", icon:HelpCircle },
@@ -80,19 +86,43 @@ export default function StudentDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { logout } = useAuth();
   const { user, isLoggedIn, isLoading } = useAuthContext();
+  const { settings } = usePublicSettings();
+  const helpdeskPhone = settings.contactNumber1 || settings.supportPhone || "6284308664";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [showReferralModal, setShowReferralModal] = useState<boolean>(false);
 
+  const [workflowInitialStep, setWorkflowInitialStep] = useState<number>(1);
+  const [autoScrollToSubmit, setAutoScrollToSubmit] = useState<boolean>(false);
+  const [counselorChatModal, setCounselorChatModal] = useState<{
+    isOpen: boolean;
+    applicationId?: string;
+    applicationNumber?: string;
+    collegeName?: string;
+    courseName?: string;
+  }>({ isOpen: false });
+
   useEffect(() => {
     const tab = searchParams.get("tab") || searchParams.get("section");
     if (tab) {
-      setActiveSection(tab);
+      if (tab === "ai" || tab === "recommendations" || tab === "ai-recommendations") {
+        setActiveSection("overview");
+      } else {
+        setActiveSection(tab);
+      }
     }
     const appId = searchParams.get("appId") || searchParams.get("applicationId");
     if (appId) {
       setSelectedWorkflowAppId(appId);
+      const stepParam = searchParams.get("step");
+      if (stepParam) {
+        setWorkflowInitialStep(Number(stepParam));
+      }
+      if (searchParams.get("pay") === "true") {
+        setWorkflowInitialStep(5);
+        setAutoScrollToSubmit(true);
+      }
       setActiveSection("applications");
     }
   }, [searchParams]);
@@ -111,6 +141,10 @@ export default function StudentDashboard() {
   });
 
   const studentUser = (meRes?.data || user) as any;
+  const studentId = studentUser?.id || (user as any)?.id || "";
+
+  // Real-time live synchronization with Admin CMS events & notifications
+  useUserLiveSync(studentId);
 
   const calculateProfileCompletion = (u: any) => {
     if (!u) return 0;
@@ -257,6 +291,7 @@ export default function StudentDashboard() {
       gender: profileForm.gender,
       category: profileForm.category,
       country: profileForm.country,
+      email: profileForm.email?.trim() ? profileForm.email.trim().toLowerCase() : undefined,
       state: profileForm.state,
       district: profileForm.district,
       pincode: profileForm.pincode,
@@ -275,6 +310,80 @@ export default function StudentDashboard() {
         : undefined,
     };
     updateProfileMutation.mutate(payload);
+  };
+
+  // --------------------------------------------------------------------------
+  // EMAIL VERIFICATION STATE & ACTIONS
+  // --------------------------------------------------------------------------
+  const [isEmailVerifyModalOpen, setIsEmailVerifyModalOpen] = useState(false);
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
+  const [emailCooldown, setEmailCooldown] = useState(0);
+  const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (emailCooldown <= 0) return;
+    const t = setInterval(
+      () => setEmailCooldown((prev) => (prev > 0 ? prev - 1 : 0)),
+      1000,
+    );
+    return () => clearInterval(t);
+  }, [emailCooldown]);
+
+  const handleStartEmailVerification = async () => {
+    const targetEmail = profileForm.email || studentUser?.email;
+    if (!targetEmail || !targetEmail.trim()) {
+      toast.error("Please enter an email address first.");
+      return;
+    }
+    setEmailOtpError(null);
+    setEmailOtpLoading(true);
+    try {
+      const res = await authApi.sendEmailVerification(targetEmail.trim());
+      setIsEmailVerifyModalOpen(true);
+      setEmailCooldown(res.data?.resendCooldownSeconds || 30);
+      if (res.data?.devCode) {
+        setEmailDevCode(res.data.devCode);
+      }
+      toast.success(res.data?.message || "Verification code sent to your email.");
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        err?.apiError?.userMessage ||
+        "Failed to send verification code.";
+      toast.error(msg);
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const handleConfirmEmailVerification = async () => {
+    const targetEmail = profileForm.email || studentUser?.email;
+    if (!emailOtpCode.trim() || emailOtpCode.trim().length !== 6) {
+      setEmailOtpError("Please enter the 6-digit verification code.");
+      return;
+    }
+    setEmailOtpError(null);
+    setEmailOtpLoading(true);
+    try {
+      await authApi.verifyEmail({
+        email: targetEmail.trim(),
+        code: emailOtpCode.trim(),
+      });
+      toast.success("Email verified successfully!");
+      setIsEmailVerifyModalOpen(false);
+      setEmailOtpCode("");
+      queryClient.invalidateQueries({ queryKey: ["user_me"] });
+    } catch (err: any) {
+      const msg =
+        err.response?.data?.message ||
+        err?.apiError?.userMessage ||
+        "Verification code is incorrect or expired.";
+      setEmailOtpError(msg);
+    } finally {
+      setEmailOtpLoading(false);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -534,12 +643,28 @@ export default function StudentDashboard() {
     enabled: !!viewHistoryDocId,
   });
 
+  const [dashboardDocConsentValid, setDashboardDocConsentValid] = useState<boolean>(false);
+  const [dashboardDocAcceptedPolicies, setDashboardDocAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
+  const [deletionConsentValid, setDeletionConsentValid] = useState<boolean>(false);
+  const [deletionAcceptedPolicies, setDeletionAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
+
   const uploadMutation = useMutation({
-    mutationFn: ({ type, file }: { type: string; file: File }) => {
+    mutationFn: ({
+      type,
+      file,
+      options,
+    }: {
+      type: string;
+      file: File;
+      options?: {
+        consentAccepted?: boolean;
+        acceptedPolicies?: AcceptedPolicyPayload[];
+      };
+    }) => {
       if (file.size > 300 * 1024) {
         throw new Error("File size must not exceed 300 KB.");
       }
-      return documentsApi.upload(type, file);
+      return documentsApi.upload(type, file, undefined, undefined, options);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my_documents"] });
@@ -549,11 +674,22 @@ export default function StudentDashboard() {
   });
 
   const replaceDocMutation = useMutation({
-    mutationFn: ({ id, file }: { id: string; file: File }) => {
+    mutationFn: ({
+      id,
+      file,
+      options,
+    }: {
+      id: string;
+      file: File;
+      options?: {
+        consentAccepted?: boolean;
+        acceptedPolicies?: AcceptedPolicyPayload[];
+      };
+    }) => {
       if (file.size > 300 * 1024) {
         throw new Error("File size must not exceed 300 KB.");
       }
-      return documentsApi.replace(id, file);
+      return documentsApi.replace(id, file, options);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my_documents"] });
@@ -568,7 +704,6 @@ export default function StudentDashboard() {
   const [deleteReason, setDeleteReason] = useState<string>("Uploaded by mistake");
   const [deleteAdditionalDetails, setDeleteAdditionalDetails] = useState<string>("");
   const [deleteApplicationId, setDeleteApplicationId] = useState<string>("");
-  const [deleteConfirmation, setDeleteConfirmation] = useState<boolean>(false);
   const [deletionSubmissionResult, setDeletionSubmissionResult] = useState<any>(null);
 
   const { data: myDeletionRequestsRes } = useQuery({
@@ -584,6 +719,7 @@ export default function StudentDashboard() {
       additionalDetails?: string;
       applicationId?: string;
       confirmation: boolean;
+      acceptedPolicies?: AcceptedPolicyPayload[];
     }) => documentsApi.requestDeletion(data),
     onSuccess: (res: any) => {
       setDeletionSubmissionResult(res.data?.data || res.data);
@@ -858,6 +994,72 @@ export default function StudentDashboard() {
     enabled: isLoggedIn,
   });
 
+  const [removingSavedId, setRemovingSavedId] = useState<string | null>(null);
+
+  const removeShortlistMutation = useMutation({
+    mutationFn: (collegeId: string) => usersApi.removeFromShortlist(collegeId),
+    onSuccess: () => {
+      toast.success("College removed from saved list");
+      queryClient.invalidateQueries({ queryKey: ["shortlist"] });
+      queryClient.invalidateQueries({ queryKey: ["shortlist_ids"] });
+      setRemovingSavedId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to remove saved college");
+      setRemovingSavedId(null);
+    },
+  });
+
+  const handleRemoveSaved = (collegeId: string, e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!collegeId) return;
+    setRemovingSavedId(collegeId);
+    removeShortlistMutation.mutate(collegeId);
+  };
+
+  const [savedSubTab, setSavedSubTab] = useState<"colleges" | "guides">("colleges");
+
+  // Saved Guides Query from database
+  const {
+    data: savedGuidesRes,
+    isLoading: isSavedGuidesLoading,
+    isError: isSavedGuidesError,
+    error: savedGuidesError,
+    refetch: refetchSavedGuides,
+    isFetching: isSavedGuidesFetching,
+  } = useQuery({
+    queryKey: ["saved_guides", studentId],
+    queryFn: () => blogsApi.getSavedGuides(studentId),
+    enabled: !!studentId,
+  });
+
+  const savedGuidesList: GuideItem[] = Array.isArray(savedGuidesRes?.data) ? savedGuidesRes.data : [];
+
+  const [removingGuideId, setRemovingGuideId] = useState<string | null>(null);
+
+  const removeSavedGuideMutation = useMutation({
+    mutationFn: (guideId: string) => blogsApi.unsaveGuide(guideId, studentId),
+    onSuccess: () => {
+      toast.success("Guide removed from saved list");
+      queryClient.invalidateQueries({ queryKey: ["saved_guides"] });
+      setRemovingGuideId(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to remove saved guide");
+      setRemovingGuideId(null);
+    },
+  });
+
+  const handleRemoveSavedGuide = (guideId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!guideId || !studentId) return;
+    setRemovingGuideId(guideId);
+    removeSavedGuideMutation.mutate(guideId);
+  };
+
   const {
     data: journeyRes,
     isLoading: isJourneyLoading,
@@ -980,6 +1182,233 @@ export default function StudentDashboard() {
   const [isSubmittingUtr, setIsSubmittingUtr] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse | null>(null);
 
+  // Master Payment System - Student State & Handlers
+  const [onlinePayModalReq, setOnlinePayModalReq] = useState<any | null>(null);
+  const [onlineCouponCode, setOnlineCouponCode] = useState<string>("");
+  const [onlineFeeCalc, setOnlineFeeCalc] = useState<any | null>(null);
+  const [isCalculatingFee, setIsCalculatingFee] = useState<boolean>(false);
+  const [isPayingRazorpay, setIsPayingRazorpay] = useState<boolean>(false);
+  const [couponErrorMsg, setCouponErrorMsg] = useState<string>("");
+
+  const [collegePayModalReq, setCollegePayModalReq] = useState<any | null>(null);
+  const [collegeUtr, setCollegeUtr] = useState<string>("");
+  const [collegeProofDoc, setCollegeProofDoc] = useState<string>("");
+  const [collegeRemarks, setCollegeRemarks] = useState<string>("");
+  const [isSubmittingCollegeProof, setIsSubmittingCollegeProof] = useState<boolean>(false);
+  const [collegeAcceptedTerms, setCollegeAcceptedTerms] = useState<boolean>(false);
+
+  const [activePaymentReceipt, setActivePaymentReceipt] = useState<any | null>(null);
+  const [feeCategoryFilter, setFeeCategoryFilter] = useState<"ALL" | "SWAYAM" | "COLLEGE">("ALL");
+  const [paymentHistoryFilter, setPaymentHistoryFilter] = useState<"ALL" | "COMPLETED" | "PENDING">("ALL");
+
+  const formatDateIN = (dateStr?: string | Date | null) => {
+    if (!dateStr) return "N/A";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "N/A";
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  const formatINR = (amt: number | string | undefined | null) => {
+    const num = Number(amt) || 0;
+    return `₹${num.toLocaleString('en-IN')}`;
+  };
+
+  const handleOpenOnlinePayModal = async (req: any) => {
+    setOnlinePayModalReq(req);
+    setOnlineCouponCode("");
+    setCouponErrorMsg("");
+    setIsCalculatingFee(true);
+    try {
+      const res = await paymentsApi.calculatePayable({ paymentRequestId: req.id });
+      setOnlineFeeCalc(res?.data?.data || res?.data);
+    } catch (err: any) {
+      console.error("Fee calc error:", err);
+      setOnlineFeeCalc({
+        grossAmount: req.dueAmount || req.requestedAmount,
+        discountAmount: 0,
+        couponDiscount: 0,
+        scholarshipAmount: req.scholarshipAmount || 0,
+        finalPayableAmount: req.dueAmount || req.requestedAmount,
+        beneficiary: req.beneficiary || "Swayam Admission",
+        beneficiaryType: req.beneficiaryType || "SWAYAM",
+        couponApplicable: req.couponApplicable !== false,
+      });
+    } finally {
+      setIsCalculatingFee(false);
+    }
+  };
+
+  const handleApplyOnlineCoupon = async () => {
+    if (!onlineCouponCode.trim() || !onlinePayModalReq) return;
+    setIsCalculatingFee(true);
+    setCouponErrorMsg("");
+    try {
+      const res = await paymentsApi.calculatePayable({
+        paymentRequestId: onlinePayModalReq.id,
+        couponCode: onlineCouponCode.trim().toUpperCase(),
+      });
+      const calcData = res?.data?.data || res?.data;
+      setOnlineFeeCalc(calcData);
+      toast.success(`Coupon applied! You save ₹${calcData.couponDiscount || calcData.discountAmount}`);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "This coupon is not applicable to this payment.";
+      setCouponErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setIsCalculatingFee(false);
+    }
+  };
+
+  const handleRemoveOnlineCoupon = async () => {
+    setOnlineCouponCode("");
+    setCouponErrorMsg("");
+    if (!onlinePayModalReq) return;
+    setIsCalculatingFee(true);
+    try {
+      const res = await paymentsApi.calculatePayable({ paymentRequestId: onlinePayModalReq.id });
+      setOnlineFeeCalc(res?.data?.data || res?.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsCalculatingFee(false);
+    }
+  };
+
+  const handleInitiateRazorpayPayment = async () => {
+    if (!onlinePayModalReq) return;
+    setIsPayingRazorpay(true);
+    try {
+      const orderRes = await paymentsApi.createOrder({
+        paymentRequestId: onlinePayModalReq.id,
+        couponCode: onlineCouponCode ? onlineCouponCode.trim().toUpperCase() : undefined,
+        amount: onlineFeeCalc?.finalPayableAmount || onlinePayModalReq.dueAmount,
+      });
+      const orderData = orderRes?.data?.data || orderRes?.data;
+      if (!orderData?.orderId) {
+        throw new Error(orderRes?.data?.message || "Failed to create payment order.");
+      }
+
+      const isLoaded = await new Promise<boolean>((resolve) => {
+        if ((window as any).Razorpay) return resolve(true);
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+      });
+
+      if (!isLoaded) {
+        throw new Error("Unable to load secure Razorpay checkout. Please check internet connection.");
+      }
+
+      const options = {
+        key: orderData.keyId || "rzp_test_placeholder",
+        amount: orderData.amount,
+        currency: orderData.currency || "INR",
+        name: "Swayam Admission",
+        description: `${onlinePayModalReq.feeHead || "Fee Payment"} - ${onlinePayModalReq.requestCode || ""}`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: studentName,
+          email: user?.email || "",
+          contact: (user as any)?.phone || "",
+        },
+        theme: {
+          color: "#4A7B5B",
+        },
+        handler: async (response: any) => {
+          try {
+            const verifyRes = await paymentsApi.verifyRazorpayPayment({
+              paymentId: orderData.paymentId,
+              paymentRequestId: onlinePayModalReq.id,
+              orderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+
+            const verifiedData = verifyRes?.data?.data || verifyRes?.data;
+            toast.success("Payment verified and completed successfully!");
+
+            queryClient.invalidateQueries({ queryKey: ["my_payments"] });
+            queryClient.invalidateQueries({ queryKey: ["payment_summary"] });
+            queryClient.invalidateQueries({ queryKey: ["my_payment_requests"] });
+
+            setOnlinePayModalReq(null);
+            if (verifiedData?.payment) {
+              setActivePaymentReceipt(verifiedData.payment);
+            }
+          } catch (verifyErr: any) {
+            console.error("Signature verification error:", verifyErr);
+            toast.error(verifyErr.response?.data?.message || "Payment verification failed. Please contact support.");
+          } finally {
+            setIsPayingRazorpay(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsPayingRazorpay(false);
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", (failedRes: any) => {
+        toast.error(`Payment failed: ${failedRes.error?.description || "Transaction declined."}`);
+        setIsPayingRazorpay(false);
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error("Razorpay initiation error:", err);
+      toast.error(err.response?.data?.message || err.message || "Failed to initiate payment.");
+      setIsPayingRazorpay(false);
+    }
+  };
+
+  const handleOpenCollegePayModal = (req: any) => {
+    setCollegePayModalReq(req);
+    setCollegeUtr("");
+    setCollegeProofDoc("");
+    setCollegeRemarks("");
+    setCollegeAcceptedTerms(false);
+  };
+
+  const handleSubmitCollegeProof = async () => {
+    if (!collegePayModalReq) return;
+    if (!collegeAcceptedTerms) {
+      toast.error("Please accept the Terms & Conditions before submitting.");
+      return;
+    }
+    if (!collegeUtr.trim() && !collegeProofDoc.trim()) {
+      toast.error("Please enter a UTR / Reference number or provide a proof document URL.");
+      return;
+    }
+
+    setIsSubmittingCollegeProof(true);
+    try {
+      await paymentsApi.submitManualProof({
+        paymentRequestId: collegePayModalReq.id,
+        utrNumber: collegeUtr.trim(),
+        proofDocument: collegeProofDoc.trim() || "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400",
+        paidAmount: Number(collegePayModalReq.dueAmount || collegePayModalReq.requestedAmount),
+        remarks: collegeRemarks.trim() || "Direct Bank Transfer to College Account",
+      });
+
+      toast.success("Payment proof submitted! Awaiting college verification.");
+      queryClient.invalidateQueries({ queryKey: ["my_payments"] });
+      queryClient.invalidateQueries({ queryKey: ["payment_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["my_payment_requests"] });
+      setCollegePayModalReq(null);
+    } catch (err: any) {
+      console.error("Proof submission error:", err);
+      toast.error(err.response?.data?.message || "Failed to submit proof. Please try again.");
+    } finally {
+      setIsSubmittingCollegeProof(false);
+    }
+  };
+
   const [counselorRating, setCounselorRating] = useState<number>(5);
   const [counselorComment, setCounselorComment] = useState<string>("");
   const [isSubmittingCounselorReview, setIsSubmittingCounselorReview] = useState<boolean>(false);
@@ -1037,6 +1466,17 @@ export default function StudentDashboard() {
 
   const [isRequestingCounselor, setIsRequestingCounselor] = useState(false);
   const handleRequestCounselor = async () => {
+    if (!user?.phoneVerified && !user?.mobileVerified) {
+      window.dispatchEvent(
+        new CustomEvent("swayam:open-mobile-verification", {
+          detail: {
+            reason: "Mobile verification is required before requesting an expert admission counselor.",
+          },
+        })
+      );
+      return;
+    }
+
     setIsRequestingCounselor(true);
     try {
       await journeyApi.requestCounselor();
@@ -1044,6 +1484,19 @@ export default function StudentDashboard() {
       await refetchCounselorStatus();
       await refetchJourney();
     } catch (err: any) {
+      if (
+        err?.response?.data?.code === "MOBILE_VERIFICATION_REQUIRED" ||
+        err?.response?.data?.message?.toLowerCase()?.includes("mobile")
+      ) {
+        window.dispatchEvent(
+          new CustomEvent("swayam:open-mobile-verification", {
+            detail: {
+              reason: "Mobile verification is required before requesting an expert admission counselor.",
+            },
+          })
+        );
+        return;
+      }
       toast.error(err?.response?.data?.message || "Failed to submit counselor request.");
     } finally {
       setIsRequestingCounselor(false);
@@ -1221,10 +1674,14 @@ export default function StudentDashboard() {
                   <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"22px"}}>Welcome back, {studentName.split(" ")[0]}! 👋</h2>
                   <p style={{fontSize:"13px",color:"#94a3b8"}}>Here's a summary of your admission journey</p>
                 </div>
+
+                {/* Dashboard Overview Banner */}
+                <PageBannerSlider slot="DASHBOARD_OVERVIEW" fullWidth={false} />
+
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    {label:"Saved Colleges",value: shortlistRes ? savedItems.length.toString() : "-",icon:BookmarkCheck,color:"#4A7B5B",bg:"#E8F3EC"},
+                    {label:"Saved Items",value: (shortlistRes || savedGuidesRes) ? (savedItems.length + savedGuidesList.length).toString() : "-",icon:BookmarkCheck,color:"#4A7B5B",bg:"#E8F3EC"},
                     {label:"Applications",value: appsRes ? myApplications.length.toString() : "-",icon:FileText,color:"#3B82F6",bg:"#EFF6FF"},
                     {label:"AI Matches",value: recsRes ? aiRecs.length.toString() : "-",icon:Bot,color:"#8B5CF6",bg:"#F5F3FF"},
                     {label:"Docs Uploaded",value: docsRes ? `${myDocuments.length}/${REQUIRED_DOCS.length}` : "-",icon:Upload,color:"#F59E0B",bg:"#FFFBEB"},
@@ -1264,24 +1721,19 @@ export default function StudentDashboard() {
                         </div>
                       </div>
                       <div className="flex gap-2 w-full sm:w-auto">
-                        {assignedCounselor.mobile && (
-                          <a
-                            href={`tel:${assignedCounselor.mobile}`}
-                            className="flex-1 sm:flex-initial px-3 py-2 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#d8e8dc]"
-                          >
-                            Call Counselor
-                          </a>
-                        )}
-                        {assignedCounselor.mobile && (
-                          <a
-                            href={`https://wa.me/${(assignedCounselor.mobile || "").replace(/\D/g, "")}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="flex-1 sm:flex-initial px-3 py-2 bg-[#DCFCE7] text-[#16A34A] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-[#c8f8d6]"
-                          >
-                            WhatsApp
-                          </a>
-                        )}
+                        <a
+                          href={`tel:${helpdeskPhone}`}
+                          className="flex-1 sm:flex-initial px-3.5 py-2 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#d8e8dc] transition-all"
+                        >
+                          <Phone size={13} /> Helpdesk Call
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => setCounselorChatModal({ isOpen: true })}
+                          className="flex-1 sm:flex-initial px-4 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#3d674c] transition-all cursor-pointer shadow-xs"
+                        >
+                          <MessageSquare size={13} /> Chat with Counselor
+                        </button>
                       </div>
                     </div>
                   ) : isCounselorRequestPending ? (
@@ -1440,7 +1892,7 @@ export default function StudentDashboard() {
                   )}
                 </div>
 
-                {/* AI recommendation preview */}
+                {/* AI Counselor card */}
                 <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Bot size={18} className="text-[#F0AE1A]"/>
@@ -1586,14 +2038,19 @@ export default function StudentDashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          {assignedCounselor.mobile && (
-                            <a href={`tel:${assignedCounselor.mobile}`} className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5">
-                              <Phone size={13} /> Call
-                            </a>
-                          )}
-                          <Link to="/ai-counselor" className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-xl text-xs font-bold flex items-center gap-1.5">
+                          <a
+                            href={`tel:${helpdeskPhone}`}
+                            className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all"
+                          >
+                            <Phone size={13} /> Helpdesk
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setCounselorChatModal({ isOpen: true })}
+                            className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                          >
                             <MessageSquare size={13} /> Chat
-                          </Link>
+                          </button>
                         </div>
                       </div>
                     ) : isCounselorRequestPending ? (
@@ -1947,58 +2404,236 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {/* SAVED COLLEGES */}
+            {/* SAVED ITEMS (COLLEGES & GUIDES) */}
             {activeSection==="saved" && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Saved Colleges</h2>
-                    <p style={{fontSize:"13px",color:"#94a3b8"}}>Institutions you have bookmarked for comparison and applications.</p>
+                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>Saved Items</h2>
+                    <p style={{fontSize:"13px",color:"#94a3b8"}}>Your bookmarked colleges and career guides for quick access and planning.</p>
                   </div>
                   <button
-                    onClick={() => refetchShortlist()}
-                    disabled={isShortlistFetching}
-                    className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-[#d8e8dc] disabled:opacity-50"
+                    onClick={() => {
+                      if (savedSubTab === "colleges") refetchShortlist();
+                      else refetchSavedGuides();
+                    }}
+                    disabled={savedSubTab === "colleges" ? isShortlistFetching : isSavedGuidesFetching}
+                    className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-[#d8e8dc] disabled:opacity-50 self-start sm:self-auto"
                   >
-                    <RotateCcw size={12} className={isShortlistFetching ? "animate-spin" : ""} /> Refresh
+                    <RotateCcw size={12} className={(savedSubTab === "colleges" ? isShortlistFetching : isSavedGuidesFetching) ? "animate-spin" : ""} /> Refresh
                   </button>
                 </div>
-                {isShortlistLoading ? (
-                  [1,2].map(i=><div key={i} className="animate-pulse h-24 bg-slate-100 rounded-2xl w-full"></div>)
-                ) : isShortlistError ? (
-                  <ErrorState
-                    title="Unable to load saved colleges"
-                    error={shortlistError}
-                    onRetry={() => refetchShortlist()}
-                    isRetrying={isShortlistFetching}
-                  />
-                ) : savedItems.length === 0 ? (
-                  <div className="text-center p-8 bg-white rounded-2xl border border-gray-100">
-                    <BookmarkCheck size={32} className="mx-auto text-gray-300 mb-3"/>
-                    <p className="text-gray-500 text-sm">You haven't saved any colleges yet.</p>
-                    <Link to="/colleges" className="mt-3 inline-block px-4 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold hover:bg-[#3d674c]">
-                      Browse Colleges
-                    </Link>
-                  </div>
-                ) : (
-                  savedItems.map((item: any)=>(
-                    <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-4 hover:shadow-sm transition-all">
-                      <ImageWithFallback src={item.college?.img} alt={item.college?.name} className="w-16 h-16 rounded-xl object-cover shrink-0"/>
-                      <div className="flex-1 min-w-0">
-                        <div style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{item.college?.name}</div>
-                        <div className="flex items-center gap-1 text-gray-400 mb-1">
-                          <MapPin size={11}/><span style={{fontSize:"11px"}}>{item.college?.city}, {item.college?.state}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>₹{item.college?.totalFees?.toLocaleString()}/yr</span>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <Link to={`/colleges/${item.collegeId}`} className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-lg text-xs font-semibold mr-2">View</Link>
-                        <Link to="/apply-now" className="px-3 py-1.5 bg-[#4A7B5B] text-white rounded-lg" style={{fontSize:"11px",fontWeight:600}}>Apply</Link>
-                      </div>
+
+                {/* Sub-tabs: Saved Colleges vs Saved Guides */}
+                <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSavedSubTab("colleges")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      savedSubTab === "colleges"
+                        ? "bg-[#4A7B5B] text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    <Building2 size={13} />
+                    <span>Saved Colleges</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${savedSubTab === "colleges" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                      {savedItems.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSavedSubTab("guides")}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      savedSubTab === "guides"
+                        ? "bg-[#4A7B5B] text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    <BookmarkCheck size={13} />
+                    <span>Saved Guides</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${savedSubTab === "guides" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"}`}>
+                      {savedGuidesList.length}
+                    </span>
+                  </button>
+                </div>
+
+                {savedSubTab === "colleges" && (
+                  isShortlistLoading ? (
+                    [1,2].map(i=><div key={i} className="animate-pulse h-24 bg-slate-100 rounded-2xl w-full"></div>)
+                  ) : isShortlistError ? (
+                    <ErrorState
+                      title="Unable to load saved colleges"
+                      error={shortlistError}
+                      onRetry={() => refetchShortlist()}
+                      isRetrying={isShortlistFetching}
+                    />
+                  ) : savedItems.length === 0 ? (
+                    <div className="text-center p-8 bg-white rounded-2xl border border-gray-100">
+                      <BookmarkCheck size={32} className="mx-auto text-gray-300 mb-3"/>
+                      <p className="text-gray-500 text-sm">You haven't saved any colleges yet.</p>
+                      <Link to="/colleges" className="mt-3 inline-block px-4 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold hover:bg-[#3d674c]">
+                        Browse Colleges
+                      </Link>
                     </div>
-                  ))
+                  ) : (
+                    savedItems.map((item: any)=>(
+                      <div key={item.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <ImageWithFallback src={item.college?.img || item.college?.bannerImg} alt={item.college?.name} className="w-16 h-16 rounded-xl object-cover shrink-0"/>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{item.college?.name}</span>
+                              {item.college?.type && (
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md text-[10px] font-semibold border border-emerald-100">
+                                  {item.college.type}
+                                </span>
+                              )}
+                              {item.college?.ownership && (
+                                <span className="px-2 py-0.5 bg-slate-50 text-slate-600 rounded-md text-[10px] font-semibold border border-slate-200">
+                                  {item.college.ownership}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-gray-400 my-1 flex-wrap">
+                              <span className="flex items-center gap-1 text-xs">
+                                <MapPin size={12}/><span style={{fontSize:"11px"}}>{item.college?.city || "Unknown City"}, {item.college?.state || "India"}</span>
+                              </span>
+                              {item.savedAt && (
+                                <span className="text-[11px] text-gray-400">
+                                  • Saved {formatDateIN(item.savedAt)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {item.college?.totalFees ? (
+                                <span style={{fontSize:"12px",fontWeight:600,color:"#4A7B5B"}}>₹{Number(item.college.totalFees).toLocaleString()}/yr</span>
+                              ) : null}
+                              {item.college?.coursesCount ? (
+                                <span className="text-gray-500 text-xs">• {item.college.coursesCount} Courses Available</span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <Link to={`/colleges/${item.collegeId || item.college?.id}`} className="px-3.5 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-semibold hover:bg-[#d8e8dc] transition-all">
+                            View College
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveSaved(item.collegeId || item.college?.id, e)}
+                            disabled={removingSavedId === (item.collegeId || item.college?.id)}
+                            className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <Trash2 size={13} />
+                            {removingSavedId === (item.collegeId || item.college?.id) ? "Removing..." : "Remove Saved"}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )
+                )}
+
+                {savedSubTab === "guides" && (
+                  isSavedGuidesLoading ? (
+                    [1,2].map(i=><div key={i} className="animate-pulse h-24 bg-slate-100 rounded-2xl w-full"></div>)
+                  ) : isSavedGuidesError ? (
+                    <ErrorState
+                      title="Unable to load saved guides"
+                      error={savedGuidesError}
+                      onRetry={() => refetchSavedGuides()}
+                      isRetrying={isSavedGuidesFetching}
+                    />
+                  ) : savedGuidesList.length === 0 ? (
+                    <div className="text-center p-8 bg-white rounded-2xl border border-gray-100">
+                      <BookmarkCheck size={32} className="mx-auto text-gray-300 mb-3"/>
+                      <p className="text-gray-500 text-sm">You haven't saved any career or admission guides yet.</p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection("blogs")}
+                        className="mt-3 inline-block px-4 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold hover:bg-[#3d674c]"
+                      >
+                        Explore Career & Admission Guides
+                      </button>
+                    </div>
+                  ) : (
+                    savedGuidesList.map((guide: GuideItem) => (
+                      <div key={guide.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <ImageWithFallback
+                            src={guide.thumbnail || guide.featuredImage || "https://images.unsplash.com/photo-1680084521816-cc1ad0433ceb?w=600&q=80"}
+                            alt={guide.title}
+                            className="w-16 h-16 rounded-xl object-cover shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                  guide.guideType === "ADMISSION"
+                                    ? "bg-blue-50 text-blue-700 border-blue-100"
+                                    : "bg-emerald-50 text-emerald-800 border-emerald-100"
+                                }`}
+                              >
+                                {guide.guideType === "ADMISSION" ? "Admission Guide" : "Career Guide"}
+                              </span>
+                              {guide.category && (
+                                <span className="px-2 py-0.5 bg-slate-50 text-slate-600 rounded-md text-[10px] font-semibold border border-slate-200">
+                                  {guide.category}
+                                </span>
+                              )}
+                              {guide.educationLevel && (
+                                <span className="px-2 py-0.5 bg-slate-50 text-slate-600 rounded-md text-[10px] font-semibold border border-slate-200">
+                                  {guide.educationLevel}
+                                </span>
+                              )}
+                            </div>
+                            <h3 style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}} className="line-clamp-1 leading-snug">
+                              {guide.title}
+                            </h3>
+                            <div className="flex items-center gap-2 text-gray-400 my-1 flex-wrap text-xs">
+                              {guide.readingTime && (
+                                <span className="flex items-center gap-1 text-[11px]">
+                                  <Clock size={11}/> {guide.readingTime} min read
+                                </span>
+                              )}
+                              {guide.savedAt && (
+                                <span className="text-[11px] text-gray-400">
+                                  • Saved {formatDateIN(guide.savedAt)}
+                                </span>
+                              )}
+                              {guide.averageSalary && (
+                                <span className="text-[11px] font-semibold text-emerald-700">
+                                  • Avg Salary: {guide.averageSalary}
+                                </span>
+                              )}
+                            </div>
+                            {guide.excerpt && (
+                              <p className="text-xs text-gray-500 line-clamp-1">
+                                {guide.excerpt}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                          <Link
+                            to={`/blog/${guide.slug}`}
+                            className="px-3.5 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-semibold hover:bg-[#d8e8dc] transition-all"
+                          >
+                            Read Guide
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={(e) => handleRemoveSavedGuide(guide.id, e)}
+                            disabled={removingGuideId === guide.id}
+                            className="px-3 py-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <Trash2 size={13} />
+                            {removingGuideId === guide.id ? "Removing..." : "Remove Saved"}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )
                 )}
               </div>
             )}
@@ -2015,9 +2650,17 @@ export default function StudentDashboard() {
                   </button>
                   <ApplicationWorkflowForm
                     applicationId={selectedWorkflowAppId}
-                    onBack={() => setSelectedWorkflowAppId(null)}
+                    initialStep={workflowInitialStep}
+                    autoScrollToSubmit={autoScrollToSubmit}
+                    onBack={() => {
+                      setSelectedWorkflowAppId(null);
+                      setWorkflowInitialStep(1);
+                      setAutoScrollToSubmit(false);
+                    }}
                     onSubmitted={() => {
                       setSelectedWorkflowAppId(null);
+                      setWorkflowInitialStep(1);
+                      setAutoScrollToSubmit(false);
                       refetchApps();
                     }}
                   />
@@ -2213,6 +2856,10 @@ export default function StudentDashboard() {
                         const appNo = app.applicationNumber || app.applicationId || `APP-${app.id?.slice(0, 8).toUpperCase()}`;
                         const submittedDate = app.createdAt ? new Date(app.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "N/A";
                         const hasDocsVerified = app.documentsVerified || (app.documents && app.documents.some((d: any) => d.status === "VERIFIED"));
+                        const isFreeQuota =
+                          app.formData?.submittedSnapshot?.quota?.isFreeSubmission === true ||
+                          app.remarks?.includes("Free Applications Quota") ||
+                          (app.payments && app.payments.some((p: any) => p.remarks?.includes("Free Applications Quota") || p.paymentMethod === "CUSTOM" || p.paymentMethod === "FREE_QUOTA"));
                         const hasPaidFee = app.paymentStatus === "COMPLETED" || app.paymentStatus === "SUCCESS";
                         const counselorObj = app.counselor;
                         const collegeName = app.college?.name || app.formData?.preferences?.preferredCollege || app.formData?.preferences?.preferredCollegeText || "College Preference: Not Selected";
@@ -2279,13 +2926,13 @@ export default function StudentDashboard() {
                               <div>
                                 <span className="text-gray-400 block text-[10px] font-medium uppercase">Payment Status</span>
                                 <span className={`font-bold ${hasPaidFee ? "text-emerald-600" : "text-amber-600"}`}>
-                                  {hasPaidFee ? "✓ Paid" : "Pending"}
+                                  {isFreeQuota ? "✓ Free Quota (₹0)" : hasPaidFee ? "✓ Paid" : "Pending Payment"}
                                 </span>
                               </div>
                             </div>
 
                             {/* Counselor Subcard */}
-                            {counselorObj && (
+                            {counselorObj ? (
                               <div className="bg-gradient-to-r from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-xl p-3.5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                                 <div className="flex items-center gap-3">
                                   <div className="w-9 h-9 rounded-xl bg-[#4A7B5B] text-white flex items-center justify-center font-bold shrink-0 text-sm">
@@ -2294,24 +2941,36 @@ export default function StudentDashboard() {
                                   <div>
                                     <span className="text-[10px] font-bold text-[#A7F3D0] uppercase">Assigned Counselor</span>
                                     <h4 className="text-xs font-bold text-white">{counselorObj.fullName}</h4>
+                                    <p className="text-[10px] text-white/80">{counselorObj.roleTitle || counselorObj.qualification || "Educational Counselor"}</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                  {counselorObj.mobile && (
-                                    <a
-                                      href={`tel:${counselorObj.mobile}`}
-                                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium flex items-center gap-1"
-                                    >
-                                      <Phone size={12} /> Call
-                                    </a>
-                                  )}
-                                  <Link
-                                    to="/ai-counselor"
-                                    className="px-3 py-1.5 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-lg text-xs font-bold flex items-center gap-1"
+                                  <a
+                                    href={`tel:${counselorObj.phone || helpdeskPhone}`}
+                                    title="Contact Swayam Admission Helpdesk"
+                                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+                                  >
+                                    <Phone size={12} /> Call
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setCounselorChatModal({
+                                      isOpen: true,
+                                      applicationId: app.id,
+                                      applicationNumber: app.applicationNumber || app.applicationId || "Application",
+                                      collegeName: app.college?.name || "College",
+                                      courseName: app.course?.name || "Course",
+                                    })}
+                                    className="px-3 py-1.5 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
                                   >
                                     <MessageSquare size={12} /> Chat
-                                  </Link>
+                                  </button>
                                 </div>
+                              </div>
+                            ) : (
+                              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-slate-500 text-xs flex items-center justify-between">
+                                <span>Your counselor has not been assigned yet.</span>
+                                <span className="text-[10px] text-slate-400 font-medium">Assignment in progress</span>
                               </div>
                             )}
 
@@ -2338,12 +2997,49 @@ export default function StudentDashboard() {
                               >
                                 Upload Documents
                               </button>
-                              {!hasPaidFee && (
+                              {isFreeQuota ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                    <CheckCircle2 size={13} /> ₹0 Free Quota
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedWorkflowAppId(app.id);
+                                      setWorkflowInitialStep(6);
+                                    }}
+                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Receipt size={13} /> View Receipt
+                                  </button>
+                                </div>
+                              ) : hasPaidFee ? (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                    <CheckCircle2 size={13} /> Fee Paid
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedWorkflowAppId(app.id);
+                                      setWorkflowInitialStep(6);
+                                    }}
+                                    className="px-3 py-2 bg-[#E8F3EC] text-[#4A7B5B] hover:bg-[#d8e8dc] border border-[#4A7B5B]/20 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Receipt size={13} /> View Receipt
+                                  </button>
+                                </div>
+                              ) : (
                                 <button
-                                  onClick={() => setActiveSection("payments")}
-                                  className="px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-100 transition-all"
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedWorkflowAppId(app.id);
+                                    setWorkflowInitialStep(app.status === 'SUBMITTED' || app.status === 'UNDER_REVIEW' || app.status === 'APPROVED' ? 6 : 5);
+                                    setAutoScrollToSubmit(true);
+                                  }}
+                                  className="px-3 py-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold hover:bg-amber-100 transition-all flex items-center gap-1.5 cursor-pointer"
                                 >
-                                  Pay Application Fee
+                                  <CreditCard size={13} /> Pay Application Fee
                                 </button>
                               )}
                               {(app.status === "APPROVED" || app.status === "COLLEGE_APPROVED" || app.status === "ADMISSION_CONFIRMED") && (
@@ -2579,62 +3275,6 @@ export default function StudentDashboard() {
               </div>
             ))}
 
-            {/* AI RECOMMENDATIONS */}
-            {activeSection==="ai" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"20px"}}>AI Recommendations</h2>
-                    <p style={{fontSize:"13px",color:"#94a3b8"}}>Colleges shortlisted based on your profile and preferences</p>
-                  </div>
-                  <button
-                    onClick={() => refetchRecs()}
-                    disabled={isRecsFetching}
-                    className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] rounded-xl text-xs font-bold flex items-center gap-1 hover:bg-[#d8e8dc] disabled:opacity-50"
-                  >
-                    <RotateCcw size={12} className={isRecsFetching ? "animate-spin" : ""} /> Refresh
-                  </button>
-                </div>
-                {isRecsLoading ? (
-                  [1,2].map(i=><div key={i} className="animate-pulse h-32 bg-slate-100 rounded-2xl w-full"></div>)
-                ) : isRecsError ? (
-                  <ErrorState
-                    title="Unable to load AI recommendations"
-                    error={recsError}
-                    onRetry={() => refetchRecs()}
-                    isRetrying={isRecsFetching}
-                  />
-                ) : aiRecs.length === 0 ? (
-                  <div className="text-center p-8 bg-white rounded-2xl border border-gray-100">
-                    <Bot size={32} className="mx-auto text-gray-300 mb-3"/>
-                    <p className="text-gray-500 text-sm">No recommendations available at the moment. Interact more to get matches.</p>
-                  </div>
-                ) : (
-                  aiRecs.map((rec: any)=>(
-                    <div key={rec.id} className="bg-white rounded-2xl border border-gray-100 p-5">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-[#E8F3EC] rounded-2xl flex items-center justify-center shrink-0">
-                          <GraduationCap size={22} className="text-[#4A7B5B]"/>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 style={{fontSize:"15px",fontWeight:700,color:"#4A7B5B"}}>{rec.name}</h3>
-                            {rec.matchScore && <span className="px-2 py-0.5 bg-[#4A7B5B] text-white rounded-full" style={{fontSize:"10px",fontWeight:700}}>{rec.matchScore}% Match</span>}
-                          </div>
-                          <p style={{fontSize:"12px",color:"#94a3b8"}} className="mt-1">{rec.city}, {rec.state} · ₹{rec.totalFees?.toLocaleString() || "N/A"}</p>
-                          <p style={{fontSize:"12px",color:"#4B5563",lineHeight:1.5}} className="mt-2">{rec.matchReason || "Recommended based on your profile."}</p>
-                          <div className="flex gap-2 mt-3">
-                            <Link to={`/colleges/${rec.id}`} className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs hover:bg-gray-50">View College</Link>
-                            <Link to="/apply-now" className="px-4 py-2 bg-[#4A7B5B] text-white rounded-xl text-xs hover:bg-[#3d6b4d]">Apply Now</Link>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
             {/* MY PROFILE (STUDENT 360° PORTAL VIEW & PREFERENCES) */}
             {activeSection === "profile" && (
               <div className="space-y-6">
@@ -2744,7 +3384,30 @@ export default function StudentDashboard() {
                         <span className="font-semibold text-slate-800 mt-0.5 block">{studentUser?.mobile || "Not provided"}</span>
                       </div>
                       <div className="p-3 bg-slate-50 rounded-xl">
-                        <span className="text-slate-400 text-[10px] block">7. Email Address</span>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-slate-400 text-[10px] block">7. Email Address</span>
+                          {studentUser?.email && (
+                            studentUser.emailVerified ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded">
+                                <CheckCircle2 size={10} className="text-emerald-600" />
+                                Verified
+                              </span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded">
+                                  Unverified
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={handleStartEmailVerification}
+                                  className="text-[9px] text-[#4A7B5B] hover:underline font-bold"
+                                >
+                                  Verify Email
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
                         <span className="font-semibold text-slate-800 mt-0.5 block truncate">{studentUser?.email || "Not provided"}</span>
                       </div>
                       <div className="p-3 bg-slate-50 rounded-xl">
@@ -3235,12 +3898,38 @@ export default function StudentDashboard() {
                             </div>
 
                             <div>
-                              <label className="block text-[11px] font-semibold text-slate-700 mb-1">7. Email Address</label>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="block text-[11px] font-semibold text-slate-700">7. Email Address</label>
+                                {studentUser?.email ? (
+                                  studentUser.emailVerified ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                      <CheckCircle2 size={11} className="text-emerald-600" />
+                                      Verified
+                                    </span>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                        Unverified
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={handleStartEmailVerification}
+                                        className="text-[10px] text-[#4A7B5B] hover:underline font-bold bg-[#4A7B5B]/10 px-2 py-0.5 rounded-full"
+                                      >
+                                        Verify Email
+                                      </button>
+                                    </div>
+                                  )
+                                ) : null}
+                              </div>
                               <input
                                 type="email"
-                                disabled
                                 value={profileForm.email}
-                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 text-xs cursor-not-allowed outline-none"
+                                onChange={(e) =>
+                                  setProfileForm({ ...profileForm, email: e.target.value })
+                                }
+                                placeholder="student@example.com"
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-800 text-xs focus:ring-2 focus:ring-[#4A7B5B]/20 focus:border-[#4A7B5B] outline-none"
                               />
                             </div>
 
@@ -3371,6 +4060,90 @@ export default function StudentDashboard() {
                           </button>
                         </div>
                       </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* EMAIL VERIFICATION MODAL */}
+                {isEmailVerifyModalOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                      <div className="bg-[#4A7B5B] p-5 text-white flex items-center justify-between">
+                        <div>
+                          <h3 className="font-bold text-base">Verify Email Address</h3>
+                          <p className="text-xs text-white/80 mt-0.5 truncate max-w-[280px]">
+                            Code sent to {profileForm.email || studentUser?.email}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEmailVerifyModalOpen(false)}
+                          className="text-white/70 hover:text-white p-1.5 rounded-xl hover:bg-white/10"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <div className="p-6 space-y-4">
+                        {emailOtpError && (
+                          <div className="p-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-medium">
+                            {emailOtpError}
+                          </div>
+                        )}
+
+                        {emailDevCode && (
+                          <div className="p-2 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs font-mono text-center">
+                            Demo Code: <strong>{emailDevCode}</strong>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            Enter 6-Digit Verification Code
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            placeholder="••••••"
+                            value={emailOtpCode}
+                            onChange={(e) =>
+                              setEmailOtpCode(e.target.value.replace(/\D/g, ""))
+                            }
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg tracking-widest font-mono font-bold focus:outline-none focus:border-[#4A7B5B] focus:ring-2 focus:ring-[#4A7B5B]/10"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>Code valid for 15 minutes</span>
+                          {emailCooldown > 0 ? (
+                            <span className="text-slate-400">Resend in {emailCooldown}s</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleStartEmailVerification}
+                              disabled={emailOtpLoading}
+                              className="text-[#4A7B5B] font-semibold hover:underline"
+                            >
+                              Resend Code
+                            </button>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleConfirmEmailVerification}
+                          disabled={emailOtpLoading || emailOtpCode.trim().length !== 6}
+                          className="w-full bg-[#4A7B5B] text-white py-3 rounded-xl hover:bg-[#3d6b4d] transition-colors font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {emailOtpLoading ? (
+                            <>
+                              <Loader2 size={16} className="animate-spin" /> Verifying...
+                            </>
+                          ) : (
+                            "Confirm Verification"
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -3646,710 +4419,22 @@ export default function StudentDashboard() {
               </div>
             )}
 
-            {/* PAYMENTS & FEES */}
+            {/* PAYMENTS & FEES - SIMPLIFIED MASTER PAYMENT SYSTEM */}
             {activeSection === "payments" && (
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h2 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "20px" }}>Payments & Admission Fee Center</h2>
-                    <p style={{ fontSize: "13px", color: "#94a3b8" }}>
-                      Manage tuition, semester & hostel fees, view official college bank accounts, submit payment proofs, and download tax-compliant receipts.
-                    </p>
-                  </div>
-                  {copyToast && (
-                    <div className="px-3 py-1.5 bg-[#E8F3EC] text-[#4A7B5B] text-xs font-bold rounded-xl flex items-center gap-1.5 animate-in fade-in">
-                      <CheckCircle2 size={14} /> {copyToast}
-                    </div>
-                  )}
-                </div>
-
-                {/* Summary KPI Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Program Fee</span>
-                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#4A7B5B" }} className="mt-1">
-                        ₹{(paymentSummaryData.totalFees || 0).toLocaleString()}
-                      </h3>
-                      <span className="text-[10px] text-gray-400">Fixed university structure</span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                      <CreditCard size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Paid Amount</span>
-                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#059669" }} className="mt-1">
-                        ₹{(paymentSummaryData.totalPaid || 0).toLocaleString()}
-                      </h3>
-                      <span className="text-[10px] text-emerald-600 font-medium">✓ Verified & Cleared</span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                      <CheckCircle2 size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Outstanding Due</span>
-                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: (paymentSummaryData.outstandingDue || 0) > 0 ? "#D97706" : "#059669" }} className="mt-1">
-                        ₹{(paymentSummaryData.outstandingDue || 0).toLocaleString()}
-                      </h3>
-                      <span className="text-[10px] text-amber-600 font-medium">
-                        {(paymentSummaryData.outstandingDue || 0) > 0 ? "Pending payment" : "No pending balance"}
-                      </span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                      <Clock size={22} />
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Scholarship & Discounts</span>
-                      <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#7C3AED" }} className="mt-1">
-                        ₹{((paymentSummaryData.scholarshipAmount || 0) + (paymentSummaryData.discountAmount || 0)).toLocaleString()}
-                      </h3>
-                      <span className="text-[10px] text-purple-600 font-medium">Applied to balance</span>
-                    </div>
-                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                      <Award size={22} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mandatory Admin Payment Routing & Active Payment Requests */}
-                <div className="space-y-6">
-                  {/* Official Payment Requests Section */}
-                  <div className="bg-gradient-to-r from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-3xl p-6 text-white shadow-xl space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#A7F3D0] bg-[#4A7B5B]/30 px-2.5 py-1 rounded-full border border-[#4A7B5B]/40">
-                            Admin Controlled Payment Routing
-                          </span>
-                        </div>
-                        <h3 style={{ fontSize: "18px", fontWeight: 800 }} className="text-white mt-1 flex items-center gap-2">
-                          <Receipt size={20} className="text-emerald-400" /> Official Fee Payment Requests
-                        </h3>
-                        <p className="text-xs text-slate-300">
-                          Select an official payment request generated by college administration to complete your payment.
-                        </p>
-                      </div>
-                      <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30">
-                        {myRequests.length} Active Request(s)
-                      </span>
-                    </div>
-
-                    {myRequests.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {myRequests.map((req: any) => {
-                          const isSelected = proofForm.paymentId === req.id;
-                          const isExpired = req.isExpired || req.status === 'EXPIRED';
-                          const isPaid = req.status === 'PAID';
-
-                          return (
-                            <div
-                              key={req.id}
-                              className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                                isSelected
-                                  ? "bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-400"
-                                  : isExpired
-                                  ? "bg-red-950/20 border-red-800/40 opacity-70"
-                                  : isPaid
-                                  ? "bg-emerald-900/20 border-emerald-800/40"
-                                  : "bg-[#1c4028]/80 border-[#3d694d] hover:border-emerald-400"
-                              }`}
-                              onClick={() => {
-                                if (!isExpired && !isPaid) {
-                                  setProofForm((prev) => ({
-                                    ...prev,
-                                    paymentId: req.id,
-                                    paidAmount: String(req.dueAmount || req.requestedAmount),
-                                  }));
-                                }
-                              }}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wide">
-                                    {req.requestCode} • {req.feeHead || "FEE"}
-                                  </span>
-                                  <h4 className="text-xs font-bold text-white mt-0.5">{req.college?.name || "Target College"}</h4>
-                                  <p className="text-[11px] text-slate-300">
-                                    Installment {req.installmentNumber} of {req.totalInstallments}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <div className="text-sm font-extrabold text-emerald-300">
-                                    ₹{Number(req.finalPayableAmount || req.requestedAmount).toLocaleString("en-IN")}
-                                  </div>
-                                  <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                                      isPaid
-                                        ? 'bg-emerald-500/20 text-emerald-300'
-                                        : isExpired
-                                        ? 'bg-red-500/20 text-red-300'
-                                        : 'bg-amber-500/20 text-amber-300'
-                                    }`}
-                                  >
-                                    {req.status}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {req.totalAmount > 0 && (
-                                <div className="mt-2.5 pt-2 border-t border-white/10 text-[10px] space-y-1 bg-[#14331e]/50 p-2.5 rounded-xl border border-emerald-500/20">
-                                  <div className="flex justify-between text-slate-300">
-                                    <span>Gross Total Fee:</span>
-                                    <span className="font-semibold text-white">₹{Number(req.totalAmount).toLocaleString("en-IN")}</span>
-                                  </div>
-                                  {req.discountAmount > 0 && (
-                                    <div className="flex justify-between text-blue-300">
-                                      <span>Discount Concession:</span>
-                                      <span className="font-semibold">- ₹{Number(req.discountAmount).toLocaleString("en-IN")}</span>
-                                    </div>
-                                  )}
-                                  {req.scholarshipAmount > 0 && (
-                                    <div className="flex justify-between text-purple-300">
-                                      <span>Scholarship Applied:</span>
-                                      <span className="font-semibold">- ₹{Number(req.scholarshipAmount).toLocaleString("en-IN")}</span>
-                                    </div>
-                                  )}
-                                  {req.lateFeeAmount > 0 && (
-                                    <div className="flex justify-between text-amber-300">
-                                      <span>Late Fee Component:</span>
-                                      <span className="font-semibold">+ ₹{Number(req.lateFeeAmount).toLocaleString("en-IN")}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between font-extrabold text-emerald-400 pt-1 border-t border-slate-700/50">
-                                    <span>Final Payable Amount:</span>
-                                    <span>₹{Number(req.finalPayableAmount || req.requestedAmount).toLocaleString("en-IN")}</span>
-                                  </div>
-                                </div>
-                              )}
-
-                              {req.collegeBank && (
-                                <div className="mt-2 text-[10px] text-slate-300 flex items-center gap-1.5">
-                                  <Building2 size={12} className="text-emerald-400" /> Bank Account: <span className="font-semibold text-white">{req.collegeBank.bankName}</span> ({req.collegeBank.accountCategory || "General"})
-                                </div>
-                              )}
-                              {req.dueDate && (
-                                <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-slate-400 flex items-center justify-between">
-                                  <span>Due Date: {new Date(req.dueDate).toLocaleDateString()}</span>
-                                  {isSelected ? (
-                                    <span className="text-emerald-400 font-bold">✓ Selected for Payment</span>
-                                  ) : !isExpired && !isPaid ? (
-                                    <span className="text-emerald-400 font-semibold underline">Click to Select Request →</span>
-                                  ) : (
-                                    <span className="text-slate-500">{isExpired ? "Expired" : "Settled"}</span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="p-6 bg-[#1c4028]/40 rounded-2xl border border-dashed border-emerald-500/30 text-center space-y-2">
-                        <AlertCircle className="mx-auto text-amber-400" size={32} />
-                        <h4 className="text-sm font-bold text-white">No Active Fee Payment Request</h4>
-                        <p className="text-xs text-slate-300 max-w-md mx-auto">
-                          College administration or your counselor has not issued any active fee payment request yet. Payment proof upload requires an official payment request.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Official Bank Account Details Card */}
-                  {collegeBankAccountsList.length > 0 ? (
-                    collegeBankAccountsList.map((bank: any) => (
-                      <div key={bank.id} className="bg-gradient-to-br from-[#2D5A3C] via-[#356345] to-[#4A7B5B] rounded-3xl p-6 text-white shadow-xl space-y-6 relative overflow-hidden">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-700/60 pb-5">
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-white p-2 flex items-center justify-center shrink-0 shadow-md">
-                              <Building2 className="text-[#4A7B5B]" size={28} />
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#A7F3D0] bg-[#4A7B5B]/30 px-2.5 py-1 rounded-full border border-[#4A7B5B]/40">
-                                Assigned Official Bank Account ({bank.category || "General"})
-                              </span>
-                              <h3 style={{ fontSize: "18px", fontWeight: 800 }} className="text-white mt-1">
-                                {bank.bankName || "Partner Bank"}
-                              </h3>
-                              <p className="text-xs text-slate-300">Direct Bank Transfer & Official QR Payment</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                              <CheckCircle2 size={13} /> Admin Verified Bank Account
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Bank Details */}
-                          <div className="space-y-3 bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50">
-                            <div>
-                              <span className="text-[10px] text-slate-400 uppercase font-medium">Account Holder Name</span>
-                              <div className="text-sm font-bold text-white mt-0.5">{bank.accountHolder || "College Admission Account"}</div>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-[10px] text-slate-400 uppercase font-medium">Account Number</span>
-                                <div className="text-sm font-bold font-mono text-emerald-300 tracking-wider mt-0.5">
-                                  {bank.accountNumber || "000000000000"}
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(bank.accountNumber);
-                                  setCopyToast("Account Number copied!");
-                                  setTimeout(() => setCopyToast(""), 3000);
-                                }}
-                                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-all"
-                              >
-                                Copy
-                              </button>
-                            </div>
-
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <span className="text-[10px] text-slate-400 uppercase font-medium">IFSC Code</span>
-                                <div className="text-sm font-bold font-mono text-white mt-0.5">{bank.ifscCode || "IFSC0001234"}</div>
-                              </div>
-                              <button
-                                onClick={() => {
-                                  navigator.clipboard.writeText(bank.ifscCode);
-                                  setCopyToast("IFSC Code copied!");
-                                  setTimeout(() => setCopyToast(""), 3000);
-                                }}
-                                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-all"
-                              >
-                                Copy
-                              </button>
-                            </div>
-
-                            {bank.upiId && (
-                              <div className="flex items-center justify-between pt-2 border-t border-slate-700/40">
-                                <div>
-                                  <span className="text-[10px] text-slate-400 uppercase font-medium">Official UPI ID</span>
-                                  <div className="text-sm font-bold text-amber-300 mt-0.5">{bank.upiId}</div>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(bank.upiId);
-                                    setCopyToast("UPI ID copied!");
-                                    setTimeout(() => setCopyToast(""), 3000);
-                                  }}
-                                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold transition-all"
-                                >
-                                  Copy UPI
-                                </button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* QR Code & Instructions */}
-                          <div className="bg-slate-800/60 p-4 rounded-2xl border border-slate-700/50 flex flex-col sm:flex-row items-center gap-4">
-                            {bank.qrCodeUrl ? (
-                              <div className="text-center shrink-0">
-                                <img
-                                  src={bank.qrCodeUrl}
-                                  alt="Official College QR Code"
-                                  className="w-32 h-32 rounded-xl object-contain bg-white p-2 border border-slate-600 shadow-md"
-                                />
-                                <a
-                                  href={bank.qrCodeUrl}
-                                  download="College_Official_QR.png"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-[11px] text-[#A7F3D0] hover:underline mt-2 font-bold"
-                                >
-                                  <Download size={12} /> Save QR Code
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="w-32 h-32 rounded-xl bg-slate-700/60 border border-dashed border-slate-500 flex flex-col items-center justify-center text-center p-3 shrink-0">
-                                <CreditCard size={28} className="text-slate-400 mb-1" />
-                                <span className="text-[10px] text-slate-300 font-medium">Use Bank NEFT/RTGS/UPI</span>
-                              </div>
-                            )}
-                            <div className="flex-1 space-y-2">
-                              <span className="text-[10px] text-[#A7F3D0] font-extrabold uppercase tracking-wider block">
-                                Payment Instructions
-                              </span>
-                              <p className="text-xs text-slate-300 leading-relaxed">
-                                {bank.instructions ||
-                                  "1. Transfer payable fee amount via NEFT/RTGS/IMPS/UPI to the bank account above.\n2. Keep your UTR/Reference number and payment screenshot ready.\n3. Upload the payment proof below for immediate verification."}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  ) : null}
-
-                  {/* Upload Payment Proof Form Card */}
-                  <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-5">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-                      <div>
-                        <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Submit Payment Proof for Verification</h3>
-                        <p style={{ fontSize: "12px", color: "#94a3b8" }}>
-                          Upload payment receipt screenshot against your active Payment Request. Amount is locked by Admin.
-                        </p>
-                      </div>
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-100 flex items-center gap-1">
-                        <Lock size={12} /> Read-Only Amount Locked
-                      </span>
-                    </div>
-
-                    {/* Promotional Coupon Apply Widget */}
-                    <CouponApplyWidget
-                      transactionAmount={Number(proofForm.paidAmount) || 5000}
-                      applicableScope="TUITION_FEE"
-                      appliedCoupon={appliedCoupon}
-                      onCouponApplied={(res) => setAppliedCoupon(res)}
-                      onCouponRemoved={() => setAppliedCoupon(null)}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between">
-                          <span>Paid Amount (₹) <span className="text-red-500">*</span></span>
-                          <span className="text-[10px] text-amber-600 font-bold">🔒 Locked to Request</span>
-                        </label>
-                        <input
-                          type="number"
-                          readOnly
-                          disabled
-                          placeholder="Select a Payment Request above"
-                          value={proofForm.paidAmount}
-                          className="w-full px-4 py-2.5 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 cursor-not-allowed"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                          UTR / Bank Transaction Reference No. <span className="text-slate-400 font-normal">(Optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="e.g. 423910582910 (12-digit UTR)"
-                          value={proofForm.utrNumber}
-                          onChange={(e) => setProofForm((prev) => ({ ...prev, utrNumber: e.target.value }))}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B] font-mono"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                          Proof Screenshot / Receipt Document URL <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="https://... (or image URL)"
-                          value={proofForm.proofDocument}
-                          onChange={(e) => setProofForm((prev) => ({ ...prev, proofDocument: e.target.value }))}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1.5">Additional Remarks (Optional)</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. Paid via Bank NEFT / NetBanking"
-                          value={proofForm.remarks}
-                          onChange={(e) => setProofForm((prev) => ({ ...prev, remarks: e.target.value }))}
-                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-[#4A7B5B]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Mandatory Terms & Conditions Checkbox */}
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={acceptedTerms}
-                          onChange={async (e) => {
-                            const checked = e.target.checked;
-                            setAcceptedTerms(checked);
-                            if (checked && proofForm.paymentId) {
-                              try {
-                                await paymentsApi.acceptTerms({
-                                  paymentRequestId: proofForm.paymentId,
-                                  acceptedTerms: true,
-                                });
-                              } catch (err) {
-                                console.error("Terms audit error:", err);
-                              }
-                            }
-                          }}
-                          className="mt-0.5 w-4 h-4 text-[#4A7B5B] focus:ring-[#4A7B5B] rounded border-slate-300"
-                        />
-                        <span className="text-xs text-slate-700 leading-relaxed font-medium">
-                          I have read and agree to the <strong>Terms & Conditions</strong>, <strong>Refund Policy</strong>, <strong>Fee Policy</strong>, <strong>Privacy Policy</strong>, and understand that all payments are subject to verification by Swayam Admission and/or the respective college.
-                        </span>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                      <span className="text-[11px] text-gray-500">
-                        ✓ Proof verified by assigned reviewer within 2-4 hours.
-                      </span>
-                      <button
-                        onClick={async () => {
-                          if (!acceptedTerms) {
-                            alert("Please explicitly accept the Terms & Conditions before submitting payment proof.");
-                            return;
-                          }
-                          if (!proofForm.paymentId) {
-                            alert("Please select an active Payment Request from above before submitting proof.");
-                            return;
-                          }
-                          if (!proofForm.proofDocument && !proofForm.utrNumber) {
-                            alert("Please provide either proof document screenshot or UTR number.");
-                            return;
-                          }
-                          setIsUploadingProof(true);
-                          try {
-                            await paymentsApi.submitManualProof({
-                              paymentRequestId: proofForm.paymentId,
-                              proofDocument: proofForm.proofDocument || "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400",
-                              utrNumber: proofForm.utrNumber,
-                              paidAmount: Number(proofForm.paidAmount),
-                              remarks: proofForm.remarks,
-                            });
-
-                            queryClient.invalidateQueries({ queryKey: ["payment_summary"] });
-                            queryClient.invalidateQueries({ queryKey: ["my_payments"] });
-                            queryClient.invalidateQueries({ queryKey: ["my_payment_requests"] });
-                            queryClient.invalidateQueries({ queryKey: ["journey"] });
-
-                            alert("Payment proof uploaded successfully! Verification in progress.");
-                            setProofForm({ paymentId: "", utrNumber: "", paidAmount: "", proofDocument: "", remarks: "" });
-                          } catch (err: any) {
-                            console.error("Proof upload error:", err);
-                            alert(err.response?.data?.message || "Failed to submit payment proof. Please ensure a valid payment request is selected.");
-                          } finally {
-                            setIsUploadingProof(false);
-                          }
-                        }}
-                        disabled={isUploadingProof || !proofForm.paymentId || !acceptedTerms}
-                        className="px-6 py-2.5 bg-[#4A7B5B] hover:bg-[#3d674c] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Upload size={14} /> {isUploadingProof ? "Submitting Proof..." : "Submit Payment Proof"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Verification Progress Stepper */}
-                  <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs space-y-4">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Payment Governance Stepper</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 relative">
-                      {[
-                        { num: 1, title: "Request Issued", desc: "Admin Creates Payment Request" },
-                        { num: 2, title: "Proof Uploaded", desc: "Student Submits UTR & Receipt" },
-                        { num: 3, title: "Multi-Role Audit", desc: "Counselor / Accounts Review" },
-                        { num: 4, title: "Receipt & Offer Unlocked", desc: "Verified & Fully Settled" },
-                      ].map((st, idx) => (
-                        <div key={st.num} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start gap-3">
-                          <div className="w-7 h-7 rounded-full bg-[#4A7B5B] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                            {idx < 2 ? "✓" : st.num}
-                          </div>
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{st.title}</div>
-                            <div className="text-[10px] text-slate-400">{st.desc}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* FEE BREAKDOWN TABLE */}
-                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                    <div>
-                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Course Fee Structure Breakdown</h3>
-                      <p style={{ fontSize: "12px", color: "#94a3b8" }}>Itemized list of all tuition, hostel, exam, and registration charges.</p>
-                    </div>
-                    <span className="text-xs font-bold text-slate-400">Currency: INR (₹)</span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px]">
-                          <th className="py-3 px-2">Fee Head / Component</th>
-                          <th className="py-3 px-2 text-right">Total Amount</th>
-                          <th className="py-3 px-2 text-right">Paid Amount</th>
-                          <th className="py-3 px-2 text-right">Due Amount</th>
-                          <th className="py-3 px-2 text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50 font-medium text-slate-700">
-                        {paymentBreakdown.map((item: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="py-3.5 px-2 font-bold text-slate-900">{item.label}</td>
-                            <td className="py-3.5 px-2 text-right font-mono font-bold">₹{item.amount?.toLocaleString()}</td>
-                            <td className="py-3.5 px-2 text-right font-mono text-emerald-600 font-bold">₹{item.paid?.toLocaleString()}</td>
-                            <td className="py-3.5 px-2 text-right font-mono text-amber-600 font-bold">₹{item.due?.toLocaleString()}</td>
-                            <td className="py-3.5 px-2 text-center">
-                              <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                  item.status === "PAID"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : item.status === "DUE" || item.status === "PENDING"
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-slate-100 text-slate-600"
-                                }`}
-                              >
-                                {item.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* TRANSACTION HISTORY & RECEIPTS TABLE */}
-                <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-xs space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-                    <div>
-                      <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>Payment Audit & Transaction History</h3>
-                      <p style={{ fontSize: "12px", color: "#94a3b8" }}>Download official receipts and tax-compliant invoices.</p>
-                    </div>
-                  </div>
-
-                  {allPaymentsList.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400 text-xs">
-                      No payment transactions recorded yet. Submit your first payment above.
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {allPaymentsList.map((p: any) => (
-                        <div key={p.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-all">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-slate-900 text-xs">{p.receiptNumber || p.transactionId || `TXN-${p.id?.slice(0, 8)}`}</span>
-                              <span className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md font-bold text-[10px]">{p.paymentType}</span>
-                              <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                p.status === "COMPLETED" || p.status === "SUCCESS" ? "bg-emerald-100 text-emerald-700" : p.status === "UNDER_VERIFICATION" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"
-                              }`}>
-                                {p.status}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              {p.college?.name || "Admission Account"} · {p.paymentMode || "GATEWAY"} ({p.gateway || p.paymentMethod}) · {p.paidAt || p.createdAt ? new Date(p.paidAt || p.createdAt).toLocaleString() : ""}
-                            </div>
-                            {p.utrNumber && (
-                              <div className="text-[10px] text-emerald-700 font-mono font-medium">
-                                UTR Ref: {p.utrNumber}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-right">
-                              <div className="text-sm font-bold text-slate-900 font-mono">₹{(p.paidAmount || p.amount).toLocaleString()}</div>
-                              <div className="text-[10px] text-slate-400">{p.currency || "INR"}</div>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => setSelectedReceipt(p)}
-                                className="px-3 py-1.5 bg-[#E8F3EC] hover:bg-[#d8e8dc] text-[#4A7B5B] text-xs font-bold rounded-xl flex items-center gap-1"
-                              >
-                                <Download size={12} /> Receipt
-                              </button>
-                              <button
-                                onClick={() => setSelectedInvoice(p)}
-                                className="px-3 py-1.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white text-xs font-bold rounded-xl flex items-center gap-1"
-                              >
-                                <FileText size={12} /> Invoice
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* RECEIPT / INVOICE MODAL DRAWER */}
-                {(selectedReceipt || selectedInvoice) && (
-                  <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-100 max-w-lg w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto shadow-2xl animate-in fade-in">
-                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                        <div>
-                          <span className="text-[10px] font-bold uppercase text-[#4A7B5B]">
-                            {selectedReceipt ? "Official Fee Receipt" : "Tax Invoice"}
-                          </span>
-                          <h3 style={{ fontSize: "16px", fontWeight: 800, color: "#4A7B5B" }}>
-                            {selectedReceipt?.receiptNumber || selectedInvoice?.invoiceNumber || "DOCUMENT"}
-                          </h3>
-                        </div>
-                        <button
-                          onClick={() => { setSelectedReceipt(null); setSelectedInvoice(null); }}
-                          className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500 hover:bg-slate-200"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4 font-mono text-xs text-slate-800">
-                        <div className="flex justify-between border-b border-slate-200 pb-3">
-                          <div>
-                            <div className="font-black text-sm text-[#4A7B5B]">SWAYAM ADMISSIONS</div>
-                            <div className="text-[10px] text-slate-500 font-sans">Higher Education Gateway</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-bold">Date: {new Date().toLocaleDateString()}</div>
-                            <div className="text-[10px] text-slate-500">Status: {selectedReceipt?.status || selectedInvoice?.status}</div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1 font-sans text-xs">
-                          <div><strong>Student:</strong> {studentName} ({user?.email || "Student Account"})</div>
-                          <div><strong>College:</strong> {selectedReceipt?.college?.name || selectedInvoice?.college?.name || "Partner Institute"}</div>
-                          <div><strong>Transaction ID:</strong> {selectedReceipt?.transactionId || selectedInvoice?.transactionId || "TXN-VERIFIED"}</div>
-                          {selectedReceipt?.utrNumber && <div><strong>UTR Reference:</strong> {selectedReceipt.utrNumber}</div>}
-                          <div><strong>Payment Method:</strong> {selectedReceipt?.paymentMethod || selectedInvoice?.paymentMethod || "Direct Transfer"}</div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-200 flex justify-between font-bold text-sm">
-                          <span>TOTAL AMOUNT PAID:</span>
-                          <span className="text-emerald-700">₹{(selectedReceipt?.paidAmount || selectedReceipt?.amount || selectedInvoice?.amount || 0).toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => window.print()}
-                          className="flex-1 py-2.5 bg-[#4A7B5B] text-white rounded-xl text-xs font-bold hover:bg-[#3d674c] flex items-center justify-center gap-1.5"
-                        >
-                          <Download size={14} /> Print / Save PDF
-                        </button>
-                        <button
-                          onClick={() => { setSelectedReceipt(null); setSelectedInvoice(null); }}
-                          className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200"
-                        >
-                          Close
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <StudentPaymentCenter
+                studentName={studentName}
+                user={user}
+                myRequests={myRequests}
+                myPayments={myPayments}
+                paymentSummaryData={paymentSummaryData}
+                collegeBankAccountsList={collegeBankAccountsList}
+                refetchPayments={refetchPayments}
+                refetchPaymentSummary={refetchPaymentSummary}
+                refetchMyRequests={refetchMyRequests}
+                isFetching={isPaymentsFetching || isPaymentSummaryFetching || isMyRequestsFetching}
+              />
             )}
+
             {activeSection==="docs" && (
               <div className="space-y-6">
                 {/* Header & Dynamic Metrics */}
@@ -4374,7 +4459,6 @@ export default function StudentDashboard() {
                         setIsDeleteModalOpen(true);
                         setDeletionSubmissionResult(null);
                         setDeleteSelectedDocIds([]);
-                        setDeleteConfirmation(false);
                       }}
                       className="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border border-rose-200"
                     >
@@ -4520,6 +4604,17 @@ export default function StudentDashboard() {
                       {tab.label}
                     </button>
                   ))}
+                </div>
+
+                {/* Document Upload & Data Processing Legal Consent */}
+                <div className="bg-white rounded-2xl border border-emerald-100 p-4 shadow-xs">
+                  <ActionConsentSection
+                    actionType="DOCUMENT_UPLOAD"
+                    onChange={(valid, policies) => {
+                      setDashboardDocConsentValid(valid);
+                      setDashboardDocAcceptedPolicies(policies);
+                    }}
+                  />
                 </div>
 
                 {isDocsLoading || isChecklistLoading ? (
@@ -4721,10 +4816,28 @@ export default function StudentDashboard() {
                                             alert("File size must not exceed 300 KB.");
                                             return;
                                           }
+                                          if (!dashboardDocConsentValid) {
+                                            toast.error("Please review and acknowledge the Data and Document Processing Consent before uploading.");
+                                            return;
+                                          }
                                           if (docItem.documentId) {
-                                            replaceDocMutation.mutate({ id: docItem.documentId, file });
+                                            replaceDocMutation.mutate({
+                                              id: docItem.documentId,
+                                              file,
+                                              options: {
+                                                consentAccepted: true,
+                                                acceptedPolicies: dashboardDocAcceptedPolicies,
+                                              },
+                                            });
                                           } else {
-                                            uploadMutation.mutate({ type: docItem.type, file });
+                                            uploadMutation.mutate({
+                                              type: docItem.type,
+                                              file,
+                                              options: {
+                                                consentAccepted: true,
+                                                acceptedPolicies: dashboardDocAcceptedPolicies,
+                                              },
+                                            });
                                           }
                                         }
                                       }}
@@ -5049,19 +5162,15 @@ export default function StudentDashboard() {
                             />
                           </div>
 
-                          {/* Confirmation Checkbox */}
-                          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
-                            <label className="flex items-start gap-2.5 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={deleteConfirmation}
-                                onChange={(e) => setDeleteConfirmation(e.target.checked)}
-                                className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
-                              />
-                              <span className="text-[11px] text-amber-950 font-medium">
-                                I confirm that I am requesting deletion of the selected document(s) from my Swayam Admission account/system.
-                              </span>
-                            </label>
+                          {/* Mandatory Legal Consent for Deletion */}
+                          <div className="p-3 bg-white border border-gray-200 rounded-xl">
+                            <ActionConsentSection
+                              actionType="DOCUMENT_DELETION_REQUEST"
+                              onChange={(valid, policies) => {
+                                setDeletionConsentValid(valid);
+                                setDeletionAcceptedPolicies(policies);
+                              }}
+                            />
                           </div>
 
                           {/* Modal Actions */}
@@ -5080,8 +5189,8 @@ export default function StudentDashboard() {
                                   toast.error("Please select at least one document to delete.");
                                   return;
                                 }
-                                if (!deleteConfirmation) {
-                                  toast.error("Please check the confirmation box.");
+                                if (!deletionConsentValid) {
+                                  toast.error("Please review and accept the mandatory Document Deletion Terms.");
                                   return;
                                 }
                                 submitDeletionMutation.mutate({
@@ -5089,10 +5198,10 @@ export default function StudentDashboard() {
                                   reason: deleteReason,
                                   additionalDetails: deleteAdditionalDetails.trim() || undefined,
                                   applicationId: deleteApplicationId || undefined,
-                                  confirmation: true,
+                                  acceptedPolicies: deletionAcceptedPolicies,
                                 });
                               }}
-                              disabled={deleteSelectedDocIds.length === 0 || !deleteConfirmation || submitDeletionMutation.isPending}
+                              disabled={deleteSelectedDocIds.length === 0 || !deletionConsentValid || submitDeletionMutation.isPending}
                               className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                             >
                               <Trash2 size={13} />
@@ -5184,7 +5293,7 @@ export default function StudentDashboard() {
                       const renderSafeNotificationText = (text: string) => {
                         if (!text) return "";
                         return text
-                          .replace(/\{\{\s*studentName\s*\}\}/g, studentUser?.fullName || user?.name || "Student")
+                          .replace(/\{\{\s*studentName\s*\}\}/g, studentUser?.fullName || (user as any)?.name || user?.fullName || "Student")
                           .replace(/\{\{\s*(officialStudentId|studentId)\s*\}\}/g, studentUser?.studentId || (user as any)?.studentId || "")
                           .replace(/\{\{\s*(applicationNumber|applicationId)\s*\}\}/g, "your application")
                           .replace(/\{\{\s*collegeName\s*\}\}/g, "your selected college")
@@ -5560,121 +5669,6 @@ export default function StudentDashboard() {
             {activeSection === "faqs" && (
               <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-2xs">
                 <FAQPage />
-              </div>
-            )}
-
-            {/* PAYMENTS & FEES */}
-            {activeSection === "payments" && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h2 style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "22px" }}>My Payments & Fee Records</h2>
-                    <p style={{ fontSize: "13px", color: "#94a3b8" }}>Track your application fees, admission installments, receipts, and invoices.</p>
-                  </div>
-                </div>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Total Paid</span>
-                    <span className="text-2xl font-black text-[#4A7B5B]">
-                      ₹{myPayments.reduce((acc: number, p: any) => acc + (p.status === 'COMPLETED' || p.status === 'SUCCESS' ? (p.paidAmount || p.amount || 0) : 0), 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Outstanding Due</span>
-                    <span className="text-2xl font-black text-rose-600">
-                      ₹{myPayments.reduce((acc: number, p: any) => acc + (p.status === 'PENDING' || p.status === 'PARTIALLY_PAID' ? (p.pendingAmount || p.amount || 0) : 0), 0).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">Completed Transactions</span>
-                    <span className="text-2xl font-black text-slate-900">
-                      {myPayments.filter((p: any) => p.status === 'COMPLETED' || p.status === 'SUCCESS').length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Transactions Table */}
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-5">
-                  <h3 className="text-base font-bold text-[#4A7B5B] mb-4">Transaction History</h3>
-                  {myPayments.length === 0 ? (
-                    <div className="text-center py-12 text-[#94A3B8]">
-                      <CreditCard size={36} className="mx-auto mb-2 opacity-30" />
-                      <p className="text-sm font-semibold">No payment records found.</p>
-                      <p className="text-xs text-gray-400 mt-1">Payments made during college application will appear here.</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                          <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-bold uppercase">
-                            <th className="p-3">Receipt / Txn ID</th>
-                            <th className="p-3">College & Course</th>
-                            <th className="p-3">Payment Type</th>
-                            <th className="p-3">Amount</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3">Date</th>
-                            <th className="p-3 text-right">Downloads</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {myPayments.map((p: any) => (
-                            <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
-                              <td className="p-3 font-bold text-slate-900">
-                                {p.receiptNumber || p.transactionId || `TXN-${p.id.slice(0, 8)}`}
-                              </td>
-                              <td className="p-3">
-                                <div className="font-semibold text-slate-800">{p.college?.name || p.application?.college?.name || 'Institute'}</div>
-                                <div className="text-gray-400 text-[11px]">{p.course?.name || p.application?.course?.name || 'Program'}</div>
-                              </td>
-                              <td className="p-3 font-medium text-slate-700">
-                                {p.paymentType} • {p.paymentMethod || 'UPI'}
-                              </td>
-                              <td className="p-3 font-bold text-slate-900">
-                                ₹{(p.paidAmount || p.amount || 0).toLocaleString('en-IN')}
-                              </td>
-                              <td className="p-3">
-                                <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${
-                                  p.status === 'COMPLETED' || p.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' :
-                                  p.status === 'REFUNDED' ? 'bg-purple-100 text-purple-800' :
-                                  p.status === 'FAILED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
-                                }`}>
-                                  {p.status}
-                                </span>
-                              </td>
-                              <td className="p-3 text-gray-500">
-                                {p.paidAt ? new Date(p.paidAt).toLocaleDateString('en-IN') : new Date(p.createdAt).toLocaleDateString('en-IN')}
-                              </td>
-                              <td className="p-3 text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                  <a
-                                    href={`/api/payments/${p.id}/receipt`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-2.5 py-1 bg-[#E8F3EC] text-[#4A7B5B] hover:bg-[#d8e9dd] rounded-lg font-bold text-[11px]"
-                                  >
-                                    Receipt
-                                  </a>
-                                  <a
-                                    href={`/api/payments/${p.id}/invoice`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg font-bold text-[11px]"
-                                  >
-                                    Invoice
-                                  </a>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
@@ -6170,6 +6164,16 @@ export default function StudentDashboard() {
               onSuccess={() => {
                 refetchMe();
               }}
+            />
+
+            {/* Assigned Counselor Real Chat Modal */}
+            <AssignedCounselorChatModal
+              isOpen={counselorChatModal.isOpen}
+              onClose={() => setCounselorChatModal((prev) => ({ ...prev, isOpen: false }))}
+              applicationId={counselorChatModal.applicationId}
+              applicationNumber={counselorChatModal.applicationNumber}
+              collegeName={counselorChatModal.collegeName}
+              courseName={counselorChatModal.courseName}
             />
 
           </div>

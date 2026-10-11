@@ -116,7 +116,7 @@ export class CollegeCounselingService {
     const lead = await this.prisma.lead.findFirst({
       where: {
         OR: [
-          { mobile: student.mobile },
+          ...(student.mobile ? [{ mobile: student.mobile }] : []),
           ...(student.email ? [{ email: student.email }] : []),
         ],
         isDeleted: false,

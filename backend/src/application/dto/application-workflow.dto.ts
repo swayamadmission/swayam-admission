@@ -79,17 +79,25 @@ export class InitiatePaymentDto {
   @IsBoolean()
   termsAccepted?: boolean;
 
-  @IsOptional()
-  @IsBoolean()
-  declarationAccepted?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  verificationConsent?: boolean;
+  paymentTermsAccepted?: boolean;
 
   @IsOptional()
   @IsBoolean()
-  communicationConsent?: boolean;
+  paymentPrivacyAccepted?: boolean;
+
+  @IsOptional()
+  acceptedPolicies?: Array<{
+    policyId?: string;
+    policyType: string;
+    policyVersion: string;
+  }>;
+
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }
 
 export class SubmitApplicationDto {
@@ -108,17 +116,6 @@ export class SubmitApplicationDto {
   @IsBoolean()
   termsAccepted?: boolean;
 
-  @IsOptional()
-  @IsBoolean()
-  studentDeclarationAccepted?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  verificationConsent?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  communicationConsent?: boolean;
 
   @IsOptional()
   @IsString()
@@ -155,6 +152,29 @@ export class SubmitApplicationDto {
   @IsOptional()
   @IsObject()
   declaration?: Record<string, any>;
+
+  @IsOptional()
+  acceptedPolicies?: Array<{
+    policyId?: string;
+    policyType: string;
+    policyVersion: string;
+  }>;
+}
+
+export class VerifyApplicationPaymentDto {
+  @IsString()
+  razorpayPaymentId: string;
+
+  @IsString()
+  razorpaySignature: string;
+
+  @IsOptional()
+  @IsString()
+  razorpayOrderId?: string;
+
+  @IsOptional()
+  @IsString()
+  paymentId?: string;
 }
 
 export class RequestCorrectionDto {
@@ -191,15 +211,4 @@ export class SaveApplicationDeclarationsDto {
   @IsString()
   termsVersion?: string;
 
-  @IsOptional()
-  @IsBoolean()
-  declarationAccepted?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  verificationConsent?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  communicationConsent?: boolean;
 }

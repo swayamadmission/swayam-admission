@@ -986,7 +986,7 @@ export class CounselorsService {
     await this.prisma.lead.updateMany({
       where: {
         OR: [
-          { mobile: student.mobile },
+          ...(student.mobile ? [{ mobile: student.mobile }] : []),
           ...(student.email ? [{ email: student.email }] : []),
         ],
       },

@@ -29,6 +29,32 @@ export class CouponService {
    * Validate a coupon code for a given transaction context without redeeming it.
    */
   async validateCoupon(dto: ValidateCouponDto, userId?: string) {
+    // HARD BUSINESS RULE: Coupons are NOT valid for direct college bank payments
+    if (
+      dto.routingMode === 'DIRECT_COLLEGE_BANK' ||
+      dto.paymentDestination === 'DIRECT_COLLEGE'
+    ) {
+      return {
+        valid: false,
+        code: 'COUPON_NOT_APPLICABLE_TO_PAYMENT',
+        message: 'This coupon is not applicable to this payment.',
+      };
+    }
+
+    if (dto.paymentRequestId) {
+      const paymentReq = await this.prisma.paymentRequest.findUnique({
+        where: { id: dto.paymentRequestId },
+        select: { paymentDestination: true },
+      });
+      if (paymentReq?.paymentDestination === 'DIRECT_COLLEGE') {
+        return {
+          valid: false,
+          code: 'COUPON_NOT_APPLICABLE_TO_PAYMENT',
+          message: 'This coupon is not applicable to this payment.',
+        };
+      }
+    }
+
     const cleanCode = dto.code.trim().toUpperCase();
     const now = new Date();
 

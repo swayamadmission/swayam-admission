@@ -497,6 +497,7 @@ model Application {
   receipts              Receipt[]
   crmActivities         CrmActivity[]
   tasks                 Task[]
+  conversations         Conversation[]
 
   @@index([branchId])
   @@index([counselorId])
@@ -573,19 +574,30 @@ model AuditLog {
 }
 
 model Banner {
-  id         String    @id @default(cuid())
-  title      String?
-  subtitle   String?
-  image      String
-  buttonText String?
-  buttonUrl  String?
-  type       String
-  priority   Int       @default(0)
-  startDate  DateTime?
-  endDate    DateTime?
-  status     String    @default("DRAFT")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @default(now()) @updatedAt
+  id           String    @id @default(cuid())
+  title        String?
+  subtitle     String?
+  image        String?
+  imageUrl     String?
+  videoUrl     String?
+  mediaType    String    @default("IMAGE") // IMAGE, VIDEO
+  buttonText   String?
+  buttonUrl    String?
+  openInNewTab Boolean   @default(false)
+  type         String    @default("BANNER")
+  slot         String    @default("HOME_HERO_VIDEO")
+  priority     Int       @default(0)
+  sortOrder    Int       @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  status       String    @default("ACTIVE") // ACTIVE, INACTIVE, DRAFT
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  @@index([slot])
+  @@index([status])
+  @@index([isActive])
 }
 
 model Blog {
@@ -852,6 +864,7 @@ model College {
   fullDescription        String?
   logo                   String?
   banner                 String?
+  brochureUrl            String?
   establishedYear        Int?
   ownership              CollegeOwnership           @default(PRIVATE)
   type                   CollegeType                @default(PRIVATE)
@@ -3037,6 +3050,8 @@ model RoleEntity {
   userRoles             UserRole[]
   positions             Position[]
   assignedStaffRequests StaffRegistrationRequest[]
+  EmployeeRoleHistory_previousRoleIdToRole EmployeeRoleHistory[] @relation("History_previousRoleIdToRole")
+  EmployeeRoleHistory_newRoleIdToRole      EmployeeRoleHistory[] @relation("History_newRoleIdToRole")
 
   @@index([departmentId])
   @@index([department])
@@ -3306,6 +3321,7 @@ model State {
   description            String?
   region                 String?
   popularCourses         String[]                   @default([])
+  featured               Boolean                    @default(false)
 
   @@index([code])
   @@index([name])
@@ -3690,6 +3706,21 @@ model SystemSetting {
   supportEmail             String   @default("support@swayamadmission.in")
   supportPhone             String   @default("+91 1800 000 0000")
   whatsappPhone            String   @default("+91 9876543210")
+  brandPromise             String?  @default("Your Trusted Education Partner")
+  primaryAudience          String?  @default("Students seeking admission guidance across India.")
+  generalEmail             String?  @default("swayamadmissions@gmail.com")
+  admissionEmail           String?  @default("getadmission@swayamadmission.com")
+  contactNumber2           String?  @default("6399102731")
+  instagramUrl             String?  @default("https://www.instagram.com/swayamadmission")
+  facebookUrl              String?  @default("https://www.facebook.com/swayamadmission")
+  youtubeUrl               String?  @default("https://www.youtube.com/@swayamadmission")
+  linkedinUrl              String?  @default("https://www.linkedin.com/company/swayamadmission")
+  xUrl                     String?  @default("https://x.com/swayamadmission")
+  githubUrl                String?  @default("https://github.com/swayamadmission")
+  redditUrl                String?  @default("https://www.reddit.com/user/swayamadmission/")
+  telegramUrl              String?  @default("https://t.me/swayamadmission")
+  discordUrl               String?  @default("")
+  socialHandle             String?  @default("@swayamadmission")
   gstNumber                String?  @default("07AAAAA0000A1Z5")
   panNumber                String?  @default("ABCDE1234F")
   registrationNumber       String?  @default("REG123456789")
@@ -3706,6 +3737,11 @@ model SystemSetting {
   defaultTheme             String   @default("Light")
   maintenanceMode          Boolean  @default(false)
   maintenanceMessage       String   @default("We are currently conducting scheduled maintenance. Please check back shortly.")
+  officeHours              String?  @default("Monday – Saturday: 9:30 AM – 6:30 PM")
+  workingDays              String?  @default("Monday to Saturday")
+  holidayNotice            String?  @default("Closed on Sundays & National Holidays")
+  expectedResponseTime     String?  @default("Within 2 to 4 business hours")
+  googleMapsUrl            String?  @default("")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @default(now()) @updatedAt
 }
@@ -3889,9 +3925,10 @@ model TeamRole {
 model Testimonial {
   id         String   @id @default(cuid())
   name       String
-  role       String
+  role       String   @default("Student")
   course     String?
   college    String?
+  state      String?
   text       String
   rating     Float    @default(5)
   videoUrl   String?
@@ -3906,9 +3943,9 @@ model Testimonial {
 model User {
   id                                                          String                     @id @default(cuid())
   fullName                                                    String
-  email                                                       String                     @unique
-  mobile                                                      String                     @unique
-  password                                                    String
+  email                                                       String?                    @unique
+  mobile                                                      String?                    @unique
+  password                                                    String?
   role                                                        Role                       @default(STUDENT)
   isApproved                                                  Boolean                    @default(false)
   createdAt                                                   DateTime                   @default(now())
@@ -3927,6 +3964,7 @@ model User {
   designation                                                 String?
   displayName                                                 String?
   emailVerified                                               Boolean                    @default(false)
+  emailVerifiedAt                                             DateTime?
   emergencyContact                                            Json?                      @default("{}")
   employeeId                                                  String?                    @unique
   experience                                                  String?
@@ -3976,6 +4014,10 @@ model User {
   auditLogs                                                   AuditLog[]
   Blog                                                        Blog[]
   CollegeReview                                               CollegeReview[]
+  jobApplications                                             JobApplication[]
+  recruitmentOnboardings                                      RecruitmentOnboarding[]
+  completedRecruitmentOnboardings                             RecruitmentOnboarding[]    @relation("OnboardingCompletedBy")
+  clearanceChecklistsReviewed                                 ClearanceChecklistItem[]
   assignedCounselorAssignments                                CounselorAssignment[]      @relation("CounselorAssignment_assignedByToUser")
   counselorAssignments                                        CounselorAssignment[]      @relation("CounselorAssignment_counselorIdToUser")
   CounselorProfile_CounselorProfile_reportingManagerIdToUser  CounselorProfile[]         @relation("CounselorProfile_reportingManagerIdToUser")
@@ -4072,6 +4114,9 @@ model User {
   teamMemberships                                             TeamMember[]
   assignedCounselor                                           User?                      @relation("UserCounselor", fields: [assignedCounselorId], references: [id])
   assignedStudents                                            User[]                     @relation("UserCounselor")
+  conversationsAsStudent                                      Conversation[]             @relation("Conversation_student")
+  conversationsAsCounselor                                    Conversation[]             @relation("Conversation_counselor")
+  sentMessages                                                Message[]                  @relation("Message_sender")
   departmentEntity                                            Department?                @relation("User_departmentIdToDepartment", fields: [departmentId], references: [id])
   personalEmail                                               String?
   personalMobile                                              String?
@@ -4100,6 +4145,9 @@ model User {
   invoicesIssued                                              Invoice[]                  @relation("Invoice_createdBy")
   invoicesReceived                                            Invoice[]                  @relation("Invoice_student")
   receipts                                                    Receipt[]                  @relation("Receipt_student")
+  policyAcceptances                                           PolicyAcceptance[]
+  grievances                                                  Grievance[]                @relation("Grievance_userIdToUser")
+  assignedGrievances                                          Grievance[]                @relation("Grievance_assignedToIdToUser")
   refundRequests                                              PaymentRefund[]            @relation("Refund_requester")
   refundApprovals                                             PaymentRefund[]            @relation("Refund_approver")
   resolvedReconciliations                                     PaymentReconciliation[]    @relation("Reconciliation_resolvedBy")
@@ -4111,11 +4159,85 @@ model User {
   completedTasks                                              Task[]                     @relation("Task_completer")
   escalatedTasks                                              Task[]                     @relation("Task_escalatedTo")
   savedReports                                                SavedReport[]              @relation("CreatedSavedReports")
+  authIdentities                                              AuthIdentity[]
+  passwordResetTokens                                         PasswordResetToken[]
+  refreshTokens                                               RefreshToken[]
+  Interview_interviewerIdToUser                               Interview[]                @relation("Interview_interviewerIdToUser")
+  Evaluation_evaluatorIdToUser                                InterviewEvaluation[]      @relation("Evaluation_evaluatorIdToUser")
+  Clearance_userIdToUser                                      EmployeeClearance?         @relation("Clearance_userIdToUser")
+  Clearance_hrClearedByIdToUser                               EmployeeClearance[]        @relation("Clearance_hrClearedByIdToUser")
+  Clearance_finalClearedByIdToUser                            EmployeeClearance[]        @relation("Clearance_finalClearedByIdToUser")
+  History_userIdToUser                                        EmployeeRoleHistory[]      @relation("History_userIdToUser")
+  History_changedByIdToUser                                   EmployeeRoleHistory[]      @relation("History_changedByIdToUser")
+  AccessScope_userIdToUser                                    AccessScope[]              @relation("AccessScope_userIdToUser")
+  AccessScope_grantedByIdToUser                               AccessScope[]              @relation("AccessScope_grantedByIdToUser")
 
   @@index([assignedCounselorId])
   @@index([departmentId])
   @@index([studentId])
   @@index([registrationNumber])
+}
+
+model AuthIdentity {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String   // 'MOBILE_OTP' | 'GOOGLE' | 'PASSWORD'
+  providerAccountId String   // E.164 mobile or Google subject/email
+  email             String?
+  metadata          Json?    @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model OtpVerification {
+  id          String   @id @default(cuid())
+  type        String   // 'MOBILE_LOGIN' | 'EMAIL_VERIFICATION'
+  identifier  String   // Normalized E.164 mobile or normalized email
+  otpHash     String   // Bcrypt/SHA-256 hash of 6-digit OTP
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  resendAfter DateTime @default(now())
+  isUsed      Boolean  @default(false)
+  ipAddress   String?
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([identifier, type])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model RefreshToken {
+  id                  String   @id @default(cuid())
+  userId              String
+  tokenHash           String   @unique
+  expiresAt           DateTime
+  isRevoked           Boolean  @default(false)
+  replacedByTokenHash String?
+  createdAt           DateTime @default(now())
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
 }
 
 model UserDeviceSession {
@@ -5410,4 +5532,606 @@ model SearchQuery {
   @@index([searchCount])
   @@index([lastSearchedAt])
   @@index([normalizedQuery])
+}
+
+model Conversation {
+  id            String       @id @default(cuid())
+  studentId     String
+  counselorId   String
+  applicationId String?
+  status        String       @default("ACTIVE")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
+  student       User         @relation("Conversation_student", fields: [studentId], references: [id], onDelete: Cascade)
+  counselor     User         @relation("Conversation_counselor", fields: [counselorId], references: [id], onDelete: Cascade)
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  messages      Message[]
+
+  @@unique([studentId, counselorId, applicationId])
+  @@index([studentId])
+  @@index([counselorId])
+  @@index([applicationId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderUserId   String
+  senderRole     String       @default("STUDENT")
+  messageType    String       @default("TEXT")
+  text           String
+  idempotencyKey String?
+  sentAt         DateTime     @default(now())
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @default(now()) @updatedAt
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUser     User         @relation("Message_sender", fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderUserId])
+  @@index([sentAt])
+  @@index([idempotencyKey])
+}
+
+model ContactDirectoryEntry {
+  id            String   @id @default(cuid())
+  title         String
+  department    String   @default("GENERAL") // ADMISSIONS, GENERAL, APPLICATION_SUPPORT, PARTNERSHIPS, TECHNICAL_SUPPORT, OTHER
+  contactType   String   // PHONE, EMAIL, WHATSAPP, ADDRESS, URL
+  value         String
+  label         String?
+  description   String?
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  isVerified    Boolean  @default(false)
+  isPublished   Boolean  @default(true)
+  businessHours String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@index([department])
+  @@index([contactType])
+  @@index([isActive, isPublished])
+  @@index([sortOrder])
+}
+
+model ContactEnquiry {
+  id                 String    @id @default(cuid())
+  referenceNo        String    @unique
+  fullName           String
+  email              String?
+  mobile             String
+  category           String    @default("General Enquiry")
+  subject            String
+  message            String?
+  status             String    @default("NEW") // NEW, IN_REVIEW, ASSIGNED, RESOLVED, CLOSED
+  assignedDepartment String?
+  assignedStaffId    String?
+  assignedStaffName  String?
+  ipAddress          String?
+  adminNotes         String?
+  resolvedAt         DateTime?
+  resolvedBy         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  @@index([referenceNo])
+  @@index([status])
+  @@index([category])
+  @@index([createdAt])
+  @@index([email])
+  @@index([mobile])
+  @@index([assignedDepartment])
+  @@index([assignedStaffId])
+}
+
+model DepartmentContact {
+  id            String    @id @default(cuid())
+  name          String
+  badge         String?
+  description   String?
+  email         String?
+  phone         String?
+  whatsapp      String?
+  officeHours   String?
+  workingDays   String?
+  address       String?
+  ctaText       String?
+  ctaAction     String?   // CALL, WHATSAPP, EMAIL, URL
+  ctaUrl        String?
+  sortOrder     Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+model ContactPageSetting {
+  id                   String   @id @default("default_contact_page_setting")
+  pageHeading          String   @default("Contact Swayam Admission")
+  pageSubheading       String   @default("India Ka Mission Swayam Admission — Your Trusted Education Partner. Get help with college admissions, courses, applications and counselling.")
+  helpdeskBadge        String   @default("Official Swayam Admission Helpdesk")
+  officeHours          String   @default("Monday – Saturday: 9:30 AM – 6:30 PM")
+  workingDays          String   @default("Monday to Saturday")
+  holidayNotice        String   @default("Closed on Sundays & National Holidays")
+  expectedResponseTime String   @default("Within 2 to 4 business hours")
+  address              String   @default("New Delhi, India")
+  googleMapsUrl        String   @default("")
+  instagramUrl         String   @default("https://www.instagram.com/swayamadmission")
+  facebookUrl          String   @default("https://www.facebook.com/swayamadmission")
+  youtubeUrl           String   @default("https://www.youtube.com/@swayamadmission")
+  linkedinUrl          String   @default("https://www.linkedin.com/company/swayamadmission")
+  xUrl                 String   @default("https://x.com/swayamadmission")
+  githubUrl            String   @default("https://github.com/swayamadmission")
+  redditUrl            String   @default("https://www.reddit.com/user/swayamadmission/")
+  telegramUrl          String   @default("https://t.me/swayamadmission")
+  discordUrl           String   @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @default(now()) @updatedAt
+}
+
+model LegalPolicy {
+  id            String             @id @default(cuid())
+  policyType    String
+  slug          String
+  title         String
+  content       String             @db.Text
+  version       String             @default("v1.0")
+  versionNumber Int                @default(1)
+  status        String             @default("PUBLISHED") // DRAFT | PUBLISHED | ARCHIVED
+  effectiveDate DateTime           @default(now())
+  publishedAt   DateTime?
+  archivedAt    DateTime?
+  changeSummary String?
+  createdBy     String?
+  updatedBy     String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @default(now()) @updatedAt
+
+  acceptances   PolicyAcceptance[]
+
+  @@index([policyType])
+  @@index([slug])
+  @@index([status])
+  @@index([version])
+}
+
+model ConsentConfiguration {
+  id          String   @id @default(cuid())
+  actionType  String   @unique
+  policyTypes Json
+  isMandatory Boolean  @default(true)
+  description String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@index([actionType])
+}
+
+model PolicyAcceptance {
+  id                String       @id @default(cuid())
+  userId            String
+  policyId          String
+  policyType        String
+  policyVersion     String
+  accepted          Boolean      @default(true)
+  acceptedAt        DateTime     @default(now())
+  actionContext     String
+  applicationId     String?
+  documentId        String?
+  paymentId         String?
+  purchaseId        String?
+  deletionRequestId String?
+  referralId        String?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime     @default(now())
+
+  policy            LegalPolicy  @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, actionContext])
+  @@index([policyId])
+  @@index([applicationId])
+  @@index([documentId])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model CookieItem {
+  id        String   @id @default(cuid())
+  name      String
+  category  String   @default("Necessary") // Necessary | Analytical | Functional | Marketing
+  purpose   String
+  provider  String   @default("Swayam Admission")
+  duration  String   @default("Session")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([isActive])
+}
+
+model Grievance {
+  id           String    @id @default(cuid())
+  complaintId  String    @unique
+  userId       String
+  category     String
+  subject      String
+  description  String    @db.Text
+  status       String    @default("SUBMITTED") // SUBMITTED | UNDER_REVIEW | IN_PROGRESS | RESOLVED | REJECTED | CLOSED
+  assignedToId String?
+  response     String?   @db.Text
+  resolution   String?   @db.Text
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+
+  user         User      @relation("Grievance_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo   User?     @relation("Grievance_assignedToIdToUser", fields: [assignedToId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([complaintId])
+  @@index([category])
+}
+
+model OtpConfiguration {
+  id                  String   @id @default(cuid())
+  channel             String   @unique // 'WHATSAPP' | 'EMAIL'
+  enabled             Boolean  @default(false)
+  provider            String?
+  
+  // Provider credentials
+  apiKey              String?
+  accountId           String?
+  phoneNumberId       String?
+  apiHost             String?
+  apiPort             Int?
+  apiUser             String?
+  apiPassword         String?
+  apiSecure           Boolean  @default(true)
+  
+  // Display Information
+  fromName            String?
+  fromEmail           String?
+  templateName        String?
+  templateLanguage    String?
+  
+  // Policies
+  expirySeconds       Int      @default(300)
+  maxAttempts         Int      @default(5)
+  resendCooldownSec   Int      @default(30)
+  rateLimitCount      Int      @default(10)
+  rateLimitWindowSec  Int      @default(3600)
+  
+  updatedBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @default(now()) @updatedAt
+}
+
+
+
+
+model JobVacancy {
+  id                  String             @id @default(cuid())
+  vacancyCode         String?            @unique // e.g. SWY-VAC-00001
+  title               String
+  department          String
+  designation         String
+  employmentType      String             @default("FULL_TIME")
+  location            String?
+  workMode            String             @default("ONSITE") // ONSITE, HYBRID, REMOTE
+  numberOfPositions   Int                @default(1)
+  minimumQualification String?
+  preferredQualification String?
+  experience          String?
+  requiredSkills      String[]           @default([])
+  preferredSkills     String[]           @default([])
+  salaryRange         String?
+  salaryMin           Float?
+  salaryMax           Float?
+  salaryCurrency      String             @default("INR")
+  jobDescription      String?            @db.Text
+  responsibilities    String?            @db.Text
+  educationRequirements String?          @db.Text
+  experienceRequirements String?         @db.Text
+  requiredDocuments   String[]           @default([]) // Configurable required docs
+  applicationStartDate DateTime?
+  applicationEndDate  DateTime?
+  applicationDeadline DateTime?
+  status              String             @default("DRAFT") // DRAFT, PUBLISHED, PAUSED, CLOSED, ARCHIVED
+  priority            String?            // HIGH, MEDIUM, LOW
+  interviewType       String?
+  interviewMode       String?
+  recruiterId         String?
+  reportingManagerId  String?
+  createdBy           String?
+  updatedById         String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now()) @updatedAt
+  publishedAt         DateTime?
+  closedAt            DateTime?
+  archivedAt          DateTime?
+  applications        JobApplication[]
+
+  @@index([status])
+  @@index([department])
+  @@index([vacancyCode])
+}
+
+model JobApplication {
+  id                  String             @id @default(cuid())
+  applicationId       String             @unique // e.g., JOB-2026-000123
+  vacancyId           String
+  userId              String?
+  firstName           String
+  lastName            String?
+  email               String
+  mobile              String
+  address             String?
+  state               String?
+  city                String?
+  qualification       String?
+  experience          String?
+  previousOrganization String?
+  currentDesignation  String?
+  skills              String[]           @default([])
+  expectedSalary      String?
+  noticePeriod        String?
+  linkedInUrl         String?
+  portfolioUrl        String?
+  coverLetter         String?            @db.Text
+  additionalInfo      String?            @db.Text
+  resumeUrl           String?
+  resumeFileName      String?
+  resumeFileSize      Int?
+  resumeMimeType      String?
+  recruiterId         String?
+  assignedById        String?
+  assignedAt          DateTime?
+  internalNotes       String?            @db.Text
+  rejectionReason     String?            @db.Text
+  holdReason          String?            @db.Text
+  isArchived          Boolean            @default(false)
+  archivedAt          DateTime?
+  statusHistory       Json?              @default("[]")
+  timelineNotes       Json?              @default("[]")
+  status              String             @default("APPLIED") // APPLIED, SHORTLISTED, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED, SELECTED, REJECTED, HOLD, etc.
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @default(now()) @updatedAt
+  vacancy             JobVacancy         @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  user                User?              @relation(fields: [userId], references: [id])
+  documents           CandidateDocument[]
+  interviews          Interview[]
+  offer               Offer?
+  onboarding          RecruitmentOnboarding?
+
+  @@index([vacancyId])
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([recruiterId])
+  @@index([isArchived])
+}
+
+model RecruitmentSetting {
+  id                         String   @id @default("default_recruitment_setting")
+  recruitmentEmail           String   @default("careers@swayamadmission.com")
+  recruitmentDisplayName     String   @default("Swayam Admission Careers Team")
+  replyToEmail               String?  @default("careers@swayamadmission.com")
+  ccEmails                   String[] @default([])
+  bccEmails                  String[] @default([])
+  candidateAckEnabled        Boolean  @default(true)
+  adminNotificationEnabled   Boolean  @default(true)
+  resumeAttachmentEnabled    Boolean  @default(true)
+  maxResumeSizeMB            Int      @default(10)
+  allowedResumeFormats       String[] @default(["pdf", "doc", "docx"])
+  applicationIdPrefix        String   @default("SWY-JOB-APP-")
+  heroTitle                  String?  @default("Join Swayam Admission")
+  heroSubtitle               String?  @default("Discover opportunities to build a rewarding career with us and help shape the future of education.")
+  autoSendRejectionEmail     Boolean  @default(false)
+  autoSendShortlistEmail     Boolean  @default(false)
+  updatedById                String?
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @default(now()) @updatedAt
+}
+
+model CandidateDocument {
+  id               String         @id @default(cuid())
+  applicationId    String
+  title            String         // e.g., Resume, Education Certificate
+  fileUrl          String
+  fileName         String
+  isRequired       Boolean        @default(false)
+  status           String         @default("PENDING") // PENDING, UNDER_REVIEW, VERIFIED, REJECTED, ACTION_REQUIRED
+  verificationNotes String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+  application      JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+}
+
+model Interview {
+  id               String               @id @default(cuid())
+  applicationId    String
+  interviewType    String               @default("ONLINE") // ONLINE, OFFLINE
+  interviewDate    DateTime
+  time             String?
+  interviewerId    String?              // References User (Staff)
+  meetingLink      String?
+  location         String?
+  instructions     String?              @db.Text
+  status           String               @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @default(now()) @updatedAt
+  application      JobApplication       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewer      User?                @relation("Interview_interviewerIdToUser", fields: [interviewerId], references: [id])
+  evaluations      InterviewEvaluation[]
+
+  @@index([applicationId])
+  @@index([interviewerId])
+}
+
+model InterviewEvaluation {
+  id                  String         @id @default(cuid())
+  interviewId         String
+  communicationScore  Int?
+  technicalScore      Int?
+  roleSkillsScore     Int?
+  experienceScore     Int?
+  overallAssessment   String?        @db.Text
+  recommendation      String         // SELECT, REJECT, HOLD
+  evaluatorId         String?        // References User (Staff)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @default(now()) @updatedAt
+  interview           Interview      @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  evaluator           User?          @relation("Evaluation_evaluatorIdToUser", fields: [evaluatorId], references: [id])
+
+  @@index([interviewId])
+}
+
+model Offer {
+  id               String         @id @default(cuid())
+  offerCode        String?        // e.g. SWY-OFFER-2026-0001
+  applicationId    String         @unique
+  designation      String?
+  department       String?
+  employmentType   String?        @default("FULL_TIME")
+  workMode         String?        @default("ONSITE")
+  workLocation     String?
+  reportingManager String?
+  joiningDate      DateTime?
+  salary           Float?
+  salaryFrequency  String?        @default("ANNUAL")
+  validUntil       DateTime?
+  notes            String?        @db.Text
+  terms            String?        @db.Text
+  offerLetterUrl   String?
+  status           String         @default("OFFER_SENT") // DRAFT, OFFER_SENT, OFFER_ACCEPTED, OFFER_DECLINED, WITHDRAWN, CANCELLED, EXPIRED
+  issuedAt         DateTime       @default(now())
+  sentAt           DateTime?
+  acceptedAt       DateTime?
+  declinedAt       DateTime?
+  declinedReason   String?
+  createdById      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+  application      JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  clearance        EmployeeClearance?
+
+  @@index([status])
+  @@index([offerCode])
+}
+
+model EmployeeClearance {
+  id               String                   @id @default(cuid())
+  offerId          String                   @unique
+  userId           String?                  @unique // Linked to the newly generated User identity
+  status           String                   @default("PENDING") // PENDING, IN_PROGRESS, VERIFIED, HR_CLEARED, FINAL_CLEARED, FAILED, ACTIVE, COMPLETED
+  hrClearedAt      DateTime?
+  hrClearedById    String?
+  finalClearedAt   DateTime?
+  finalClearedById String?
+  notes            String?                  @db.Text
+  failureReason    String?                  @db.Text
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @default(now()) @updatedAt
+  offer            Offer                    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  user             User?                    @relation("Clearance_userIdToUser", fields: [userId], references: [id])
+  hrClearedBy      User?                    @relation("Clearance_hrClearedByIdToUser", fields: [hrClearedById], references: [id])
+  finalClearedBy   User?                    @relation("Clearance_finalClearedByIdToUser", fields: [finalClearedById], references: [id])
+  checklistItems   ClearanceChecklistItem[]
+
+  @@index([status])
+}
+
+model ClearanceChecklistItem {
+  id            String            @id @default(cuid())
+  clearanceId   String
+  itemKey       String            // IDENTITY_KYC, ADDRESS, EDUCATION, RESUME, EMPLOYMENT_BG, UPLOADED_DOCS, OFFER_VERIFICATION, FINAL_HR
+  title         String
+  status        String            @default("PENDING") // PENDING, IN_REVIEW, VERIFIED, FAILED, NOT_REQUIRED
+  isRequired    Boolean           @default(true)
+  reviewedById  String?
+  reviewedAt    DateTime?
+  remarks       String?           @db.Text
+  failureReason String?           @db.Text
+  documentUrl   String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
+  clearance     EmployeeClearance @relation(fields: [clearanceId], references: [id], onDelete: Cascade)
+  reviewedBy    User?             @relation(fields: [reviewedById], references: [id])
+
+  @@index([clearanceId])
+  @@index([itemKey])
+}
+
+model RecruitmentOnboarding {
+  id               String         @id @default(cuid())
+  applicationId    String         @unique
+  employeeId       String         @unique // e.g. EMP-2026-0001
+  userId           String?        @unique
+  department       String
+  designation      String
+  reportingManager String?
+  workLocation     String?
+  workMode         String?        @default("ONSITE")
+  employmentType   String?        @default("FULL_TIME")
+  officialEmail    String?
+  officialMobile   String?
+  joiningDate      DateTime
+  status           String         @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  notes            String?        @db.Text
+  completedAt      DateTime?
+  completedById    String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+  application      JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user             User?          @relation(fields: [userId], references: [id])
+  completedBy      User?          @relation("OnboardingCompletedBy", fields: [completedById], references: [id])
+
+  @@index([applicationId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model EmployeeRoleHistory {
+  id                  String    @id @default(cuid())
+  userId              String
+  previousDepartment  String?
+  previousDesignation String?
+  previousRoleId      String?
+  newDepartment       String?
+  newDesignation      String?
+  newRoleId           String?
+  effectiveDate       DateTime  @default(now())
+  changedById         String?
+  reason              String?
+  createdAt           DateTime  @default(now())
+  user                User      @relation("History_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  changedBy           User?     @relation("History_changedByIdToUser", fields: [changedById], references: [id])
+  previousRole        RoleEntity? @relation("History_previousRoleIdToRole", fields: [previousRoleId], references: [id])
+  newRole             RoleEntity? @relation("History_newRoleIdToRole", fields: [newRoleId], references: [id])
+
+  @@index([userId])
+}
+
+model AccessScope {
+  id            String    @id @default(cuid())
+  userId        String
+  scopeType     String    // e.g., STATE, DISTRICT, DEPARTMENT, GLOBAL
+  scopeValue    String    // e.g., "MH", "MUMBAI", "FINANCE"
+  grantedById   String?
+  createdAt     DateTime  @default(now())
+  user          User      @relation("AccessScope_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy     User?     @relation("AccessScope_grantedByIdToUser", fields: [grantedById], references: [id])
+
+  @@index([userId])
+  @@index([scopeType, scopeValue])
 }

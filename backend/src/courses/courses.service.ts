@@ -248,7 +248,9 @@ export class CoursesService {
 
     const where: Prisma.CourseWhereInput = {
       status: status
-        ? (status as CollegeStatus)
+        ? status === 'ACTIVE' || status === 'PUBLISHED'
+          ? { in: [CollegeStatus.PUBLISHED, CollegeStatus.ACTIVE] }
+          : (status as CollegeStatus)
         : { not: CollegeStatus.ARCHIVED },
     };
 

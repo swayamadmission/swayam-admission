@@ -247,6 +247,9 @@ export const leadsApi = {
   manualRoute: (id: string, seniorCounselorId: string, reason: string) =>
     api.post(`/leads/${id}/manual-route`, { seniorCounselorId, reason }),
 
+  retryRouting: (id: string) =>
+    api.post(`/leads/${id}/retry-routing`),
+
   reassignLead: (id: string, targetUserId: string, targetRole: 'SENIOR_COUNSELOR' | 'COUNSELOR', reason: string) =>
     api.post(`/leads/${id}/reassign`, { targetUserId, targetRole, reason }),
 

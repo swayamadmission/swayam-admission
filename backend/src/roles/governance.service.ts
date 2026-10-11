@@ -118,8 +118,8 @@ export class GovernanceService {
         );
       }
     }
-
-    const validRequestedById = await this.resolveAuditUserId(requestedById);
+    const reqUserId = requestedById || (dto as any).requestedById;
+    const validRequestedById = await this.resolveAuditUserId(reqUserId);
 
     const request = await this.prisma.governanceRequest.create({
       data: {
@@ -143,7 +143,7 @@ export class GovernanceService {
       data: {
         roleId: dto.targetRoleId || null,
         userId: validRequestedById,
-        action: 'GOVERNANCE_REQUEST_CREATED',
+        action: 'APPROVAL_REQUESTED',
         newValue: {
           requestId: request.id,
           actionType: request.actionType,
@@ -243,7 +243,7 @@ export class GovernanceService {
       data: {
         roleId: request.targetRoleId,
         userId: validRejectorId,
-        action: 'GOVERNANCE_REQUEST_REJECTED',
+        action: 'REJECTED',
         oldValue: { status: GovernanceRequestStatus.PENDING },
         newValue: {
           status: GovernanceRequestStatus.REJECTED,

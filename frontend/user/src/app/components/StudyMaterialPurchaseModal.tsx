@@ -14,6 +14,7 @@ import {
 import { StudyMaterial, studyMaterialsApi, resolveThumbnailUrl } from '../../api/study-materials.api';
 import { CouponApplyWidget } from './CouponApplyWidget';
 import { CouponValidationResponse } from '../../api/coupons.api';
+import ActionConsentSection, { AcceptedPolicyPayload } from './ActionConsentSection';
 
 interface StudyMaterialPurchaseModalProps {
   material: StudyMaterial;
@@ -37,6 +38,8 @@ export const StudyMaterialPurchaseModal: React.FC<StudyMaterialPurchaseModalProp
   const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [purchaseConsentValid, setPurchaseConsentValid] = useState(false);
+  const [purchaseAcceptedPolicies, setPurchaseAcceptedPolicies] = useState<AcceptedPolicyPayload[]>([]);
   const [successReceipt, setSuccessReceipt] = useState<{
     receiptNumber: string;
     amount: number;
@@ -72,11 +75,17 @@ export const StudyMaterialPurchaseModal: React.FC<StudyMaterialPurchaseModalProp
     setError(null);
     setLoading(true);
 
+    if (!purchaseConsentValid) {
+      setError('Please review and accept the mandatory Study Material Terms and Refund Policy before purchase.');
+      return;
+    }
+
     try {
       // 1. Create Purchase Order via authoritative backend API
       const orderRes = await studyMaterialsApi.createPurchaseOrder(
         material.id,
         appliedCoupon?.code,
+        purchaseAcceptedPolicies,
       );
 
       // Case A: ₹0 / 100% Coupon instant entitlement
@@ -377,12 +386,23 @@ export const StudyMaterialPurchaseModal: React.FC<StudyMaterialPurchaseModalProp
                 </div>
               )}
 
+              {/* Purchase Legal Consent */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                <ActionConsentSection
+                  actionType="STUDY_MATERIAL_PURCHASE"
+                  onChange={(valid, policies) => {
+                    setPurchaseConsentValid(valid);
+                    setPurchaseAcceptedPolicies(policies);
+                  }}
+                />
+              </div>
+
               {/* Security & Action */}
               <div className="space-y-3 pt-1">
                 <button
                   type="button"
                   onClick={handleProcessPayment}
-                  disabled={loading}
+                  disabled={loading || !purchaseConsentValid}
                   className="w-full py-3.5 bg-[#4A7B5B] hover:bg-[#3d694d] text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? (
