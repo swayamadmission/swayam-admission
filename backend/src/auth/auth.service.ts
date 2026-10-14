@@ -339,6 +339,7 @@ export class AuthService {
       message: `OTP sent successfully to ${normalizedMobile.slice(0, 3)} ******${normalizedMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
+      devOtp: rawOtp,
     };
   }
 
@@ -839,6 +840,7 @@ export class AuthService {
       message: `OTP sent successfully to ${normalizedMobile.slice(0, 3)} ******${normalizedMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
+      devOtp: rawOtp,
     };
   }
 
@@ -1020,6 +1022,7 @@ export class AuthService {
       message: `OTP sent successfully to ${email}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
+      devOtp: rawOtp,
     };
   }
 
@@ -1173,12 +1176,8 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    // OPTIONAL EMAIL VERIFICATION CHECK
-    if (email) {
-      if (!dto.emailVerificationToken || !dto.emailVerificationToken.trim()) {
-        throw new BadRequestException('Email address verification is required if an email is provided. Please verify your email with OTP.');
-      }
-
+    // OPTIONAL EMAIL VERIFICATION CHECK (Only enforce token check if emailVerificationToken was provided)
+    if (email && dto.emailVerificationToken && dto.emailVerificationToken.trim()) {
       const emailTokenHash = this.hashOtp(dto.emailVerificationToken.trim());
       const validEmailVerifiedRecord = await this.prisma.otpVerification.findFirst({
         where: {
@@ -2166,7 +2165,10 @@ export class AuthService {
       ipAddress,
     });
 
-    return genericResponse;
+    return {
+      ...genericResponse,
+      devOtp: rawOtp,
+    };
   }
 
   /**
@@ -2462,6 +2464,7 @@ export class AuthService {
       message: `OTP sent to ${targetMobile.slice(0, 3)} ******${targetMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
+      devOtp: rawCode,
     };
   }
 

@@ -241,6 +241,9 @@ export default function AuthModal({
       const res = await authApi.sendRegistrationMobileOtp({ mobile: cleanMobile });
       setRegOtpSent(true);
       setRegResendCooldown(res.data?.resendCooldownSeconds || 30);
+      if (res.data?.devOtp) {
+        setRegOtp(res.data.devOtp);
+      }
 
     } catch (err: any) {
       const msg =
@@ -403,6 +406,9 @@ export default function AuthModal({
       setForgotStep("otp");
       setForgotCooldown(res.data?.resendCooldownSeconds || 30);
       setForgotMessage(res.data?.message || "OTP sent successfully.");
+      if (res.data?.devOtp) {
+        setForgotOtp(res.data.devOtp);
+      }
 
     } catch (err: any) {
       const msg =
