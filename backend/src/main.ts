@@ -90,13 +90,29 @@ async function bootstrap() {
       // Allow non-browser requests (curl, server-to-server, mobile, Render health checks)
       if (!origin) return callback(null, true);
       const normalized = origin.trim().replace(/\/+$/, '');
-      if (
-        allowedOrigins.includes(normalized) ||
-        /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|3000)$/.test(normalized)
-      ) {
-        return callback(null, true);
+
+      try {
+        const url = new URL(normalized);
+        const host = url.hostname.toLowerCase();
+        if (
+          allowedOrigins.includes(normalized) ||
+          /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|3000)$/.test(normalized) ||
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          host === 'vercel.app' ||
+          host.endsWith('.vercel.app') ||
+          host === 'swayamadmission.in' ||
+          host.endsWith('.swayamadmission.in')
+        ) {
+          return callback(null, true);
+        }
+      } catch {
+        if (allowedOrigins.includes(normalized)) {
+          return callback(null, true);
+        }
       }
-      return callback(new Error(`Origin ${origin} not allowed by CORS`));
+
+      return callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
