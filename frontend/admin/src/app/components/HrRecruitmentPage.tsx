@@ -29,6 +29,7 @@ import {
   RotateCcw,
   AlertTriangle,
   UserPlus,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { hrApi, type Vacancy, type RecruitmentSetting, type ClearanceItem } from "../../api/hr.api";

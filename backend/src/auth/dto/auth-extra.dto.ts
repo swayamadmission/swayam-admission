@@ -162,3 +162,32 @@ export class VerifyUserMobileDto {
   @IsNotEmpty({ message: '6-digit verification code is required' })
   otp: string;
 }
+
+export class FirstLoginSendOtpDto {
+  @IsNotEmpty({ message: 'Employee ID or registered email is required' })
+  @IsString()
+  identifier: string;
+}
+
+export class FirstLoginChangePasswordDto {
+  @IsNotEmpty({ message: 'Employee ID or registered email is required' })
+  @IsString()
+  identifier: string;
+
+  @IsNotEmpty({ message: 'Current temporary password is required' })
+  @IsString()
+  currentPassword: string;
+
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(8, { message: 'New password must be at least 8 characters long' })
+  @IsString()
+  newPassword: string;
+
+  @IsNotEmpty({ message: 'Confirm password is required' })
+  @IsString()
+  confirmPassword: string;
+
+  @IsNotEmpty({ message: 'Email verification OTP is required' })
+  @IsString()
+  otp: string;
+}

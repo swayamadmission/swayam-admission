@@ -3,7 +3,9 @@ import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 const isRedisEnabled =
-  process.env.REDIS_ENABLED === 'true' || process.env.NODE_ENV === 'production';
+  process.env.REDIS_ENABLED === 'true' ||
+  Boolean(process.env.REDIS_URL) ||
+  (Boolean(process.env.REDIS_HOST) && process.env.REDIS_HOST !== 'localhost');
 
 @Module({
   imports: [
@@ -12,12 +14,23 @@ const isRedisEnabled =
           BullModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: (configService: ConfigService) => ({
-              connection: {
-                host: configService.get('REDIS_HOST', 'localhost'),
-                port: configService.get('REDIS_PORT', 6379),
-              },
-            }),
+            useFactory: (configService: ConfigService) => {
+              const redisUrl = configService.get<string>('REDIS_URL');
+              if (redisUrl) {
+                return {
+                  connection: {
+                    url: redisUrl,
+                  },
+                };
+              }
+              return {
+                connection: {
+                  host: configService.get('REDIS_HOST', 'localhost'),
+                  port: Number(configService.get('REDIS_PORT', 6379)),
+                  password: configService.get<string>('REDIS_PASSWORD'),
+                },
+              };
+            },
           }),
           BullModule.registerQueue({ name: 'email' }),
           BullModule.registerQueue({ name: 'whatsapp' }),

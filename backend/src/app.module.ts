@@ -50,6 +50,8 @@ import { ContactModule } from './contact/contact.module';
 import { BannersModule } from './banners/banners.module';
 import { LegalModule } from './legal/legal.module';
 import { HrModule } from './hr/hr.module';
+import { ProfileModule } from './profile/profile.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
   imports: [
@@ -103,6 +105,8 @@ import { HrModule } from './hr/hr.module';
     ContactModule,
     BannersModule,
     LegalModule,
+    ProfileModule,
+    EmployeesModule,
   ],
   controllers: [AppController, CommonController],
   providers: [AppService],

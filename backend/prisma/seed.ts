@@ -56,9 +56,10 @@ async function main() {
         role: Role.SUPER_ADMIN,
         fullName: ADMIN_NAME,
         isApproved: true,
+        employeeId: admin.employeeId || 'SWY-EMP-2026-0002',
       },
     });
-    console.log(`✅ Super Admin user verified: ${admin.email} (id: ${admin.id})`);
+    console.log(`✅ Super Admin user verified: ${admin.email} (id: ${admin.id}, empId: ${admin.employeeId})`);
   } else {
     const hashedPassword = await bcryptLib.hash(ADMIN_PASSWORD, 10);
     admin = await prisma.user.create({
@@ -69,9 +70,21 @@ async function main() {
         fullName: ADMIN_NAME,
         mobile: ADMIN_MOBILE,
         isApproved: true,
+        employeeId: 'SWY-EMP-2026-0002',
       },
     });
-    console.log(`✅ Super Admin user created: ${admin.email} (id: ${admin.id})`);
+    console.log(`✅ Super Admin user created: ${admin.email} (id: ${admin.id}, empId: ${admin.employeeId})`);
+  }
+
+  // Also ensure admin@swayamadmission.com has permanent employeeId SWY-EMP-2026-0001
+  const adminCom = await prisma.user.findUnique({
+    where: { email: 'admin@swayamadmission.com' },
+  });
+  if (adminCom && !adminCom.employeeId) {
+    await prisma.user.update({
+      where: { email: 'admin@swayamadmission.com' },
+      data: { employeeId: 'SWY-EMP-2026-0001' },
+    });
   }
 
   // 3. Seed Core System Role Entities

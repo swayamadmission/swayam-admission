@@ -1,6 +1,8 @@
 import api from './axios';
 
 export interface OtpConfig {
+  id?: string;
+  channel?: string;
   enabled: boolean;
   provider: string;
   providerUrl?: string;
@@ -13,6 +15,8 @@ export interface OtpConfig {
   resendCooldownSec: number;
   rateLimitCount: number;
   rateLimitWindowSec: number;
+  updatedAt?: string;
+  createdAt?: string;
 }
 
 export const authOtpApi = {

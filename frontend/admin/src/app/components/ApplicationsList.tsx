@@ -52,7 +52,7 @@ export default function ApplicationsList() {
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
   // Queries
-  const { data: appRes, isLoading, refetch } = useQuery({
+  const { data: appRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin_applications", statusFilter, vacancyFilter, showArchived],
     queryFn: () => hrApi.getApplications({
       status: statusFilter === "ALL" ? undefined : statusFilter,
@@ -66,8 +66,21 @@ export default function ApplicationsList() {
     queryFn: () => hrApi.getVacancies(),
   });
 
-  const applications: JobApplication[] = appRes?.data || [];
-  const vacancies: Vacancy[] = vacRes?.data || [];
+  const rawApps = appRes?.data;
+  const applications: JobApplication[] = Array.isArray(rawApps)
+    ? rawApps
+    : Array.isArray((rawApps as any)?.data)
+    ? (rawApps as any).data
+    : Array.isArray((rawApps as any)?.applications)
+    ? (rawApps as any).applications
+    : [];
+
+  const rawVacs = vacRes?.data;
+  const vacancies: Vacancy[] = Array.isArray(rawVacs)
+    ? rawVacs
+    : Array.isArray((rawVacs as any)?.data)
+    ? (rawVacs as any).data
+    : [];
 
   // Mutations
   const statusMutation = useMutation({
@@ -107,10 +120,10 @@ export default function ApplicationsList() {
     const q = searchTerm.toLowerCase();
     const fullName = `${app.firstName || ""} ${app.lastName || ""}`.toLowerCase();
     const email = (app.email || "").toLowerCase();
-    const phone = (app.phone || "").toLowerCase();
+    const mobile = (app.mobile || "").toLowerCase();
     const appId = (app.applicationId || "").toLowerCase();
     const title = (app.vacancy?.title || "").toLowerCase();
-    return fullName.includes(q) || email.includes(q) || phone.includes(q) || appId.includes(q) || title.includes(q);
+    return fullName.includes(q) || email.includes(q) || mobile.includes(q) || appId.includes(q) || title.includes(q);
   });
 
   const handleDownloadResume = (e: React.MouseEvent, app: JobApplication) => {
@@ -191,6 +204,22 @@ export default function ApplicationsList() {
           <div className="w-8 h-8 border-4 border-[#4A7B5B] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-500">Loading job applications...</p>
         </div>
+      ) : isError ? (
+        <div className="p-12 text-center bg-white rounded-xl border border-red-100 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-3">
+            <AlertCircle className="w-6 h-6 text-red-500" />
+          </div>
+          <h3 className="text-base font-bold text-gray-800 mb-1">Failed to load applications</h3>
+          <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+            {(error as any)?.response?.data?.message || (error as any)?.message || "A network or authorization error occurred while fetching candidate applications."}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 bg-[#4A7B5B] text-white text-xs font-semibold rounded-lg hover:bg-[#3D664B] transition-colors inline-flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" /> Retry Loading
+          </button>
+        </div>
       ) : filteredApps.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-xl">
           <div className="w-16 h-16 rounded-full bg-[#E8F3EC] flex items-center justify-center mx-auto mb-4">
@@ -266,7 +295,7 @@ export default function ApplicationsList() {
                       </div>
                       <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
                         <span>{app.email}</span>
-                        {app.phone && <span className="text-gray-400">• {app.phone}</span>}
+                        {app.mobile && <span className="text-gray-400">• {app.mobile}</span>}
                       </div>
                     </td>
 
@@ -276,7 +305,7 @@ export default function ApplicationsList() {
                         {app.vacancy?.title || "Unknown Vacancy"}
                       </div>
                       <div className="text-xs text-gray-400">
-                        {app.vacancy?.vacancyCode || "ID: " + app.vacancyId.slice(0, 8)}
+                        {app.vacancy?.vacancyCode || (app.vacancyId ? "ID: " + app.vacancyId.slice(0, 8) : "—")}
                       </div>
                     </td>
 

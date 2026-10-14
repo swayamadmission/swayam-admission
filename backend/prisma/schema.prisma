@@ -4123,6 +4123,7 @@ model User {
   kycStatus                                                   String                     @default("NOT_SUBMITTED")
   selfServicePasswordReset                                    Boolean                    @default(true)
   mustChangePassword                                          Boolean                    @default(false)
+  temporaryPasswordExpiresAt                                  DateTime?
   sessionVersion                                              Int                        @default(1)
   lockReason                                                  String?
   lockedAt                                                    DateTime?
@@ -5801,6 +5802,11 @@ model OtpConfiguration {
   fromEmail           String?
   templateName        String?
   templateLanguage    String?
+
+  // Additional provider settings
+  providerUrl         String?
+  senderId            String?
+  templateId          String?
   
   // Policies
   expirySeconds       Int      @default(300)

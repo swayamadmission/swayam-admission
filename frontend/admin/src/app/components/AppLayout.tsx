@@ -15,6 +15,7 @@ import RBACPage from "./RBACPage";
 import { OrganizationPage } from "./OrganizationPage";
 import StaffOnboardingPage from "./StaffOnboardingPage";
 import HrRecruitmentPage from "./HrRecruitmentPage";
+import EmployeeManagementPage from "./EmployeeManagementPage";
 import MobileBottomNav from "./MobileBottomNav";
 import BannersPage from "./BannersPage";
 import BlogsPage from "./BlogsPage";
@@ -85,6 +86,8 @@ export default function AppLayout({ user, currentPage, onPageChange, onLogout }:
       case "counselors": return <CounselorsPage />;
       case "hr":
       case "hr-recruitment": return <HrRecruitmentPage />;
+      case "employees":
+      case "employee-management": return <EmployeeManagementPage />;
       case "staff-onboarding": return <StaffOnboardingPage />;
       case "students": return <StudentsPage />;
       case "colleges": return <CollegesPage />;

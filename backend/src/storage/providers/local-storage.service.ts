@@ -5,7 +5,8 @@ import { IStorageService } from '../storage.service';
 
 @Injectable()
 export class LocalStorageService implements IStorageService {
-  private readonly uploadDir = path.join(process.cwd(), 'uploads');
+  private readonly uploadDir =
+    process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
 
   constructor() {
     if (!fs.existsSync(this.uploadDir)) {
@@ -32,7 +33,7 @@ export class LocalStorageService implements IStorageService {
 
       // Return a relative URL path that can be served statically
       return `/uploads/${folder}/${filename}`;
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException('Failed to upload file locally');
     }
   }
@@ -48,7 +49,7 @@ export class LocalStorageService implements IStorageService {
         return true;
       }
       return false;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

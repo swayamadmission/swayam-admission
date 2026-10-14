@@ -28,6 +28,13 @@ import {
   StartOnboardingDto,
   CompleteOnboardingDto,
 } from './dto/application.dto';
+import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
+
+const bcryptLib = bcrypt as unknown as {
+  hash: (s: string, saltOrRounds: number) => Promise<string>;
+  compare: (s: string, hash: string) => Promise<boolean>;
+};
 
 const VALID_STATUSES = [
   'APPLIED',
@@ -2649,15 +2656,21 @@ export class HrService {
 
     const officialEmail = (dto.officialEmail || onboarding.officialEmail || app.email).trim().toLowerCase();
     const officialMobile = (dto.officialMobile || onboarding.officialMobile || app.mobile).trim();
-    const employeeId = dto.employeeId || onboarding.employeeId;
+    let employeeId = dto.employeeId || onboarding.employeeId;
+    if (!employeeId) {
+      const currentYear = new Date().getFullYear();
+      const count = await this.prisma.user.count({ where: { employeeId: { not: null } } });
+      employeeId = `SWY-EMP-${currentYear}-${String(count + 101).padStart(4, '0')}`;
+    }
 
-    // SECTION 6: EMPLOYEE RECORD LINKING
+    // SECTION 6: EMPLOYEE RECORD LINKING & CREDENTIAL ISSUANCE
     let linkedUser = await this.prisma.user.findFirst({
       where: {
         OR: [
           ...(app.userId ? [{ id: app.userId }] : []),
           { email: officialEmail },
           { mobile: officialMobile },
+          { employeeId },
         ],
       },
     });
@@ -2677,7 +2690,14 @@ export class HrService {
       targetRole = Role.COUNSELOR;
     }
 
+    // Generate cryptographically random temporary password
+    const rawTempPassword = `Swy@${crypto.randomBytes(3).toString('hex')}${crypto.randomInt(10, 99)}`;
+    const hashedTempPassword = await bcryptLib.hash(rawTempPassword, 10);
+    const tempPasswordExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days validity
+    let credentialsAssigned = false;
+
     if (linkedUser) {
+      const needsPassword = !linkedUser.password || linkedUser.mustChangePassword;
       linkedUser = await this.prisma.user.update({
         where: { id: linkedUser.id },
         data: {
@@ -2689,9 +2709,18 @@ export class HrService {
           isActive: true,
           isApproved: true,
           isVerified: true,
+          status: 'ACTIVE',
           kycStatus: 'APPROVED',
+          ...(needsPassword
+            ? {
+                password: hashedTempPassword,
+                mustChangePassword: true,
+                temporaryPasswordExpiresAt: tempPasswordExpiresAt,
+              }
+            : {}),
         },
       });
+      credentialsAssigned = needsPassword;
     } else {
       linkedUser = await this.prisma.user.create({
         data: {
@@ -2705,12 +2734,100 @@ export class HrService {
           designation: onboarding.designation,
           joiningDate: onboarding.joiningDate,
           role: targetRole,
+          password: hashedTempPassword,
+          mustChangePassword: true,
+          temporaryPasswordExpiresAt: tempPasswordExpiresAt,
           isActive: true,
           isApproved: true,
           isVerified: true,
+          status: 'ACTIVE',
           kycStatus: 'APPROVED',
+          sessionVersion: 1,
         },
       });
+      credentialsAssigned = true;
+    }
+
+    // Dispatch branded joining email containing credentials & portal info
+    if (this.emailChannel) {
+      try {
+        const portalUrl = 'https://erp.swayamadmission.com';
+        await this.emailChannel.send(
+          {
+            id: linkedUser.id,
+            name: candidateFullName,
+            email: officialEmail,
+            mobile: officialMobile,
+            type: 'STAFF',
+          },
+          {
+            title: 'Welcome to Swayam Admission — Your Joining Information & Login Credentials',
+            subject: 'Welcome to Swayam Admission — Your Official Joining Credentials',
+            message: `Dear ${candidateFullName},\n\nCongratulations on joining Swayam Admission as ${onboarding.designation} (${onboarding.department})!\n\nYour Employee ID: ${employeeId}\nTemporary Password: ${credentialsAssigned ? rawTempPassword : '[Already set]'}\nPortal URL: ${portalUrl}\n\nPlease log in within 7 days to verify your email and set your permanent password.\n\nWarm regards,\nHR Department, Swayam Admission`,
+            emailHtml: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                <div style="background-color: #4A7B5B; padding: 20px; border-radius: 6px; text-align: center; margin-bottom: 24px;">
+                  <h1 style="color: #FFFFFF; margin: 0; font-size: 24px;">Welcome to Swayam Admission</h1>
+                  <p style="color: #F0AE1A; margin: 6px 0 0 0; font-size: 14px; font-weight: bold;">Official Employee Onboarding</p>
+                </div>
+                <p>Dear <strong>${candidateFullName}</strong>,</p>
+                <p>We are thrilled to welcome you to the Swayam Admission team! Your onboarding clearance has been approved, and your official employee profile is now active.</p>
+                
+                <div style="background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                  <h3 style="margin-top: 0; color: #1E293B;">Your Official Account Credentials</h3>
+                  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Employee ID:</strong></td>
+                      <td style="padding: 6px 0; color: #1E293B; font-weight: bold;">${employeeId}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Official Email:</strong></td>
+                      <td style="padding: 6px 0; color: #1E293B;">${officialEmail}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Temporary Password:</strong></td>
+                      <td style="padding: 6px 0; color: #4A7B5B; font-family: monospace; font-size: 16px; font-weight: bold;">
+                        ${credentialsAssigned ? rawTempPassword : 'Use your existing password'}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Designation:</strong></td>
+                      <td style="padding: 6px 0; color: #1E293B;">${onboarding.designation}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Department:</strong></td>
+                      <td style="padding: 6px 0; color: #1E293B;">${onboarding.department}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 6px 0; color: #64748B;"><strong>Portal URL:</strong></td>
+                      <td style="padding: 6px 0;"><a href="${portalUrl}" style="color: #4A7B5B; font-weight: bold;">${portalUrl}</a></td>
+                    </tr>
+                  </table>
+                </div>
+
+                <div style="background-color: #FEF9C3; border-left: 4px solid #F0AE1A; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
+                  <p style="margin: 0; font-size: 13px; color: #854D0E;">
+                    <strong>Important:</strong> Your temporary password is valid for <strong>7 days</strong>. Upon first sign-in at the Employee ERP Portal, you will be required to verify an Email OTP and set a permanent personal password.
+                  </p>
+                </div>
+
+                <p style="text-align: center; margin: 30px 0;">
+                  <a href="${portalUrl}" style="background-color: #4A7B5B; color: #FFFFFF; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Log In to Employee ERP Portal
+                  </a>
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;" />
+                <p style="font-size: 12px; color: #94A3B8; text-align: center; margin: 0;">
+                  Need assistance? Contact HR at <a href="mailto:hr@swayamadmission.com" style="color: #4A7B5B;">hr@swayamadmission.com</a>
+                </p>
+              </div>
+            `,
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(`Failed sending joining letter email: ${mailErr.message}`);
+      }
     }
 
     await this.prisma.jobApplication.update({

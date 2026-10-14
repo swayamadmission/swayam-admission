@@ -9,8 +9,11 @@ import type { Request, Response, NextFunction } from 'express';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Ensure uploads directory exists
-  const uploadsDir = join(process.cwd(), 'uploads');
+  // Enable graceful shutdown for hosting environments (SIGTERM / SIGINT)
+  app.enableShutdownHooks();
+
+  // Ensure uploads directory exists (supports persistent disk mount if configured)
+  const uploadsDir = process.env.UPLOAD_DIR || join(process.cwd(), 'uploads');
   if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
   }
@@ -42,14 +45,17 @@ async function bootstrap() {
   });
 
   // Serve only public static assets (logos, public media, thumbnails)
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+  app.useStaticAssets(uploadsDir, {
     prefix: '/uploads',
   });
 
-  // Health Check Alias Middleware: Route /health to /v1/health seamlessly
+  // Health Check & Root Route Alias Middleware:
+  // Seamlessly route /health to /v1/health for Render health checks and / to /v1
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (req.path === '/health' || req.path === '/health/') {
       req.url = '/v1/health';
+    } else if (req.path === '/' || req.path === '') {
+      req.url = '/v1';
     } else if (req.path.startsWith('/users/me/shortlist')) {
       req.url = `/v1${req.url}`;
     }
@@ -57,26 +63,36 @@ async function bootstrap() {
   });
 
   // Authoritative CORS Configuration
-  const allowedOrigins = [
+  // Supports comma-separated origin lists, trailing slashes, and localhost dev
+  const configuredOrigins = [
+    ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
+    ...(process.env.ADMIN_URL ? process.env.ADMIN_URL.split(',') : []),
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : []),
+  ]
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
+  const defaultOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'http://127.0.0.1:3000',
-    process.env.FRONTEND_URL,
-    process.env.ADMIN_URL,
-    process.env.CORS_ORIGIN,
-  ].filter(Boolean) as string[];
+  ];
+
+  const allowedOrigins = Array.from(
+    new Set([...defaultOrigins, ...configuredOrigins]),
+  );
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow non-browser requests (curl, server-to-server, mobile)
+      // Allow non-browser requests (curl, server-to-server, mobile, Render health checks)
       if (!origin) return callback(null, true);
+      const normalized = origin.trim().replace(/\/+$/, '');
       if (
-        allowedOrigins.includes(origin) ||
-        /^http:\/\/localhost:(5173|5174|3000)$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:(5173|5174|3000)$/.test(origin)
+        allowedOrigins.includes(normalized) ||
+        /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|3000)$/.test(normalized)
       ) {
         return callback(null, true);
       }
@@ -113,10 +129,10 @@ async function bootstrap() {
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   try {
-    await app.listen(port);
+    await app.listen(port, '0.0.0.0');
     console.log('✅ Backend Started');
-    console.log(`🚀 Server running on http://localhost:${port}`);
-    console.log(`🚀 Listening on configured port ${port}`);
+    console.log(`🚀 Server listening on 0.0.0.0:${port}`);
+    console.log(`🚀 Configured CORS origins: ${allowedOrigins.join(', ')}`);
   } catch (err: unknown) {
     const errorWithCode = err as { code?: string };
     if (errorWithCode?.code === 'EADDRINUSE') {

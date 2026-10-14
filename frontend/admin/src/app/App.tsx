@@ -31,13 +31,14 @@ function AppContent() {
     );
   }
 
-  if (!isAuthenticated || !user) {
+  if (!isAuthenticated || !user || user.mustChangePassword) {
     return (
       <LoginPage
         onLogin={login}
         authError={error}
         authLoading={isLoading}
         clearError={clearError}
+        forcedChangePasswordUser={user?.mustChangePassword ? user : null}
       />
     );
   }

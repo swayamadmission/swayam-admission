@@ -17,14 +17,15 @@ import {
   AlertCircle,
   KeyRound,
 } from "lucide-react";
-import type { LoginPayload } from "../../api/auth.api";
+import { authApi, type LoginPayload, type AuthUser } from "../../api/auth.api";
 import { staffOnboardingApi } from "../../api/staff-onboarding.api";
 import { organizationApi } from "../../api/organization.api";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { toast } from "sonner";
 import saLogo from "../../assets/SA_logo-removebg-preview.png";
 
-type Screen = "login" | "register" | "otp" | "forgot" | "reset" | "pending";
+type Screen = "login" | "register" | "otp" | "forgot" | "reset" | "pending" | "first-login-change-password";
 type LoginMode = "admin" | "staff";
 
 interface LoginPageProps {
@@ -32,6 +33,7 @@ interface LoginPageProps {
   authError: string | null;
   authLoading: boolean;
   clearError: () => void;
+  forcedChangePasswordUser?: AuthUser | null;
 }
 
 export default function LoginPage({
@@ -39,9 +41,17 @@ export default function LoginPage({
   authError,
   authLoading,
   clearError,
+  forcedChangePasswordUser,
 }: LoginPageProps) {
-  const [screen, setScreen] = useState<Screen>("login");
-  const [loginMode, setLoginMode] = useState<LoginMode>("admin");
+  // Domain and portal detection
+  const isHostAdmin = typeof window !== "undefined" && window.location.hostname.includes("admin.swayamadmission");
+  const isHostErp = typeof window !== "undefined" && window.location.hostname.includes("erp.swayamadmission");
+  const queryPortal = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("portal") : null;
+
+  const defaultPortal: LoginMode = (isHostAdmin || queryPortal === "admin") ? "admin" : ((isHostErp || queryPortal === "erp") ? "staff" : "admin");
+
+  const [screen, setScreen] = useState<Screen>(forcedChangePasswordUser ? "first-login-change-password" : "login");
+  const [loginMode, setLoginMode] = useState<LoginMode>(defaultPortal);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [rememberSession, setRememberSession] = useState(true);
@@ -49,6 +59,19 @@ export default function LoginPage({
   const [otpType, setOtpType] = useState<"mobile" | "email">("mobile");
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // First Login Mandatory Setup States
+  const [firstLoginUserId, setFirstLoginUserId] = useState<string>(forcedChangePasswordUser?.id || "");
+  const [firstLoginMaskedEmail, setFirstLoginMaskedEmail] = useState<string>("");
+  const [firstLoginOtpSent, setFirstLoginOtpSent] = useState(false);
+  const [firstLoginOtpSending, setFirstLoginOtpSending] = useState(false);
+  const [firstLoginOtpCooldown, setFirstLoginOtpCooldown] = useState(0);
+  const [firstLoginOtpValue, setFirstLoginOtpValue] = useState("");
+  const [firstLoginTempPassword, setFirstLoginTempPassword] = useState("");
+  const [firstLoginNewPassword, setFirstLoginNewPassword] = useState("");
+  const [firstLoginConfirmPassword, setFirstLoginConfirmPassword] = useState("");
+  const [firstLoginSubmitting, setFirstLoginSubmitting] = useState(false);
+  const [firstLoginSuccess, setFirstLoginSuccess] = useState(false);
 
   // Dynamic Allowed Roles
   const [allowedRoles, setAllowedRoles] = useState<
@@ -130,6 +153,34 @@ export default function LoginPage({
     fetchStates();
   }, []);
 
+  // Cooldown countdown for first-login OTP
+  useEffect(() => {
+    let timer: any;
+    if (firstLoginOtpCooldown > 0) {
+      timer = setTimeout(() => setFirstLoginOtpCooldown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [firstLoginOtpCooldown]);
+
+  // If forcedChangePasswordUser provided, initiate OTP
+  useEffect(() => {
+    if (forcedChangePasswordUser) {
+      setFirstLoginUserId(forcedChangePasswordUser.id);
+      setScreen("first-login-change-password");
+      if (forcedChangePasswordUser.email) {
+        const parts = forcedChangePasswordUser.email.split("@");
+        setFirstLoginMaskedEmail(parts[0].slice(0, 2) + "***@" + parts[1]);
+      }
+      authApi.firstLoginSendOtp(forcedChangePasswordUser.id)
+        .then((res) => {
+          if (res.data?.maskedEmail) setFirstLoginMaskedEmail(res.data.maskedEmail);
+          setFirstLoginOtpSent(true);
+          setFirstLoginOtpCooldown(60);
+        })
+        .catch(() => {});
+    }
+  }, [forcedChangePasswordUser]);
+
   const handleStateChange = async (stateId: string) => {
     // Crucial: Reset district when state changes
     setRegisterForm((f) => ({ ...f, requestedStateId: stateId, requestedDistrictId: "" }));
@@ -160,32 +211,127 @@ export default function LoginPage({
     }
   };
 
+  const handleSendFirstLoginOtp = async () => {
+    if (!firstLoginUserId || firstLoginOtpSending || firstLoginOtpCooldown > 0) return;
+    setFirstLoginOtpSending(true);
+    setLocalError(null);
+    try {
+      const res = await authApi.firstLoginSendOtp(firstLoginUserId);
+      if (res.data?.maskedEmail) {
+        setFirstLoginMaskedEmail(res.data.maskedEmail);
+      }
+      setFirstLoginOtpSent(true);
+      setFirstLoginOtpCooldown(60);
+      toast.success("Verification code sent to your official email.");
+    } catch (err: any) {
+      setLocalError(err.response?.data?.message || "Failed to deliver OTP to official email.");
+    } finally {
+      setFirstLoginOtpSending(false);
+    }
+  };
+
+  const handleFirstLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+
+    if (!firstLoginTempPassword) {
+      setLocalError("Please enter your current temporary password.");
+      return;
+    }
+    if (!firstLoginOtpValue.trim() || firstLoginOtpValue.trim().length !== 6) {
+      setLocalError("Please enter the 6-digit OTP sent to your registered official email.");
+      return;
+    }
+    if (!firstLoginNewPassword || firstLoginNewPassword.length < 6) {
+      setLocalError("New permanent password must be at least 6 characters long.");
+      return;
+    }
+    if (firstLoginNewPassword !== firstLoginConfirmPassword) {
+      setLocalError("New password and confirm password do not match.");
+      return;
+    }
+
+    setFirstLoginSubmitting(true);
+    try {
+      const res = await authApi.firstLoginChangePassword({
+        userId: firstLoginUserId,
+        currentPassword: firstLoginTempPassword,
+        otp: firstLoginOtpValue.trim(),
+        newPassword: firstLoginNewPassword,
+        confirmPassword: firstLoginConfirmPassword,
+      });
+
+      if (res.data?.accessToken) {
+        localStorage.setItem("swayam_token", res.data.accessToken);
+        if (res.data.refreshToken) {
+          localStorage.setItem("swayam_refresh_token", res.data.refreshToken);
+        }
+      }
+      if (res.data?.user) {
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+      }
+
+      setFirstLoginSuccess(true);
+      toast.success("Permanent password created! Entering workspace...");
+      setTimeout(() => {
+        window.location.reload();
+      }, 1200);
+    } catch (err: any) {
+      setLocalError(err.response?.data?.message || "Verification or password change failed.");
+    } finally {
+      setFirstLoginSubmitting(false);
+    }
+  };
+
   const handleRealLogin = async () => {
     if (authLoading) return;
     setLocalError(null);
     clearError();
     if (!loginForm.identifier.trim() || !loginForm.password.trim()) {
-      setLocalError("Please enter your company email/mobile and password.");
+      setLocalError(
+        loginMode === "admin"
+          ? "Please enter your Admin Email or Employee ID and password."
+          : "Please enter your Employee ID and password."
+      );
       return;
     }
-    const success = await onLogin({
-      email: loginForm.identifier.trim(),
-      password: loginForm.password,
-    });
 
-    // Check if current user has mustChangePassword flag
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.mustChangePassword) {
-          setFirstLoginPassForm((f) => ({
-            ...f,
-            currentPassword: loginForm.password,
-          }));
-          setMustChangePasswordModal(true);
+    try {
+      // Direct call to check mustChangePassword response
+      const res = await authApi.login({
+        email: loginForm.identifier.trim(),
+        password: loginForm.password,
+      });
+
+      if (res.data?.mustChangePassword) {
+        // Enforce dedicated first-login screen with official email OTP
+        const u = res.data.user;
+        setFirstLoginUserId(u.id);
+        setFirstLoginTempPassword(loginForm.password);
+        if (u.email) {
+          const parts = u.email.split("@");
+          setFirstLoginMaskedEmail(parts[0].slice(0, 2) + "***@" + parts[1]);
         }
-      } catch {}
+        setScreen("first-login-change-password");
+        // Dispatch OTP to employee's official email
+        authApi.firstLoginSendOtp(u.id)
+          .then((otpRes) => {
+            if (otpRes.data?.maskedEmail) setFirstLoginMaskedEmail(otpRes.data.maskedEmail);
+            setFirstLoginOtpSent(true);
+            setFirstLoginOtpCooldown(60);
+          })
+          .catch(() => {});
+        return;
+      }
+
+      // Normal login proceeds to onLogin
+      await onLogin({
+        email: loginForm.identifier.trim(),
+        password: loginForm.password,
+      });
+    } catch (err: any) {
+      const serverMsg = err.response?.data?.message || err.message || "Invalid credentials.";
+      setLocalError(serverMsg);
     }
   };
 
@@ -389,7 +535,7 @@ export default function LoginPage({
                   }`}
                 >
                   <Shield className="w-3.5 h-3.5" />
-                  Admin & System Login
+                  Protected Admin Portal
                 </button>
                 <button
                   type="button"
@@ -405,18 +551,21 @@ export default function LoginPage({
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5" />
-                  Enterprise Staff Login
+                  Employee ERP Portal
                 </button>
               </div>
 
               <div className="mb-6">
                 <h2 className="text-[#4A7B5B] text-2xl font-bold mb-1">
-                  {loginMode === "admin" ? "Admin & System Portal" : "Enterprise Staff Portal"}
+                  {loginMode === "admin" ? "Protected Admin Portal" : "Employee ERP Portal"}
                 </h2>
+                <div className="inline-block px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-gray-100 text-gray-700 mb-2">
+                  {loginMode === "admin" ? "https://admin.swayamadmission.com" : "https://erp.swayamadmission.com"}
+                </div>
                 <p className="text-[#64748B] text-xs">
                   {loginMode === "admin"
-                    ? "Sign in with your Super Admin, Director, or IAM Administrator credentials."
-                    : "Sign in using your continuous Company Post Email or personal staff credentials."}
+                    ? "Restricted administrative environment for Super Admin and designated system administrators."
+                    : "Official organizational workspace for faculty, counselors, recruitment, and operating personnel."}
                 </p>
               </div>
 
@@ -429,15 +578,15 @@ export default function LoginPage({
                 )}
                 <div>
                   <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
-                    {loginMode === "admin" ? "Admin Email or Username" : "Company Email, Personal Email or Mobile"}
+                    {loginMode === "admin" ? "Admin Email or Employee ID" : "Employee ID"}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
                     <Input
                       placeholder={
                         loginMode === "admin"
-                          ? "admin@swayamadmission.in"
-                          : "senior.madhubani@swayamadmission.com"
+                          ? "admin@swayamadmission.com or SWY-EMP-2026-0001"
+                          : "SWY-EMP-2026-XXXX"
                       }
                       className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl"
                       value={loginForm.identifier}
@@ -446,6 +595,11 @@ export default function LoginPage({
                       }
                     />
                   </div>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    {loginMode === "admin"
+                      ? "Super Admin can authenticate with email or Employee ID. Other administrators require Employee ID."
+                      : "Employees authenticate strictly with their permanent Employee ID (e.g. SWY-EMP-2026-4616)."}
+                  </p>
                 </div>
 
                 <div>
@@ -514,7 +668,7 @@ export default function LoginPage({
                     </>
                   ) : (
                     <>
-                      {loginMode === "admin" ? "Sign In as Administrator" : "Sign In to Position"} <ArrowRight className="w-4 h-4" />
+                      {loginMode === "admin" ? "Sign In to Admin Portal" : "Sign In to Employee ERP"} <ArrowRight className="w-4 h-4" />
                     </>
                   )}
                 </button>
@@ -982,118 +1136,168 @@ export default function LoginPage({
               </div>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* === FIRST LOGIN PERMANENT PASSWORD MODAL === */}
-      {mustChangePasswordModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-emerald-100">
-            <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-4">
-              <KeyRound className="w-6 h-6" />
-            </div>
-
-            <h3 className="text-xl font-bold text-center text-[#4A7B5B] mb-1">
-              Establish Your Permanent Password
-            </h3>
-            <p className="text-xs text-center text-[#64748B] mb-6">
-              You are logging in with a temporary password. To secure your corporate post, please set your private permanent password now.
-            </p>
-
-            {localError && (
-              <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs">
-                {localError}
+          {/* === FIRST LOGIN MANDATORY SECURITY SETUP SCREEN === */}
+          {screen === "first-login-change-password" && (
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#4A7B5B] flex items-center justify-center mb-4 shadow-sm">
+                <KeyRound className="w-6 h-6" />
               </div>
-            )}
 
-            {passChangeSuccess ? (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm text-center font-medium">
-                ✅ Permanent password established! Redirecting to workspace...
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
-                    Current Temporary Password
-                  </Label>
-                  <Input
-                    type="password"
-                    value={firstLoginPassForm.currentPassword}
-                    onChange={(e) =>
-                      setFirstLoginPassForm((f) => ({
-                        ...f,
-                        currentPassword: e.target.value,
-                      }))
-                    }
-                    className="h-10 text-sm border-[#CBD5E1]"
-                  />
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="text-[#4A7B5B] text-2xl font-bold">
+                    Security Setup Required
+                  </h2>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                    FIRST LOGIN
+                  </span>
                 </div>
+                <p className="text-[#64748B] text-xs leading-relaxed">
+                  You are logging in with a temporary joining password. To secure your corporate account, verify your official email via OTP and establish your permanent password.
+                </p>
+              </div>
 
-                <div>
-                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
-                    New Private Password (min 6 characters)
-                  </Label>
-                  <div className="relative">
+              {localError && (
+                <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{localError}</span>
+                </div>
+              )}
+
+              {firstLoginSuccess ? (
+                <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <div className="font-bold text-sm">Permanent Password Established!</div>
+                  <p className="text-xs text-emerald-700">
+                    Your credentials have been updated and confirmation email sent. Redirecting to your workspace...
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleFirstLoginSubmit} className="space-y-4">
+                  {/* Masked Email & OTP Action */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 font-medium">Registered Official Email:</span>
+                      <span className="font-mono font-semibold text-gray-800">{firstLoginMaskedEmail || "Official Inbox"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type="text"
+                          maxLength={6}
+                          placeholder="Enter 6-digit OTP"
+                          value={firstLoginOtpValue}
+                          onChange={(e) => setFirstLoginOtpValue(e.target.value.replace(/\D/g, ""))}
+                          className="h-10 text-sm font-mono tracking-widest text-center border-gray-200 rounded-xl"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendFirstLoginOtp}
+                        disabled={firstLoginOtpSending || firstLoginOtpCooldown > 0}
+                        className="px-3.5 h-10 rounded-xl text-xs font-semibold border border-gray-200 hover:border-gray-300 text-gray-700 bg-white hover:bg-gray-50 transition shrink-0 disabled:opacity-50"
+                      >
+                        {firstLoginOtpSending ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" />
+                        ) : firstLoginOtpCooldown > 0 ? (
+                          `Resend in ${firstLoginOtpCooldown}s`
+                        ) : firstLoginOtpSent ? (
+                          "Resend OTP"
+                        ) : (
+                          "Send OTP"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
+                      Current Temporary Password *
+                    </Label>
                     <Input
-                      type={showNewPassword ? "text" : "password"}
-                      value={firstLoginPassForm.newPassword}
-                      onChange={(e) =>
-                        setFirstLoginPassForm((f) => ({
-                          ...f,
-                          newPassword: e.target.value,
-                        }))
-                      }
-                      className="h-10 text-sm border-[#CBD5E1] pr-10"
-                      placeholder="Enter new password"
+                      type="password"
+                      required
+                      value={firstLoginTempPassword}
+                      onChange={(e) => setFirstLoginTempPassword(e.target.value)}
+                      placeholder="Enter the password received in your email"
+                      className="h-10 text-sm border-gray-200 rounded-xl"
                     />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
+                      New Permanent Password * (min 6 characters)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        required
+                        value={firstLoginNewPassword}
+                        onChange={(e) => setFirstLoginNewPassword(e.target.value)}
+                        placeholder="Create strong permanent password"
+                        className="h-10 text-sm border-gray-200 rounded-xl pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
+                      Confirm Permanent Password *
+                    </Label>
+                    <Input
+                      type="password"
+                      required
+                      value={firstLoginConfirmPassword}
+                      onChange={(e) => setFirstLoginConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new permanent password"
+                      className="h-10 text-sm border-gray-200 rounded-xl"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={firstLoginSubmitting}
+                    className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 shadow-sm transition hover:shadow disabled:opacity-60"
+                    style={{ background: "#4A7B5B" }}
+                  >
+                    {firstLoginSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Verifying OTP & Updating...
+                      </>
+                    ) : (
+                      <>
+                        Verify OTP & Set Permanent Password <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-center pt-2">
                     <button
                       type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      onClick={() => {
+                        setScreen("login");
+                        setLocalError(null);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-800 transition"
                     >
-                      {showNewPassword ? (
-                        <EyeOff className="w-4 h-4" />
-                      ) : (
-                        <Eye className="w-4 h-4" />
-                      )}
+                      Cancel & Return to Login
                     </button>
                   </div>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-semibold text-[#4A7B5B] mb-1 block">
-                    Confirm New Password
-                  </Label>
-                  <Input
-                    type="password"
-                    value={firstLoginPassForm.confirmNewPassword}
-                    onChange={(e) =>
-                      setFirstLoginPassForm((f) => ({
-                        ...f,
-                        confirmNewPassword: e.target.value,
-                      }))
-                    }
-                    className="h-10 text-sm border-[#CBD5E1]"
-                    placeholder="Confirm new password"
-                  />
-                </div>
-
-                <button
-                  onClick={handleFirstLoginPasswordSubmit}
-                  disabled={passChangeLoading}
-                  className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 mt-2 bg-[#4A7B5B] hover:opacity-90 disabled:opacity-50"
-                >
-                  {passChangeLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Save & Continue to Dashboard"
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
+                </form>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

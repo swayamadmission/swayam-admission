@@ -1,28 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authOtpApi, OtpConfig } from "../../api/authOtp.api";
-import { Shield, Smartphone, Mail, Settings, AlertCircle, CheckCircle2, PlayCircle } from "lucide-react";
+import { Shield, Smartphone, Mail, Settings, AlertCircle, CheckCircle2, PlayCircle, X } from "lucide-react";
 
 export function AuthOtpSettingsPage() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'WHATSAPP' | 'EMAIL'>('WHATSAPP');
   const [testInput, setTestInput] = useState('');
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const { data: config, isLoading } = useQuery({
+  // Auto-dismiss save notice after 5 seconds
+  useEffect(() => {
+    if (saveNotice) {
+      const timer = setTimeout(() => setSaveNotice(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveNotice]);
+
+  const { data: config, isLoading, error: fetchError } = useQuery({
     queryKey: ['otpConfig', activeTab],
     queryFn: () => authOtpApi.getConfig(activeTab),
-  });
-
-  const updateConfigMutation = useMutation({
-    mutationFn: (data: Partial<OtpConfig>) => authOtpApi.updateConfig(activeTab, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['otpConfig', activeTab] });
-      alert("Settings updated successfully!");
-    },
-    onError: (err: any) => {
-      alert(err?.response?.data?.message || "Failed to update settings");
-    }
   });
 
   const testConfigMutation = useMutation({
@@ -30,42 +29,78 @@ export function AuthOtpSettingsPage() {
       if (activeTab === 'WHATSAPP') return authOtpApi.testWhatsApp(input);
       return authOtpApi.testEmail(input);
     },
-    onSuccess: (data) => {
-      setTestResult({ success: true, message: data.message });
+    onSuccess: (data: any) => {
+      setTestResult({
+        success: Boolean(data?.success),
+        message: data?.message || "Test OTP dispatched successfully.",
+      });
     },
     onError: (err: any) => {
-      setTestResult({ success: false, message: err?.response?.data?.message || "Failed to send test OTP" });
+      const errMsg =
+        err?.apiError?.userMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to send test OTP";
+      setTestResult({
+        success: false,
+        message: Array.isArray(errMsg) ? errMsg.join(', ') : errMsg,
+      });
     }
   });
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const data: Partial<OtpConfig> = {
-      enabled: formData.get('enabled') === 'on',
-      provider: formData.get('provider') as string,
-      providerUrl: formData.get('providerUrl') as string,
-      apiKey: formData.get('apiKey') as string,
-      apiPassword: formData.get('apiPassword') as string,
-      senderId: formData.get('senderId') as string,
-      templateId: formData.get('templateId') as string,
-      expirySeconds: Number(formData.get('expirySeconds')),
-      maxAttempts: Number(formData.get('maxAttempts')),
-      resendCooldownSec: Number(formData.get('resendCooldownSec')),
-      rateLimitCount: Number(formData.get('rateLimitCount')),
-      rateLimitWindowSec: Number(formData.get('rateLimitWindowSec')),
-    };
-    updateConfigMutation.mutate(data);
+    if (isSaving) return; // Prevent duplicate submissions
+
+    setIsSaving(true);
+    setSaveNotice(null);
+
+    try {
+      const formData = new FormData(e.currentTarget);
+      const data: Partial<OtpConfig> = {
+        enabled: formData.get('enabled') === 'on',
+        provider: (formData.get('provider') as string)?.trim() || '',
+        providerUrl: (formData.get('providerUrl') as string)?.trim() || '',
+        apiKey: (formData.get('apiKey') as string)?.trim() || '',
+        apiPassword: (formData.get('apiPassword') as string)?.trim() || '',
+        senderId: (formData.get('senderId') as string)?.trim() || '',
+        templateId: (formData.get('templateId') as string)?.trim() || '',
+        expirySeconds: Number(formData.get('expirySeconds')) || 300,
+        maxAttempts: Number(formData.get('maxAttempts')) || 5,
+        resendCooldownSec: Number(formData.get('resendCooldownSec')) || 30,
+        rateLimitCount: Number(formData.get('rateLimitCount')) || 10,
+        rateLimitWindowSec: Number(formData.get('rateLimitWindowSec')) || 3600,
+      };
+
+      await authOtpApi.updateConfig(activeTab, data);
+      await queryClient.invalidateQueries({ queryKey: ['otpConfig', activeTab] });
+      setSaveNotice({
+        type: 'success',
+        message: `${activeTab === 'WHATSAPP' ? 'WhatsApp' : 'Email'} configuration saved successfully!`,
+      });
+    } catch (err: any) {
+      const errMsg =
+        err?.apiError?.userMessage ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update settings";
+      setSaveNotice({
+        type: 'error',
+        message: Array.isArray(errMsg) ? errMsg.join(', ') : errMsg,
+      });
+    } finally {
+      setIsSaving(false); // Guarantee loading state is always reset
+    }
   };
 
   const handleTest = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testInput) return;
+    if (!testInput.trim() || testConfigMutation.isPending) return;
     setTestResult(null);
-    testConfigMutation.mutate(testInput);
+    testConfigMutation.mutate(testInput.trim());
   };
 
-  if (isLoading) return <div className="p-8">Loading settings...</div>;
+  if (isLoading) return <div className="p-8 text-slate-600">Loading settings...</div>;
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -103,7 +138,25 @@ export function AuthOtpSettingsPage() {
         </div>
 
         <div className="p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {saveNotice && (
+            <div className={`p-4 rounded-lg flex items-center justify-between mb-6 ${
+              saveNotice.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                {saveNotice.type === 'success' ? (
+                  <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+                )}
+                <p className="text-sm font-medium">{saveNotice.message}</p>
+              </div>
+              <button onClick={() => setSaveNotice(null)} className="text-slate-400 hover:text-slate-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} key={`${activeTab}-${config?.updatedAt || 'new'}`} className="space-y-6">
             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-200">
               <div>
                 <h3 className="font-semibold text-slate-800">Enable {activeTab} OTP</h3>
@@ -128,28 +181,28 @@ export function AuthOtpSettingsPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">API URL (Optional)</label>
-                  <input type="text" name="providerUrl" defaultValue={config?.providerUrl || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="text" name="providerUrl" defaultValue={config?.providerUrl || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://api.provider.com/v1" />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">API Key / Username</label>
-                  <input type="password" name="apiKey" defaultValue={config?.apiKey ? '********' : ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="password" name="apiKey" defaultValue={config?.apiKey ? '********' : ''} placeholder={config?.apiKey ? '•••••••• (Leave blank to preserve)' : 'Enter API Key or Username'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">API Password / Secret</label>
-                  <input type="password" name="apiPassword" defaultValue={config?.apiPassword ? '********' : ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="password" name="apiPassword" defaultValue={config?.apiPassword ? '********' : ''} placeholder={config?.apiPassword ? '•••••••• (Leave blank to preserve)' : 'Enter API Secret or Password'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Sender ID / From Address</label>
-                  <input type="text" name="senderId" defaultValue={config?.senderId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="text" name="senderId" defaultValue={config?.senderId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder={activeTab === 'WHATSAPP' ? 'Sender Phone ID' : 'noreply@swayamadmission.in'} />
                 </div>
                 
                 {activeTab === 'WHATSAPP' && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Template ID</label>
-                    <input type="text" name="templateId" defaultValue={config?.templateId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    <input type="text" name="templateId" defaultValue={config?.templateId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="otp_verification_code" />
                   </div>
                 )}
               </div>
@@ -161,17 +214,17 @@ export function AuthOtpSettingsPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">OTP Expiry (seconds)</label>
-                  <input type="number" name="expirySeconds" defaultValue={config?.expirySeconds || 300} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="number" name="expirySeconds" defaultValue={config?.expirySeconds ?? 300} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" min={30} />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Max Verification Attempts</label>
-                  <input type="number" name="maxAttempts" defaultValue={config?.maxAttempts || 5} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="number" name="maxAttempts" defaultValue={config?.maxAttempts ?? 5} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" min={1} />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Resend Cooldown (seconds)</label>
-                  <input type="number" name="resendCooldownSec" defaultValue={config?.resendCooldownSec || 30} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <input type="number" name="resendCooldownSec" defaultValue={config?.resendCooldownSec ?? 30} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" min={10} />
                 </div>
                 
                 <div className="pt-4 border-t border-slate-200">
@@ -179,11 +232,11 @@ export function AuthOtpSettingsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Max Requests</label>
-                      <input type="number" name="rateLimitCount" defaultValue={config?.rateLimitCount || 10} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      <input type="number" name="rateLimitCount" defaultValue={config?.rateLimitCount ?? 10} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" min={1} />
                     </div>
                     <div>
                       <label className="block text-xs text-slate-500 mb-1">Time Window (sec)</label>
-                      <input type="number" name="rateLimitWindowSec" defaultValue={config?.rateLimitWindowSec || 3600} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                      <input type="number" name="rateLimitWindowSec" defaultValue={config?.rateLimitWindowSec ?? 3600} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" min={60} />
                     </div>
                   </div>
                 </div>
@@ -193,10 +246,10 @@ export function AuthOtpSettingsPage() {
             <div className="flex justify-end pt-6 border-t border-slate-200">
               <button 
                 type="submit" 
-                disabled={updateConfigMutation.isPending}
+                disabled={isSaving}
                 className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium transition-colors disabled:opacity-50"
               >
-                {updateConfigMutation.isPending ? 'Saving...' : 'Save Configuration'}
+                {isSaving ? 'Saving...' : 'Save Configuration'}
               </button>
             </div>
           </form>

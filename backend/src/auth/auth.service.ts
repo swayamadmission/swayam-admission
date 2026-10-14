@@ -3,7 +3,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 
@@ -25,6 +27,8 @@ import {
   VerifyRegistrationEmailOtpDto,
   SendMobileVerificationDto,
   VerifyUserMobileDto,
+  FirstLoginSendOtpDto,
+  FirstLoginChangePasswordDto,
 } from './dto/auth-extra.dto';
 import { Role } from '@prisma/client';
 import { AuthorizationService } from './authorization.service';
@@ -40,15 +44,19 @@ const bcryptLib = bcrypt as unknown as {
 import { JwtService } from '@nestjs/jwt';
 import { IdGeneratorService } from '../common/id-generator.service';
 import { ConsentService } from '../legal/consent.service';
+import { EmailChannel } from '../notifications/notification-channels.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
     private authorizationService: AuthorizationService,
     private idGenerator: IdGeneratorService,
     private consentService: ConsentService,
+    @Optional() private readonly emailChannel?: EmailChannel,
   ) {}
 
   /**
@@ -170,6 +178,15 @@ export class AuthService {
   /**
    * Issues short-lived access token (15m) and securely rotates refresh token (7d).
    */
+  private getRefreshSecret(): string {
+    return (
+      process.env.REFRESH_TOKEN_SECRET ||
+      process.env.JWT_REFRESH_SECRET ||
+      process.env.JWT_SECRET ||
+      'swayam_super_secret_key'
+    );
+  }
+
   private async issueTokens(user: {
     id: string;
     email?: string | null;
@@ -196,7 +213,7 @@ export class AuthService {
         tokenKey: rawRefreshRandom,
         sessionVersion,
       },
-      { expiresIn: '7d' },
+      { expiresIn: '7d', secret: this.getRefreshSecret() },
     );
 
     const tokenHash = crypto
@@ -1432,13 +1449,15 @@ export class AuthService {
       };
     }
 
-    // Path 2: Direct User Login (Email, Mobile, or Personal Email)
+    // Path 2: Direct User Login (Employee ID, Email, Mobile, or Personal Email)
     const rawDigits = identifier.replace(/\D/g, '').slice(-10);
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email: identifierLower },
           { personalEmail: identifierLower },
+          { employeeId: identifier },
+          { employeeId: identifier.toUpperCase() },
           { mobile: identifier },
           { personalMobile: identifier },
           ...(rawDigits.length === 10
@@ -1486,10 +1505,12 @@ export class AuthService {
       throw new UnauthorizedException('Password not set for this account. Please log in using Mobile OTP or Google.');
     }
 
-    // 3-Domain Architecture Validation
-    if (dto.domain === 'ADMIN' || dto.domain === 'ERP') {
-      if (activeUser.role === 'STUDENT') {
-        throw new ForbiddenException(`Public users cannot access the ${dto.domain} domain.`);
+    // Temporary Password Expiry Check
+    if (activeUser.mustChangePassword && activeUser.temporaryPasswordExpiresAt) {
+      if (activeUser.temporaryPasswordExpiresAt < new Date()) {
+        throw new UnauthorizedException(
+          'Your temporary credentials have expired. Please contact HR at hr@swayamadmission.com to have your credentials re-issued.',
+        );
       }
     }
 
@@ -1497,8 +1518,6 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    const tokens = await this.issueTokens(activeUser);
 
     let iamAccess = {
       roles: [] as any[],
@@ -1519,28 +1538,75 @@ export class AuthService {
       iamAccess.isSuperAdmin = activeUser.role === Role.SUPER_ADMIN;
     }
 
+    // 2-Portal / Domain Architecture Enforcement
+    const isSuperAdminUser = activeUser.role === Role.SUPER_ADMIN || iamAccess.isSuperAdmin;
+    const isProtectedRole =
+      isSuperAdminUser ||
+      activeUser.role === Role.ADMIN ||
+      iamAccess.roles.some((r: any) => r.isProtected);
+
+    if (dto.domain === 'ADMIN') {
+      if (!isProtectedRole) {
+        throw new ForbiddenException(
+          'Access denied. The Admin Portal is restricted to authorized administrative personnel. Normal employees please log in via erp.swayamadmission.com.',
+        );
+      }
+
+      // Non-Super-Admin protected users must authenticate using their assigned Employee ID
+      if (!isSuperAdminUser) {
+        const empIdMatches =
+          activeUser.employeeId &&
+          (identifier === activeUser.employeeId ||
+            identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
+        if (!empIdMatches) {
+          throw new BadRequestException('Protected Admin Portal login requires your assigned Employee ID.');
+        }
+      }
+    } else if (dto.domain === 'ERP') {
+      if (activeUser.role === Role.STUDENT) {
+        throw new ForbiddenException('Students cannot access the Employee ERP portal.');
+      }
+
+      // Normal employees must log in using their assigned Employee ID
+      if (!isSuperAdminUser) {
+        const empIdMatches =
+          activeUser.employeeId &&
+          (identifier === activeUser.employeeId ||
+            identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
+        if (!empIdMatches) {
+          throw new BadRequestException('Employee ERP Portal login requires your assigned Employee ID.');
+        }
+      }
+    }
+
+    const tokens = await this.issueTokens(activeUser);
+
     await this.logAuthEvent({
       userId: activeUser.id,
       action: 'AUTH_LOGIN_SUCCESS',
-      description: `User logged in with password (${activeUser.email || activeUser.mobile})`,
+      description: `User logged in with password (${activeUser.employeeId || activeUser.email || activeUser.mobile}) on domain ${dto.domain || 'DEFAULT'}`,
       ipAddress,
     });
 
     const { password, ...userWithoutPassword } = activeUser;
 
     return {
-      message: 'Login successful',
+      message: activeUser.mustChangePassword
+        ? 'Temporary credentials verified. Mandatory password change required.'
+        : 'Login successful',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       mustChangePassword: activeUser.mustChangePassword || false,
+      employeeId: activeUser.employeeId,
       user: {
         ...userWithoutPassword,
         roles: iamAccess.roles,
         effectivePermissions: iamAccess.effectivePermissions,
         dataScopes: iamAccess.dataScopes,
         isSuperAdmin: iamAccess.isSuperAdmin,
+        mustChangePassword: activeUser.mustChangePassword || false,
       },
     };
   }
@@ -1738,7 +1804,9 @@ export class AuthService {
    */
   async refresh(refreshToken: string) {
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken);
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.getRefreshSecret(),
+      });
       const tokenHash = crypto
         .createHash('sha256')
         .update(refreshToken)
@@ -2497,6 +2565,345 @@ export class AuthService {
       success: true,
       mobileVerified: true,
       message: 'Mobile number verified successfully.',
+    };
+  }
+
+  /**
+   * First-Login Verification Code Dispatch
+   */
+  async sendFirstLoginOtp(dto: FirstLoginSendOtpDto, ipAddress?: string, currentUser?: any) {
+    const rawId = (dto.identifier || currentUser?.employeeId || currentUser?.email || '').trim();
+    const rawIdLower = rawId.toLowerCase();
+
+    if (!rawId) {
+      throw new BadRequestException('Employee ID or official email is required.');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { employeeId: rawId },
+          { employeeId: rawId.toUpperCase() },
+          { email: rawIdLower },
+          { personalEmail: rawIdLower },
+        ],
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('No staff account found matching the provided identifier.');
+    }
+
+    if (!user.mustChangePassword) {
+      throw new BadRequestException(
+        'This account is already fully activated. Please use standard password recovery if needed.',
+      );
+    }
+
+    const officialEmail = user.email || user.personalEmail;
+    if (!officialEmail) {
+      throw new BadRequestException('No official email registered for this staff member.');
+    }
+
+    // Rate-limiting: Check recent OTP requests in last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const recentCount = await this.prisma.otpVerification.count({
+      where: {
+        identifier: officialEmail,
+        type: 'FIRST_LOGIN_EMAIL_OTP',
+        createdAt: { gte: fiveMinutesAgo },
+      },
+    });
+
+    if (recentCount >= 5) {
+      throw new BadRequestException('Too many OTP requests. Please wait 5 minutes before trying again.');
+    }
+
+    // Generate 6-digit cryptographic OTP
+    const rawOtp = crypto.randomInt(100000, 999999).toString();
+    const otpHash = this.hashOtp(rawOtp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes validity
+
+    // Invalidate old active first-login OTPs for this user
+    await this.prisma.otpVerification.updateMany({
+      where: {
+        identifier: officialEmail,
+        type: 'FIRST_LOGIN_EMAIL_OTP',
+        isUsed: false,
+      },
+      data: { isUsed: true },
+    });
+
+    await this.prisma.otpVerification.create({
+      data: {
+        identifier: officialEmail,
+        type: 'FIRST_LOGIN_EMAIL_OTP',
+        otpHash,
+        expiresAt,
+        ipAddress,
+        maxAttempts: 5,
+        attempts: 0,
+      },
+    });
+
+    // Dispatch branded Email
+    if (this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName,
+            email: officialEmail,
+            mobile: user.mobile || undefined,
+            type: 'STAFF',
+          },
+          {
+            title: 'Swayam Admission — First Login Verification Code',
+            subject: `Your Verification Code for Account Activation (${rawOtp})`,
+            message: `Dear ${user.fullName},\n\nYour verification code to complete your first-time password setup is: ${rawOtp}.\n\nThis OTP is valid for 10 minutes.\n\nWarm regards,\nSwayam Admission IT Security`,
+            emailHtml: `
+              <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                <h2 style="color: #4A7B5B; margin-top: 0;">Account Verification</h2>
+                <p>Dear <strong>${user.fullName}</strong>,</p>
+                <p>Please use the following single-use verification code to complete your first-login password setup for Employee ID <strong>${user.employeeId || 'Staff'}</strong>:</p>
+                <div style="text-align: center; margin: 24px 0;">
+                  <div style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1E293B; background: #F1F5F9; display: inline-block; padding: 12px 28px; border-radius: 8px; border: 1px dashed #4A7B5B;">
+                    ${rawOtp}
+                  </div>
+                </div>
+                <p style="font-size: 13px; color: #64748B;">This code is valid for <strong>10 minutes</strong>. Do not share this OTP with anyone.</p>
+                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />
+                <p style="font-size: 11px; color: #94A3B8;">If you did not attempt to log in, please contact security at support@swayamadmission.com immediately.</p>
+              </div>
+            `,
+          },
+        );
+      } catch (err: any) {
+        this.logger.warn(`Failed sending first login email OTP: ${err.message}`);
+      }
+    }
+
+    const [userPart, domainPart] = officialEmail.split('@');
+    const maskedUser = userPart.length > 2 ? `${userPart[0]}***${userPart[userPart.length - 1]}` : `${userPart[0]}***`;
+    const maskedEmail = `${maskedUser}@${domainPart}`;
+
+    return {
+      success: true,
+      message: `Verification code sent to ${maskedEmail}.`,
+      maskedEmail,
+      employeeId: user.employeeId,
+      expiresInSeconds: 600,
+    };
+  }
+
+  /**
+   * Complete Mandatory First-Login Password Change
+   */
+  async completeFirstLoginPasswordChange(
+    dto: FirstLoginChangePasswordDto,
+    ipAddress?: string,
+    currentUser?: any,
+  ) {
+    const rawId = (dto.identifier || currentUser?.employeeId || currentUser?.email || '').trim();
+    const rawIdLower = rawId.toLowerCase();
+
+    if (!rawId) {
+      throw new BadRequestException('Employee ID or official email is required.');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { employeeId: rawId },
+          { employeeId: rawId.toUpperCase() },
+          { email: rawIdLower },
+          { personalEmail: rawIdLower },
+        ],
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Staff account not found.');
+    }
+
+    if (!user.mustChangePassword) {
+      throw new BadRequestException('This account has already completed first-time activation.');
+    }
+
+    if (!user.password) {
+      throw new BadRequestException('No password set on this account.');
+    }
+
+    // Verify current temporary password
+    const isCurrentValid = await bcryptLib.compare(dto.currentPassword, user.password);
+    if (!isCurrentValid) {
+      throw new BadRequestException('Current temporary password does not match.');
+    }
+
+    // Check expiry
+    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt < new Date()) {
+      throw new UnauthorizedException(
+        'Your temporary password has expired. Please contact HR at hr@swayamadmission.com.',
+      );
+    }
+
+    // Verify passwords match
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('New password and confirmation password do not match.');
+    }
+
+    // New password complexity check (min 8 chars, mixed case, number/special char)
+    if (dto.newPassword.length < 8) {
+      throw new BadRequestException('New password must be at least 8 characters long.');
+    }
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException('New password cannot be identical to your temporary password.');
+    }
+
+    const officialEmail = user.email || user.personalEmail;
+    if (!officialEmail) {
+      throw new BadRequestException('No official email found for verification.');
+    }
+
+    // Verify OTP
+    const cleanOtp = (dto.otp || '').trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      throw new BadRequestException('Please enter a valid 6-digit OTP.');
+    }
+
+    const activeOtp = await this.prisma.otpVerification.findFirst({
+      where: {
+        identifier: officialEmail,
+        type: 'FIRST_LOGIN_EMAIL_OTP',
+        isUsed: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!activeOtp) {
+      throw new BadRequestException('No active OTP found. Please request a verification code.');
+    }
+
+    if (activeOtp.expiresAt < new Date()) {
+      await this.prisma.otpVerification.update({
+        where: { id: activeOtp.id },
+        data: { isUsed: true },
+      });
+      throw new BadRequestException('Verification code has expired. Please request a new code.');
+    }
+
+    if (activeOtp.attempts >= activeOtp.maxAttempts) {
+      await this.prisma.otpVerification.update({
+        where: { id: activeOtp.id },
+        data: { isUsed: true },
+      });
+      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+    }
+
+    const newAttempts = activeOtp.attempts + 1;
+    await this.prisma.otpVerification.update({
+      where: { id: activeOtp.id },
+      data: { attempts: newAttempts },
+    });
+
+    const isMatch = this.verifyOtpHash(cleanOtp, activeOtp.otpHash);
+    if (!isMatch) {
+      const remaining = activeOtp.maxAttempts - newAttempts;
+      if (remaining <= 0) {
+        await this.prisma.otpVerification.update({
+          where: { id: activeOtp.id },
+          data: { isUsed: true },
+        });
+        throw new BadRequestException('Maximum attempts exceeded. Please request a new code.');
+      }
+      throw new BadRequestException(`Incorrect verification code. (${remaining} attempts remaining)`);
+    }
+
+    // Invalidate OTP
+    await this.prisma.otpVerification.update({
+      where: { id: activeOtp.id },
+      data: { isUsed: true },
+    });
+
+    // Hash new password
+    const hashedNewPassword = await bcryptLib.hash(dto.newPassword, 10);
+
+    // Update user: clear mustChangePassword, clear temporary expiry, increment sessionVersion
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedNewPassword,
+        mustChangePassword: false,
+        temporaryPasswordExpiresAt: null,
+        sessionVersion: (user.sessionVersion || 1) + 1,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    // Invalidate any active device sessions
+    await this.prisma.userDeviceSession.deleteMany({
+      where: { userId: user.id },
+    });
+
+    await this.logAuthEvent({
+      userId: user.id,
+      action: 'AUTH_FIRST_LOGIN_PASSWORD_CHANGED',
+      description: `Staff ${user.fullName} (${user.employeeId}) completed mandatory first-time password setup`,
+      ipAddress,
+    });
+
+    // Dispatch confirmation email
+    if (this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName,
+            email: officialEmail,
+            mobile: user.mobile || undefined,
+            type: 'STAFF',
+          },
+          {
+            title: 'Password Setup Complete — Swayam Admission',
+            subject: 'Your Account Has Been Activated Successfully',
+            message: `Dear ${user.fullName},\n\nYour official employee password for Employee ID ${user.employeeId} has been successfully updated. You may now log in to the Employee ERP Portal.\n\nWarm regards,\nSwayam Admission Team`,
+            emailHtml: `
+              <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                <h2 style="color: #4A7B5B; margin-top: 0;">Account Activated Successfully</h2>
+                <p>Dear <strong>${user.fullName}</strong>,</p>
+                <p>Your password for Employee ID <strong>${user.employeeId}</strong> has been successfully configured. Your temporary credentials have been permanently retired.</p>
+                <div style="background-color: #F8FAFC; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #CBD5E1;">
+                  <p style="margin: 4px 0; font-size: 14px;"><strong>Employee ID:</strong> ${user.employeeId}</p>
+                  <p style="margin: 4px 0; font-size: 14px;"><strong>Portal Access:</strong> Employee ERP Portal</p>
+                  <p style="margin: 4px 0; font-size: 14px;"><strong>Status:</strong> Active & Verified</p>
+                </div>
+                <p>You can now sign in at any time using your Employee ID and permanent password.</p>
+                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 20px 0;" />
+                <p style="font-size: 11px; color: #94A3B8;">If you did not perform this action, please alert IT administration immediately.</p>
+              </div>
+            `,
+          },
+        );
+      } catch (confirmErr: any) {
+        this.logger.warn(`Failed sending password confirmation email: ${confirmErr.message}`);
+      }
+    }
+
+    // Issue fresh tokens
+    const tokens = await this.issueTokens(updatedUser);
+    const { password: _p, twoFactorSecret: _t, ...safeUser } = updatedUser;
+
+    return {
+      success: true,
+      message: 'Password successfully updated! Your account is now fully activated.',
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      mustChangePassword: false,
+      user: safeUser,
     };
   }
 }

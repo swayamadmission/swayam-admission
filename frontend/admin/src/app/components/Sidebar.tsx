@@ -14,7 +14,7 @@ export type Page =
   | "dashboard" | "leads" | "tasks" | "students" | "counselors" | "staff-onboarding" | "hr" | "colleges" | "college-portal" | "courses"
   | "applications" | "reporting" | "review-moderation" | "college-rankings" | "documents" | "states" | "exams" | "scholarships" | "materials"
   | "banners" | "blogs" | "faqs" | "testimonials" | "contact-management" | "ai" | "notifications" | "analytics" | "marketing" | "payments" | "referrals" | "coupons" | "fee-catalog"
-  | "settings" | "rbac" | "organization" | "logs" | "support" | "help-support" | "profile" | "legal-policies" | "auth-otp";
+  | "settings" | "rbac" | "organization" | "logs" | "support" | "help-support" | "profile" | "legal-policies" | "auth-otp" | "employees";
 
 interface SidebarProps {
   currentPage: Page;
@@ -34,6 +34,7 @@ const itemPermissions: Record<string, string> = {
   counselors: "counselors.view",
   "staff-onboarding": "staff-onboarding.view",
   hr: "hr.view",
+  employees: "hr.view",
   applications: "applications.view",
   reporting: "reporting.view",
   "review-moderation": "reviews.view",
@@ -98,6 +99,7 @@ const navGroups: NavGroup[] = [
       { id: "referrals" as Page, label: "Student Referrals & Rewards", icon: Gift },
       { id: "counselors" as Page, label: "Counselors", icon: UserCheck },
       { id: "hr" as Page, label: "HR & Recruitment", icon: Users },
+      { id: "employees" as Page, label: "Employee Management", icon: UserCheck },
       { id: "staff-onboarding" as Page, label: "Staff Onboarding & KYC", icon: Shield },
       { id: "applications" as Page, label: "Applications", icon: FileText },
       { id: "reporting" as Page, label: "Reporting & Enrollment", icon: Award },

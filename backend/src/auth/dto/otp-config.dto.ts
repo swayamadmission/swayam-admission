@@ -11,6 +11,18 @@ export class UpdateOtpConfigDto {
 
   @IsString()
   @IsOptional()
+  providerUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  senderId?: string;
+
+  @IsString()
+  @IsOptional()
+  templateId?: string;
+
+  @IsString()
+  @IsOptional()
   apiKey?: string;
 
   @IsString()

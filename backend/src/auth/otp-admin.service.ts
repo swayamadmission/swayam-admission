@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateOtpConfigDto } from './dto/otp-config.dto';
 import { EmailChannel, WhatsAppChannel } from '../notifications/notification-channels.service';
-import { CommunicationChannel } from '@prisma/client';
 
 @Injectable()
 export class OtpAdminService {
@@ -10,21 +10,45 @@ export class OtpAdminService {
 
   constructor(
     private prisma: PrismaService,
-    private emailChannel: EmailChannel,
-    private whatsappChannel: WhatsAppChannel,
-  ) {}
+    private moduleRef: ModuleRef,
+  ) { }
 
-  async getConfig(channel: 'WHATSAPP' | 'EMAIL') {
+  private getEmailChannel(): EmailChannel {
+    try {
+      const channel = this.moduleRef.get(EmailChannel, { strict: false });
+      if (channel) return channel;
+    } catch {
+      // safe fallback
+    }
+    return new EmailChannel(this.prisma);
+  }
+
+  private getWhatsAppChannel(): WhatsAppChannel {
+    try {
+      const channel = this.moduleRef.get(WhatsAppChannel, { strict: false });
+      if (channel) return channel;
+    } catch {
+      // safe fallback
+    }
+    return new WhatsAppChannel(this.prisma);
+  }
+
+  async getConfig(channel: 'WHATSAPP' | 'EMAIL' | string) {
+    const normalizedChannel = channel?.toUpperCase();
+    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL') {
+      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP or EMAIL');
+    }
+
     let config = await this.prisma.otpConfiguration.findUnique({
-      where: { channel },
+      where: { channel: normalizedChannel },
     });
-    
+
     if (!config) {
-      // Create default
       config = await this.prisma.otpConfiguration.create({
         data: {
-          channel,
+          channel: normalizedChannel,
           enabled: false,
+          provider: normalizedChannel === 'WHATSAPP' ? 'Meta Cloud API' : 'SMTP',
           expirySeconds: 300,
           maxAttempts: 5,
           resendCooldownSec: 30,
@@ -35,116 +59,304 @@ export class OtpAdminService {
     }
 
     // Mask sensitive fields
-    const maskedConfig = { ...config };
+    const maskedConfig: any = { ...config };
     if (maskedConfig.apiPassword) maskedConfig.apiPassword = '********';
     if (maskedConfig.apiKey) maskedConfig.apiKey = '********';
+
+    // Ensure fallback mappings so frontend receives consistent field names
+    maskedConfig.providerUrl = config.providerUrl || config.apiHost || '';
+    maskedConfig.senderId =
+      config.senderId ||
+      (normalizedChannel === 'EMAIL' ? config.fromEmail : config.phoneNumberId) ||
+      '';
+    maskedConfig.templateId = config.templateId || config.templateName || '';
 
     return maskedConfig;
   }
 
   async updateConfig(
     adminUserId: string,
-    channel: 'WHATSAPP' | 'EMAIL',
+    channel: 'WHATSAPP' | 'EMAIL' | string,
     dto: UpdateOtpConfigDto,
     ipAddress?: string,
   ) {
-    const existing = await this.getConfig(channel);
+    const normalizedChannel = channel?.toUpperCase();
+    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL') {
+      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP or EMAIL');
+    }
 
-    // If password or key is sent as masked, we don't update it
-    const dataToUpdate: any = { ...dto };
-    if (dataToUpdate.apiPassword === '********') delete dataToUpdate.apiPassword;
-    if (dataToUpdate.apiKey === '********') delete dataToUpdate.apiKey;
-
-    const updated = await this.prisma.otpConfiguration.update({
-      where: { channel },
-      data: {
-        ...dataToUpdate,
-        updatedBy: adminUserId,
-      },
+    // Ensure existing configuration record exists
+    let existing = await this.prisma.otpConfiguration.findUnique({
+      where: { channel: normalizedChannel },
     });
 
-    // Audit log
-    await this.prisma.auditLog.create({
-      data: {
-        userId: adminUserId,
-        action: `${channel}_OTP_SETTINGS_UPDATED`,
-        description: `OTP settings for ${channel} were updated.`,
-        module: 'AUTH_OTP',
-        severity: 'INFO',
-        status: 'SUCCESS',
-        ipAddress: ipAddress || null,
-        changes: { changedFields: Object.keys(dataToUpdate) },
-      },
+    if (!existing) {
+      existing = await this.prisma.otpConfiguration.create({
+        data: {
+          channel: normalizedChannel,
+          enabled: false,
+          expirySeconds: 300,
+          maxAttempts: 5,
+          resendCooldownSec: 30,
+          rateLimitCount: 10,
+          rateLimitWindowSec: 3600,
+        },
+      });
+    }
+
+    const dataToUpdate: any = {};
+
+    // 1. Basic flags & text settings
+    if (dto.enabled !== undefined) dataToUpdate.enabled = Boolean(dto.enabled);
+    if (dto.provider !== undefined) dataToUpdate.provider = dto.provider;
+
+    // 2. URLs and Hosts
+    if (dto.providerUrl !== undefined) {
+      dataToUpdate.providerUrl = dto.providerUrl;
+      dataToUpdate.apiHost = dto.providerUrl;
+    } else if (dto.apiHost !== undefined) {
+      dataToUpdate.apiHost = dto.apiHost;
+      dataToUpdate.providerUrl = dto.apiHost;
+    }
+
+    // 3. Sender identifiers
+    if (dto.senderId !== undefined) {
+      dataToUpdate.senderId = dto.senderId;
+      if (normalizedChannel === 'EMAIL') {
+        dataToUpdate.fromEmail = dto.senderId;
+      } else {
+        dataToUpdate.phoneNumberId = dto.senderId;
+      }
+    }
+
+    // 4. Template identifiers
+    if (dto.templateId !== undefined) {
+      dataToUpdate.templateId = dto.templateId;
+      dataToUpdate.templateName = dto.templateId;
+    } else if (dto.templateName !== undefined) {
+      dataToUpdate.templateName = dto.templateName;
+      dataToUpdate.templateId = dto.templateName;
+    }
+
+    // 5. Numeric policies & limits
+    if (dto.expirySeconds !== undefined && !isNaN(Number(dto.expirySeconds))) {
+      dataToUpdate.expirySeconds = Number(dto.expirySeconds);
+    }
+    if (dto.maxAttempts !== undefined && !isNaN(Number(dto.maxAttempts))) {
+      dataToUpdate.maxAttempts = Number(dto.maxAttempts);
+    }
+    if (dto.resendCooldownSec !== undefined && !isNaN(Number(dto.resendCooldownSec))) {
+      dataToUpdate.resendCooldownSec = Number(dto.resendCooldownSec);
+    }
+    if (dto.rateLimitCount !== undefined && !isNaN(Number(dto.rateLimitCount))) {
+      dataToUpdate.rateLimitCount = Number(dto.rateLimitCount);
+    }
+    if (dto.rateLimitWindowSec !== undefined && !isNaN(Number(dto.rateLimitWindowSec))) {
+      dataToUpdate.rateLimitWindowSec = Number(dto.rateLimitWindowSec);
+    }
+
+    // 6. Optional metadata fields
+    if (dto.accountId !== undefined) dataToUpdate.accountId = dto.accountId;
+    if (dto.phoneNumberId !== undefined) dataToUpdate.phoneNumberId = dto.phoneNumberId;
+    if (dto.apiPort !== undefined && !isNaN(Number(dto.apiPort))) {
+      dataToUpdate.apiPort = Number(dto.apiPort);
+    }
+    if (dto.apiUser !== undefined) dataToUpdate.apiUser = dto.apiUser;
+    if (dto.apiSecure !== undefined) dataToUpdate.apiSecure = Boolean(dto.apiSecure);
+    if (dto.fromName !== undefined) dataToUpdate.fromName = dto.fromName;
+    if (dto.fromEmail !== undefined) dataToUpdate.fromEmail = dto.fromEmail;
+    if (dto.templateLanguage !== undefined) dataToUpdate.templateLanguage = dto.templateLanguage;
+
+    // 7. SECURE CREDENTIALS HANDLING:
+    // Never overwrite existing secrets if input is masked ('********') or blank/empty
+    if (
+      dto.apiKey !== undefined &&
+      dto.apiKey !== '********' &&
+      dto.apiKey.trim().length > 0
+    ) {
+      dataToUpdate.apiKey = dto.apiKey.trim();
+    }
+
+    if (
+      dto.apiPassword !== undefined &&
+      dto.apiPassword !== '********' &&
+      dto.apiPassword.trim().length > 0
+    ) {
+      dataToUpdate.apiPassword = dto.apiPassword.trim();
+    }
+
+    dataToUpdate.updatedBy = adminUserId || null;
+
+    // Persist configuration update
+    await this.prisma.otpConfiguration.update({
+      where: { channel: normalizedChannel },
+      data: dataToUpdate,
     });
 
-    return this.getConfig(channel);
+    // Audit log without leaking secret values
+    const safeAuditChanges = Object.keys(dataToUpdate).filter(
+      (key) => key !== 'apiPassword' && key !== 'apiKey',
+    );
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: adminUserId || null,
+          action: `${normalizedChannel}_OTP_SETTINGS_UPDATED`,
+          description: `OTP settings for ${normalizedChannel} were updated.`,
+          module: 'AUTH_OTP',
+          severity: 'INFO',
+          status: 'SUCCESS',
+          ipAddress: ipAddress || null,
+          changes: { changedFields: safeAuditChanges },
+        },
+      });
+    } catch (auditErr: any) {
+      this.logger.warn(`Failed to create audit log: ${auditErr?.message}`);
+    }
+
+    return this.getConfig(normalizedChannel);
   }
 
   async testWhatsAppConfig(adminUserId: string, testMobile: string) {
-    const config = await this.getConfig('WHATSAPP');
-    if (!config.enabled) {
-      throw new BadRequestException('WhatsApp OTP is currently disabled.');
+    if (!testMobile || typeof testMobile !== 'string') {
+      throw new BadRequestException('Recipient mobile number is required.');
     }
+
+    const cleanMobile = testMobile.trim().replace(/[^\d+]/g, '');
+    if (cleanMobile.length < 10) {
+      throw new BadRequestException('A valid recipient mobile number (10+ digits) is required.');
+    }
+
+    const config = await this.prisma.otpConfiguration.findUnique({
+      where: { channel: 'WHATSAPP' },
+    });
+
+    if (!config || !config.enabled) {
+      throw new BadRequestException('WhatsApp OTP is currently disabled. Please enable it and save settings first.');
+    }
+
+    if (!config.provider && !config.apiKey && !config.providerUrl) {
+      throw new BadRequestException('WhatsApp provider is not configured. Please enter provider details and save.');
+    }
+
+    const whatsappChannel = this.getWhatsAppChannel();
 
     const testPayload = {
       title: 'WhatsApp OTP Test',
-      message: 'This is a test of the WhatsApp OTP system.',
-      whatsAppBody: 'Test OTP: 123456',
+      message: 'This is a test of the Swayam Admission WhatsApp OTP system.',
+      whatsAppBody: 'Your test OTP code is 123456 (Valid for 5 minutes).',
+      whatsAppTemplateName: config.templateId || config.templateName || 'otp_verification',
     };
 
-    const res = await this.whatsappChannel.send(
-      { id: adminUserId, name: 'Admin', mobile: testMobile, type: 'ADMIN' },
-      testPayload,
-    );
+    let res: any;
+    try {
+      res = await whatsappChannel.send(
+        { id: adminUserId || 'admin-test', name: 'Admin', mobile: cleanMobile, type: 'ADMIN' },
+        testPayload,
+      );
+    } catch (err: any) {
+      res = {
+        success: false,
+        errorMessage: err.message || 'WhatsApp dispatch failed',
+      };
+    }
 
-    // Audit
-    await this.prisma.auditLog.create({
-      data: {
-        userId: adminUserId,
-        action: 'WHATSAPP_OTP_TESTED',
-        description: `Tested WhatsApp OTP delivery to ${testMobile}`,
-        module: 'AUTH_OTP',
-        severity: 'INFO',
-        status: res.success ? 'SUCCESS' : 'FAILED',
-        changes: { success: res.success, error: res.errorMessage },
-      },
-    });
+    const isSuccess = Boolean(res?.success);
 
-    return { success: res.success, message: res.success ? 'WhatsApp OTP sent successfully.' : res.errorMessage || 'Failed to send WhatsApp OTP.' };
+    // Audit log
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: adminUserId || null,
+          action: 'WHATSAPP_OTP_TESTED',
+          description: `Tested WhatsApp OTP delivery to ${cleanMobile}`,
+          module: 'AUTH_OTP',
+          severity: 'INFO',
+          status: isSuccess ? 'SUCCESS' : 'FAILED',
+          changes: { success: isSuccess, error: res?.errorMessage || res?.failureReason },
+        },
+      });
+    } catch (auditErr: any) {
+      this.logger.warn(`Failed to audit WhatsApp OTP test: ${auditErr?.message}`);
+    }
+
+    if (!isSuccess) {
+      const errorMsg = res?.errorMessage || res?.failureReason || 'Failed to send WhatsApp OTP. Please verify provider settings.';
+      return { success: false, message: errorMsg };
+    }
+
+    return { success: true, message: 'WhatsApp OTP test sent successfully.' };
   }
 
   async testEmailConfig(adminUserId: string, testEmail: string) {
-    const config = await this.getConfig('EMAIL');
-    if (!config.enabled) {
-      throw new BadRequestException('Email OTP is currently disabled.');
+    if (!testEmail || typeof testEmail !== 'string') {
+      throw new BadRequestException('Recipient email address is required.');
     }
+
+    const cleanEmail = testEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new BadRequestException('A valid recipient email address is required.');
+    }
+
+    const config = await this.prisma.otpConfiguration.findUnique({
+      where: { channel: 'EMAIL' },
+    });
+
+    if (!config || !config.enabled) {
+      throw new BadRequestException('Email OTP is currently disabled. Please enable it and save settings first.');
+    }
+
+    if (!config.provider && !config.providerUrl && !config.apiHost && !config.apiKey) {
+      throw new BadRequestException('Email provider is not configured. Please enter provider details and save.');
+    }
+
+    const emailChannel = this.getEmailChannel();
 
     const testPayload = {
       title: 'Email OTP Test',
-      subject: 'Email OTP Test',
-      message: 'This is a test of the Email OTP system.',
-      emailHtml: '<p>Test OTP: <strong>123456</strong></p>',
+      subject: 'Swayam Admission: Email OTP Verification Test',
+      message: 'This is a test of the Swayam Admission Email OTP delivery system.',
+      emailHtml: '<p>This is a test of the Swayam Admission Email OTP system.</p><p>Your test OTP code is: <strong>123456</strong></p>',
     };
 
-    const res = await this.emailChannel.send(
-      { id: adminUserId, name: 'Admin', email: testEmail, type: 'ADMIN' },
-      testPayload,
-    );
+    let res: any;
+    try {
+      res = await emailChannel.send(
+        { id: adminUserId || 'admin-test', name: 'Admin', email: cleanEmail, type: 'ADMIN' },
+        testPayload,
+      );
+    } catch (err: any) {
+      res = {
+        success: false,
+        errorMessage: err.message || 'Email dispatch failed',
+      };
+    }
 
-    // Audit
-    await this.prisma.auditLog.create({
-      data: {
-        userId: adminUserId,
-        action: 'EMAIL_OTP_TESTED',
-        description: `Tested Email OTP delivery to ${testEmail}`,
-        module: 'AUTH_OTP',
-        severity: 'INFO',
-        status: res.success ? 'SUCCESS' : 'FAILED',
-        changes: { success: res.success, error: res.errorMessage },
-      },
-    });
+    const isSuccess = Boolean(res?.success);
 
-    return { success: res.success, message: res.success ? 'Email OTP sent successfully.' : res.errorMessage || 'Failed to send Email OTP.' };
+    // Audit log
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: adminUserId || null,
+          action: 'EMAIL_OTP_TESTED',
+          description: `Tested Email OTP delivery to ${cleanEmail}`,
+          module: 'AUTH_OTP',
+          severity: 'INFO',
+          status: isSuccess ? 'SUCCESS' : 'FAILED',
+          changes: { success: isSuccess, error: res?.errorMessage || res?.failureReason },
+        },
+      });
+    } catch (auditErr: any) {
+      this.logger.warn(`Failed to audit Email OTP test: ${auditErr?.message}`);
+    }
+
+    if (!isSuccess) {
+      const errorMsg = res?.errorMessage || res?.failureReason || 'Failed to send Email OTP. Please verify provider settings.';
+      return { success: false, message: errorMsg };
+    }
+
+    return { success: true, message: 'Email OTP test sent successfully.' };
   }
 
   async getDashboardStats() {
@@ -154,7 +366,7 @@ export class OtpAdminService {
     return {
       whatsapp: {
         enabled: whatsapp.enabled,
-        provider: whatsapp.provider || 'Meta WhatsApp Cloud API',
+        provider: whatsapp.provider || 'Meta Cloud API',
         expirySeconds: whatsapp.expirySeconds,
         maxAttempts: whatsapp.maxAttempts,
         resendCooldownSec: whatsapp.resendCooldownSec,

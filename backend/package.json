@@ -12,7 +12,7 @@
     "start": "node scripts/prestart.js && nest start",
     "start:dev": "node scripts/prestart.js && nest start --watch",
     "start:debug": "node scripts/prestart.js && nest start --debug --watch",
-    "start:prod": "node scripts/prestart.js && node dist/src/main",
+    "start:prod": "node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -21,7 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "smoke:auth": "ts-node test_auth_smoke.ts",
     "smoke:ai": "ts-node test_ai_counselor_smoke.ts",
-    "smoke:legal": "ts-node test_legal_consent_smoke.ts"
+    "smoke:legal": "ts-node test_legal_consent_smoke.ts",
+    "smoke:otp": "ts-node --transpile-only test_otp_settings_smoke.ts"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.4",

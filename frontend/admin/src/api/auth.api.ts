@@ -34,6 +34,8 @@ export interface AuthUser {
   dataScopes?: string[];
   isSuperAdmin?: boolean;
   isApproved: boolean;
+  mustChangePassword?: boolean;
+  employeeId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,4 +74,19 @@ export const authApi = {
 
   getMe: () =>
     api.get<AuthUser>("/users/me"),
+
+  firstLoginSendOtp: (userId: string) =>
+    api.post<{ success: boolean; message: string; maskedEmail: string }>("/auth/first-login/send-otp", { userId }),
+
+  firstLoginChangePassword: (data: {
+    userId: string;
+    currentPassword: string;
+    otp: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) =>
+    api.post<{ success: boolean; message: string; user: AuthUser; accessToken: string; refreshToken?: string }>(
+      "/auth/first-login/change-password",
+      data,
+    ),
 };

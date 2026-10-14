@@ -31,6 +31,8 @@ import {
   VerifyRegistrationEmailOtpDto,
   SendMobileVerificationDto,
   VerifyUserMobileDto,
+  FirstLoginSendOtpDto,
+  FirstLoginChangePasswordDto,
 } from './dto/auth-extra.dto';
 
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
@@ -244,6 +246,26 @@ export class AuthController {
       );
     }
     return this.authService.resetPassword(body.token, body.newPassword, req.ip);
+  }
+
+  @Post('first-login/send-otp')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Send OTP to official email for first-login mandatory password change' })
+  @ApiBody({ type: FirstLoginSendOtpDto })
+  @ApiResponse({ status: 200, description: 'OTP sent to registered official email' })
+  firstLoginSendOtp(@Body() dto: FirstLoginSendOtpDto, @Req() req: any) {
+    return this.authService.sendFirstLoginOtp(dto, req.ip, req.user);
+  }
+
+  @Post('first-login/change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OptionalJwtAuthGuard)
+  @ApiOperation({ summary: 'Verify OTP and set permanent password on first login' })
+  @ApiBody({ type: FirstLoginChangePasswordDto })
+  @ApiResponse({ status: 200, description: 'Permanent password set and fresh credentials issued' })
+  firstLoginChangePassword(@Body() dto: FirstLoginChangePasswordDto, @Req() req: any) {
+    return this.authService.completeFirstLoginPasswordChange(dto, req.ip, req.user);
   }
 }
 

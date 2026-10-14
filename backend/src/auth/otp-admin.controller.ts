@@ -8,7 +8,7 @@ import { Request } from 'express';
 
 @Controller('admin/otp-settings')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('SUPER_ADMIN', 'SYSTEM_MANAGER') // Enforcing RBAC for admin capabilities
+@Roles('SUPER_ADMIN', 'ADMIN', 'SYSTEM_MANAGER') // Enforcing RBAC for admin capabilities
 export class OtpAdminController {
   constructor(private readonly otpAdminService: OtpAdminService) {}
 
@@ -28,18 +28,20 @@ export class OtpAdminController {
     @Param('channel') channel: 'WHATSAPP' | 'EMAIL',
     @Body() dto: UpdateOtpConfigDto,
   ) {
-    const adminUserId = req.user.userId;
+    const adminUserId = req.user?.id || req.user?.userId;
     const ipAddress = req.ip || req.connection?.remoteAddress;
     return this.otpAdminService.updateConfig(adminUserId, channel, dto, ipAddress);
   }
 
   @Post('test/whatsapp')
   testWhatsApp(@Req() req: any, @Body('mobile') mobile: string) {
-    return this.otpAdminService.testWhatsAppConfig(req.user.userId, mobile);
+    const adminUserId = req.user?.id || req.user?.userId;
+    return this.otpAdminService.testWhatsAppConfig(adminUserId, mobile);
   }
 
   @Post('test/email')
   testEmail(@Req() req: any, @Body('email') email: string) {
-    return this.otpAdminService.testEmailConfig(req.user.userId, email);
+    const adminUserId = req.user?.id || req.user?.userId;
+    return this.otpAdminService.testEmailConfig(adminUserId, email);
   }
 }

@@ -1,6 +1,8 @@
 import { Module, Global } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { OtpAdminController } from './otp-admin.controller';
+import { OtpAdminService } from './otp-admin.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -31,9 +33,10 @@ import { LegalModule } from '../legal/legal.module';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, OtpAdminController],
   providers: [
     AuthService,
+    OtpAdminService,
     JwtStrategy,
     RoleHierarchyService,
     DataScopeService,
@@ -51,6 +54,7 @@ import { LegalModule } from '../legal/legal.module';
     PermissionGuard,
     RolesGuard,
     AuthService,
+    OtpAdminService,
   ],
 })
 export class AuthModule {}
