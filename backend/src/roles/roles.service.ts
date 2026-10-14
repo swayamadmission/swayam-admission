@@ -152,6 +152,15 @@ export class RolesService implements OnModuleInit {
    */
   private async seedPermissionsAndDefaultRoles() {
     try {
+      const existingPermsCount = await this.prisma.permission.count();
+      const existingRolesCount = await this.prisma.roleEntity.count();
+      if (existingPermsCount >= SYSTEM_PERMISSIONS.length && existingRolesCount >= 10) {
+        this.logger.log(
+          `✅ Permissions (${existingPermsCount}) and default system roles (${existingRolesCount}) verified.`,
+        );
+        return;
+      }
+
       // 1. Seed Permissions
       for (const p of SYSTEM_PERMISSIONS) {
         await this.prisma.permission.upsert({

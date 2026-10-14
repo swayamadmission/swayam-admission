@@ -745,6 +745,14 @@ export class SystemConfigurationService implements OnModuleInit {
    */
   async seedCanonicalSettings() {
     try {
+      const existingCount = await this.prisma.systemConfiguration.count();
+      if (existingCount >= CANONICAL_SETTINGS.length) {
+        this.logger.log(
+          `✅ Canonical system configurations verified (${existingCount} active).`,
+        );
+        return;
+      }
+
       for (const def of CANONICAL_SETTINGS) {
         const existing = await this.prisma.systemConfiguration.findUnique({
           where: {

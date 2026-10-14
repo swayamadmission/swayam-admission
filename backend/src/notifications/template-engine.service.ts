@@ -536,6 +536,15 @@ export class TemplateEngineService {
    * Seed default system communication templates if not present.
    */
   async seedDefaultTemplates() {
+    try {
+      const templateCount = await this.prisma.communicationTemplate.count();
+      if (templateCount >= 20) {
+        return;
+      }
+    } catch {
+      // safe fallback if db is initializing
+    }
+
     const defaults: CreateTemplateDto[] = [
       {
         code: 'APPLICATION_SUBMITTED',

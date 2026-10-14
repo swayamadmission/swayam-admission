@@ -80,7 +80,9 @@ export class HealthController {
     return this.health.check([
       () => this.memory.checkHeap('memory_heap', 300 * 1024 * 1024),
       () =>
-        this.prismaHealthIndicator.pingCheck('database', this.prismaService),
+        this.prismaHealthIndicator.pingCheck('database', this.prismaService, {
+          timeout: 10000,
+        }),
     ]);
   }
 }
