@@ -28,6 +28,7 @@ RUN apk add --no-cache openssl
 
 # Set Node environment
 ENV NODE_ENV=production
+ENV PORT=10000
 
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -40,6 +41,6 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-EXPOSE 3000
+EXPOSE 10000
 
 CMD ["node", "dist/src/main"]

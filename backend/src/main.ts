@@ -126,7 +126,7 @@ async function bootstrap() {
     exclude: ['uploads/(.*)'],
   });
 
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 10000;
 
   try {
     await app.listen(port, '0.0.0.0');
