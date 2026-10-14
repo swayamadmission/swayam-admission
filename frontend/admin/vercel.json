@@ -1,5 +1,23 @@
 {
+  "build": {
+    "env": {
+      "VITE_API_URL": "https://swayam-admission.onrender.com",
+      "VITE_ENVIRONMENT": "production"
+    }
+  },
+  "env": {
+    "VITE_API_URL": "https://swayam-admission.onrender.com",
+    "VITE_ENVIRONMENT": "production"
+  },
   "rewrites": [
+    {
+      "source": "/v1/:path*",
+      "destination": "https://swayam-admission.onrender.com/v1/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://swayam-admission.onrender.com/health"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

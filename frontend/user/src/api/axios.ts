@@ -1,6 +1,12 @@
 import axios, { AxiosError } from "axios";
 
-const API_URL = (import.meta as any).env?.VITE_API_URL || "http://localhost:3000";
+const API_URL =
+  (import.meta as any).env?.VITE_API_URL ||
+  (typeof window !== "undefined" &&
+  (window.location.hostname.includes("vercel.app") ||
+    (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"))
+    ? "https://swayam-admission.onrender.com"
+    : "http://localhost:3000");
 const BASE_URL = API_URL.endsWith("/v1") ? API_URL : `${API_URL}/v1`;
 
 export interface ApiErrorPayload {
