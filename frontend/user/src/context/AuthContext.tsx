@@ -182,11 +182,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const res = await authApi.googleAuth(data);
-      localStorage.setItem("swayam_token", res.data.access_token);
-      if (res.data.refresh_token) {
-        localStorage.setItem("swayam_refresh_token", res.data.refresh_token);
+      const token = res.data.access_token || (res.data as any).accessToken;
+      const refreshToken = res.data.refresh_token || (res.data as any).refreshToken;
+      if (token) {
+        localStorage.setItem("swayam_token", token);
       }
-      setUser(res.data.user);
+      if (refreshToken) {
+        localStorage.setItem("swayam_refresh_token", refreshToken);
+      }
+      if (res.data.user) {
+        setUser(res.data.user);
+      }
       return true;
     } catch (err: any) {
       console.error("[Google Auth Error]", err);

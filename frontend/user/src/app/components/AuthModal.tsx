@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import {
   Eye,
@@ -49,6 +49,9 @@ export default function AuthModal({
   const [showPass, setShowPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGsiLoaded, setIsGsiLoaded] = useState(false);
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
   // Email / Mobile + Password Login State
   const [identifier, setIdentifier] = useState("");
@@ -197,31 +200,145 @@ export default function AuthModal({
     }
   };
 
-  // 2. Google Sign-In Handler
-  const handleGoogleLogin = async () => {
-    if (authLoading) return;
+  // 2. Google Identity Services Setup & Handlers
+  const handleGoogleCredentialResponse = useCallback(
+    async (response: { credential?: string }) => {
+      if (!response?.credential) {
+        setLocalError(
+          "Google authentication did not return a valid credential. Please try again.",
+        );
+        return;
+      }
+      setIsGoogleLoading(true);
+      setLocalError(null);
+      clearError();
+      try {
+        const referralCode =
+          new URLSearchParams(window.location.search).get("ref") ||
+          new URLSearchParams(window.location.search).get("referralCode") ||
+          undefined;
+
+        const success = await loginWithGoogle({
+          idToken: response.credential,
+          credential: response.credential,
+          referralCode,
+        });
+        if (success) {
+          onLogin();
+        }
+      } catch (err: any) {
+        const msg =
+          err.response?.data?.message ||
+          err?.apiError?.userMessage ||
+          "Google sign-in failed. Please try again.";
+        setLocalError(msg);
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+    [loginWithGoogle, onLogin, clearError],
+  );
+
+  useEffect(() => {
+    if (!open || tab !== "login") return;
+
+    const clientId =
+      (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+      (import.meta as any).env?.VITE_GOOGLE_OAUTH_CLIENT_ID;
+
+    if (!clientId) {
+      setIsGsiLoaded(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const renderGsiButton = () => {
+      if (isCancelled || !googleBtnContainerRef.current) return;
+      const g = (window as any).google;
+      if (!g?.accounts?.id) return;
+
+      try {
+        g.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+
+        if (googleBtnContainerRef.current) {
+          googleBtnContainerRef.current.innerHTML = "";
+          const containerWidth = googleBtnContainerRef.current.offsetWidth || 360;
+          const width = Math.min(Math.max(containerWidth, 240), 400);
+
+          g.accounts.id.renderButton(googleBtnContainerRef.current, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            text: "continue_with",
+            shape: "rectangular",
+            logo_alignment: "left",
+            width,
+          });
+          setIsGsiLoaded(true);
+        }
+      } catch (e) {
+        console.warn("[Google Identity Services Init]", e);
+      }
+    };
+
+    if ((window as any).google?.accounts?.id) {
+      renderGsiButton();
+    } else {
+      const interval = setInterval(() => {
+        if ((window as any).google?.accounts?.id) {
+          clearInterval(interval);
+          renderGsiButton();
+        }
+      }, 150);
+      const timeout = setTimeout(() => clearInterval(interval), 6000);
+      return () => {
+        isCancelled = true;
+        clearInterval(interval);
+        clearTimeout(timeout);
+      };
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, tab, handleGoogleCredentialResponse]);
+
+  const handleGoogleFallbackClick = () => {
+    if (authLoading || isGoogleLoading) return;
     setLocalError(null);
     clearError();
-    const googleEmail = prompt(
-      "Enter Google Email for Sign-In with Swayam Admission:",
-      "student.google@swayamadmission.com"
-    );
-    if (!googleEmail || !googleEmail.trim()) return;
 
-    try {
-      const success = await loginWithGoogle({
-        email: googleEmail.trim().toLowerCase(),
-        fullName: googleEmail.split("@")[0],
+    const clientId =
+      (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID ||
+      (import.meta as any).env?.VITE_GOOGLE_OAUTH_CLIENT_ID;
+
+    if (!clientId) {
+      setLocalError(
+        "Google Sign-In is not configured yet. Please configure VITE_GOOGLE_CLIENT_ID in your environment.",
+      );
+      return;
+    }
+
+    const g = (window as any).google;
+    if (g?.accounts?.id) {
+      g.accounts.id.prompt((notification: any) => {
+        if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+          console.log(
+            "[GIS Notification]",
+            notification.getNotDisplayedReason?.() || notification.getSkippedReason?.(),
+          );
+        }
       });
-      if (success) {
-        onLogin();
-      }
-    } catch (err: any) {
-      const msg =
-        err.response?.data?.message ||
-        err?.apiError?.userMessage ||
-        "Google sign-in failed. Please try again.";
-      setLocalError(msg);
+    } else {
+      setLocalError(
+        "Google authentication services are loading. Please check your internet connection or ad blocker and try again.",
+      );
     }
   };
 
@@ -619,31 +736,51 @@ export default function AuthModal({
                 <div className="flex-1 h-px bg-gray-200" />
               </div>
 
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="w-full flex items-center justify-center gap-2.5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <svg width="16" height="16" viewBox="0 0 18 18">
-                  <path
-                    d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.659 14.035 17.64 11.727 17.64 9.2z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
-                    fill="#EA4335"
-                  />
-                </svg>
-                Continue with Google
-              </button>
+              <div className="w-full flex flex-col items-center justify-center">
+                <div
+                  ref={googleBtnContainerRef}
+                  className={`w-full flex justify-center min-h-[44px] ${
+                    isGsiLoaded ? "block" : "hidden"
+                  }`}
+                />
+                {!isGsiLoaded && (
+                  <button
+                    type="button"
+                    onClick={handleGoogleFallbackClick}
+                    disabled={authLoading || isGoogleLoading}
+                    className="w-full flex items-center justify-center gap-2.5 py-2.5 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-60"
+                  >
+                    {isGoogleLoading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin text-[#4A7B5B]" />
+                        <span>Connecting with Google...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 18 18">
+                          <path
+                            d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908C16.659 14.035 17.64 11.727 17.64 9.2z"
+                            fill="#4285F4"
+                          />
+                          <path
+                            d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"
+                            fill="#34A853"
+                          />
+                          <path
+                            d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"
+                            fill="#FBBC05"
+                          />
+                          <path
+                            d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.96L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"
+                            fill="#EA4335"
+                          />
+                        </svg>
+                        Continue with Google
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
 
               <p className="text-center text-xs text-gray-500 pt-1">
                 Don't have an account?{" "}

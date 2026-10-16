@@ -25,3 +25,5 @@ services:
         sync: false
       - key: STORAGE_PROVIDER
         value: LOCAL
+      - key: GOOGLE_CLIENT_ID
+        sync: false

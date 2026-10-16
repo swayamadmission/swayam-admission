@@ -70,10 +70,11 @@ export interface VerifyMobileOtpPayload {
 }
 
 export interface GoogleAuthPayload {
-  email: string;
-  fullName: string;
-  googleId?: string;
   idToken?: string;
+  credential?: string;
+  email?: string;
+  fullName?: string;
+  googleId?: string;
   referralCode?: string;
 }
 
@@ -164,6 +165,20 @@ export const authApi = {
       mobileVerified: boolean;
       message: string;
     }>("/auth/mobile/verify", data),
+
+  // Mobile Login OTP
+  sendMobileOtp: (data: SendMobileOtpPayload) =>
+    api.post<{
+      success: boolean;
+      mobile: string;
+      message: string;
+      resendCooldownSeconds: number;
+      expiresInSeconds: number;
+      devOtp?: string;
+    }>("/auth/mobile/send-otp", data),
+
+  verifyMobileOtp: (data: VerifyMobileOtpPayload) =>
+    api.post<LoginResponse>("/auth/mobile/verify-otp", data),
 
   // Google OAuth
   googleAuth: (data: GoogleAuthPayload) =>

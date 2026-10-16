@@ -35,6 +35,7 @@ import { AuthorizationService } from './authorization.service';
 
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 
 const bcryptLib = bcrypt as unknown as {
   hash: (s: string, saltOrRounds: number) => Promise<string>;
@@ -375,7 +376,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      throw new BadRequestException(
+        'OTP has expired. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -452,7 +455,8 @@ export class AuthService {
       // Create new student account
       isNewUser = true;
       const studentId = await this.idGenerator.generateStudentId();
-      const registrationNumber = await this.idGenerator.generateRegistrationNumber();
+      const registrationNumber =
+        await this.idGenerator.generateRegistrationNumber();
 
       // Referral code processing
       let referralAttribution: any = null;
@@ -545,8 +549,11 @@ export class AuthService {
       // Auto-assign student IDs & ensure phoneVerified
       const studentUpdates: any = {};
       if (user.role === Role.STUDENT) {
-        if (!user.studentId) studentUpdates.studentId = await this.idGenerator.generateStudentId();
-        if (!user.registrationNumber) studentUpdates.registrationNumber = await this.idGenerator.generateRegistrationNumber();
+        if (!user.studentId)
+          studentUpdates.studentId = await this.idGenerator.generateStudentId();
+        if (!user.registrationNumber)
+          studentUpdates.registrationNumber =
+            await this.idGenerator.generateRegistrationNumber();
         if (!user.phoneVerified) studentUpdates.phoneVerified = true;
         if (!user.isApproved || user.status === 'PENDING_APPROVAL') {
           studentUpdates.isApproved = true;
@@ -573,7 +580,9 @@ export class AuthService {
     const { password, ...userWithoutPassword } = user;
 
     return {
-      message: isNewUser ? 'Account registered successfully' : 'Login successful',
+      message: isNewUser
+        ? 'Account registered successfully'
+        : 'Login successful',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       isNewUser,
@@ -582,14 +591,141 @@ export class AuthService {
   }
 
   /**
-   * 3. Google OAuth & Student Registration
-   * Links Google identity through AuthIdentity, prevents duplicate records, supports referral code.
+   * Cryptographically verifies a Google ID token (credential) using Google's OAuth2Client.
+   * Validates:
+   * 1. Cryptographic signature against Google's rotating public certificates.
+   * 2. Audience matches the configured Google OAuth Web Client ID.
+   * 3. Issuer is accounts.google.com or https://accounts.google.com.
+   * 4. Token expiration.
+   * 5. email_verified claim is true.
    */
-  async googleAuth(dto: GoogleAuthDto, ipAddress?: string) {
-    const email = this.normalizeEmail(dto.email);
-    const googleId = dto.googleId || email;
+  async verifyGoogleIdToken(token: string): Promise<{
+    email: string;
+    sub: string;
+    fullName: string;
+    avatar?: string;
+  }> {
+    const configuredClientId =
+      process.env.GOOGLE_CLIENT_ID ||
+      process.env.GOOGLE_OAUTH_CLIENT_ID ||
+      process.env.VITE_GOOGLE_CLIENT_ID;
 
-    // 1. Check AuthIdentity
+    // Synthetic test token bypass for local test runner and automated smoke tests only
+    if (
+      (process.env.NODE_ENV === 'test' ||
+        process.env.ALLOW_TEST_AUTH === 'true') &&
+      token.startsWith('test-google-token-')
+    ) {
+      const parts = token.split(':');
+      return {
+        sub: parts[1] || 'test-google-sub',
+        email: this.normalizeEmail(
+          parts[2] || 'test-google-student@example.com',
+        ),
+        fullName: parts[3] || 'Test Google Student',
+        avatar: parts[4] || undefined,
+      };
+    }
+
+    if (!configuredClientId) {
+      this.logger.error(
+        '[Google Auth] Server missing GOOGLE_CLIENT_ID. Please configure GOOGLE_CLIENT_ID in environment variables.',
+      );
+      throw new UnauthorizedException(
+        'Google Sign-In is not configured on the server. Please contact administrator.',
+      );
+    }
+
+    const audienceList = configuredClientId
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    let payload: TokenPayload | undefined;
+    try {
+      const client = new OAuth2Client();
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: audienceList,
+      });
+      payload = ticket.getPayload();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `[Google Auth] Cryptographic ID token verification failed: ${errorMsg}`,
+      );
+      throw new UnauthorizedException(
+        'Invalid or expired Google credential. Please sign in again.',
+      );
+    }
+
+    if (!payload) {
+      throw new UnauthorizedException('Invalid Google token payload.');
+    }
+
+    // 1. Verify issuer
+    const issuer = payload.iss;
+    if (
+      issuer !== 'accounts.google.com' &&
+      issuer !== 'https://accounts.google.com'
+    ) {
+      throw new UnauthorizedException('Invalid Google token issuer.');
+    }
+
+    // 2. Verify token expiration
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < nowSec) {
+      throw new UnauthorizedException(
+        'Google ID token has expired. Please sign in again.',
+      );
+    }
+
+    // 3. Verify email claim & email_verified
+    if (!payload.email) {
+      throw new UnauthorizedException(
+        'Google credential did not provide an email address.',
+      );
+    }
+
+    if (!payload.email_verified) {
+      throw new UnauthorizedException(
+        'Your Google account email has not been verified by Google. Please verify your Google email first.',
+      );
+    }
+
+    const verifiedEmail = this.normalizeEmail(payload.email);
+    const googleId = payload.sub;
+    const verifiedFullName = (
+      payload.name ||
+      payload.given_name ||
+      verifiedEmail.split('@')[0]
+    ).trim();
+    const verifiedAvatar = payload.picture || undefined;
+
+    return {
+      email: verifiedEmail,
+      sub: googleId,
+      fullName: verifiedFullName,
+      avatar: verifiedAvatar,
+    };
+  }
+
+  /**
+   * Safe account linking and user resolution for verified Google identity.
+   * Enforces:
+   * 1. Anti-account takeover: existing accounts cannot be hijacked by mismatched Google sub.
+   * 2. RBAC protection: privileged roles (ADMIN, COUNSELOR, STAFF) can NEVER be granted via Google login.
+   * 3. Account status enforcement: suspended, locked, deactivated accounts are blocked.
+   * 4. Student profile creation: safe creation of student profile, studentId, and referral attribution.
+   */
+  async processGoogleVerifiedIdentity(
+    identity: { email: string; sub: string; fullName: string; avatar?: string },
+    referralCode?: string,
+    ipAddress?: string,
+  ) {
+    const { email, sub: googleId, fullName, avatar } = identity;
+
+    // 1. Check existing AuthIdentity by provider & providerAccountId (Google Sub)
     const authIdentity = await this.prisma.authIdentity.findUnique({
       where: {
         provider_providerAccountId: {
@@ -602,24 +738,49 @@ export class AuthService {
 
     let user: any = authIdentity?.user;
 
-    // 2. Fallback check by email
+    // 2. If AuthIdentity not linked yet, check existing user by verified email
     if (!user) {
       user = await this.prisma.user.findFirst({
         where: {
           OR: [{ email }, { personalEmail: email }],
         },
       });
+
+      if (user) {
+        // Anti-account takeover check: verify that this user does not already have a DIFFERENT Google account linked
+        const existingGoogleIdentity = await this.prisma.authIdentity.findFirst(
+          {
+            where: {
+              userId: user.id,
+              provider: 'GOOGLE',
+            },
+          },
+        );
+
+        if (
+          existingGoogleIdentity &&
+          existingGoogleIdentity.providerAccountId !== googleId
+        ) {
+          this.logger.warn(
+            `[Google Auth] Account linking rejected for ${email}: already linked to Google ID ${existingGoogleIdentity.providerAccountId}, attempted ${googleId}`,
+          );
+          throw new UnauthorizedException(
+            'This Swayam Admission account is already linked to a different Google account.',
+          );
+        }
+      }
     }
 
     let isNewUser = false;
 
     if (!user) {
+      // 3. Register brand-new student account
       isNewUser = true;
       let referralAttribution: any = null;
       let cleanReferralCode: string | null = null;
 
-      if (dto.referralCode && dto.referralCode.trim()) {
-        cleanReferralCode = dto.referralCode.trim().toUpperCase();
+      if (referralCode && referralCode.trim()) {
+        cleanReferralCode = referralCode.trim().toUpperCase();
         const codeProfile = await this.prisma.studentReferralCode.findUnique({
           where: { code: cleanReferralCode },
           include: { user: true },
@@ -629,18 +790,23 @@ export class AuthService {
         }
       }
 
-      const randomPass = await bcryptLib.hash(crypto.randomBytes(24).toString('hex'), 10);
+      const randomPass = await bcryptLib.hash(
+        crypto.randomBytes(32).toString('hex'),
+        10,
+      );
       const studentId = await this.idGenerator.generateStudentId();
-      const registrationNumber = await this.idGenerator.generateRegistrationNumber();
+      const registrationNumber =
+        await this.idGenerator.generateRegistrationNumber();
 
       user = await this.prisma.$transaction(async (tx) => {
         const created = await tx.user.create({
           data: {
-            fullName: dto.fullName?.trim() || 'Student',
+            fullName: fullName?.trim() || 'Student',
             email,
             personalEmail: email,
             password: randomPass,
-            role: Role.STUDENT,
+            avatar: avatar || null,
+            role: Role.STUDENT, // Strictly Role.STUDENT for new registrations
             isApproved: true,
             isActive: true,
             status: 'ACTIVE',
@@ -664,6 +830,12 @@ export class AuthService {
             provider: 'GOOGLE',
             providerAccountId: googleId,
             email,
+            metadata: {
+              googleSub: googleId,
+              avatar: avatar || null,
+              name: fullName,
+              linkedAt: new Date().toISOString(),
+            },
           },
         });
 
@@ -690,7 +862,9 @@ export class AuthService {
         return created;
       });
     } else {
-      // Link Google AuthIdentity if missing
+      // 4. Existing User: Enforce status & link AuthIdentity safely
+      this.enforceAccountState(user);
+
       if (!authIdentity) {
         await this.prisma.authIdentity.upsert({
           where: {
@@ -699,40 +873,64 @@ export class AuthService {
               providerAccountId: googleId,
             },
           },
-          update: { userId: user.id },
+          update: {
+            userId: user.id,
+            email,
+            metadata: {
+              googleSub: googleId,
+              avatar: avatar || null,
+              name: fullName,
+              linkedAt: new Date().toISOString(),
+            },
+          },
           create: {
             userId: user.id,
             provider: 'GOOGLE',
             providerAccountId: googleId,
             email,
+            metadata: {
+              googleSub: googleId,
+              avatar: avatar || null,
+              name: fullName,
+              linkedAt: new Date().toISOString(),
+            },
           },
         });
       }
 
-      this.enforceAccountState(user);
+      // 5. RBAC Protection:
+      // NEVER promote or modify role for existing accounts.
+      // Only students receive student identifiers if missing.
+      const userUpdates: any = {};
+      if (!user.emailVerified) {
+        userUpdates.emailVerified = true;
+        userUpdates.emailVerifiedAt = new Date();
+      }
+      if (!user.avatar && avatar) {
+        userUpdates.avatar = avatar;
+      }
 
-      // Auto-activate & ensure student identifiers
-      const studentUpdates: any = {};
       if (user.role === Role.STUDENT) {
-        if (!user.studentId) studentUpdates.studentId = await this.idGenerator.generateStudentId();
-        if (!user.registrationNumber) studentUpdates.registrationNumber = await this.idGenerator.generateRegistrationNumber();
-        if (!user.emailVerified) {
-          studentUpdates.emailVerified = true;
-          studentUpdates.emailVerifiedAt = new Date();
-        }
+        if (!user.studentId)
+          userUpdates.studentId = await this.idGenerator.generateStudentId();
+        if (!user.registrationNumber)
+          userUpdates.registrationNumber =
+            await this.idGenerator.generateRegistrationNumber();
         if (!user.isApproved || user.status === 'PENDING_APPROVAL') {
-          studentUpdates.isApproved = true;
-          studentUpdates.status = 'ACTIVE';
+          userUpdates.isApproved = true;
+          userUpdates.status = 'ACTIVE';
         }
-        if (Object.keys(studentUpdates).length > 0) {
-          user = await this.prisma.user.update({
-            where: { id: user.id },
-            data: studentUpdates,
-          });
-        }
+      }
+
+      if (Object.keys(userUpdates).length > 0) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: userUpdates,
+        });
       }
     }
 
+    // 6. Issue secure tokens & log audit event
     const tokens = await this.issueTokens(user);
 
     await this.logAuthEvent({
@@ -755,6 +953,46 @@ export class AuthService {
     };
   }
 
+  /**
+   * 3. Google OAuth & Student Registration Endpoint Handler
+   * Validates genuine Google ID token, links Google identity through AuthIdentity,
+   * prevents duplicate records, and supports referral attribution.
+   */
+  async googleAuth(dto: GoogleAuthDto, ipAddress?: string) {
+    const token = dto.idToken?.trim() || dto.credential?.trim();
+
+    if (!token) {
+      // In test mode only, allow legacy test call if token is omitted
+      if (
+        (process.env.NODE_ENV === 'test' ||
+          process.env.ALLOW_TEST_AUTH === 'true') &&
+        dto.email &&
+        dto.googleId
+      ) {
+        return this.processGoogleVerifiedIdentity(
+          {
+            email: this.normalizeEmail(dto.email),
+            sub: dto.googleId,
+            fullName: dto.fullName || dto.email.split('@')[0],
+            avatar: dto.avatar,
+          },
+          dto.referralCode,
+          ipAddress,
+        );
+      }
+      throw new BadRequestException(
+        'Google ID token (credential) is required for authentication.',
+      );
+    }
+
+    const verified = await this.verifyGoogleIdToken(token);
+    return this.processGoogleVerifiedIdentity(
+      verified,
+      dto.referralCode,
+      ipAddress,
+    );
+  }
+
   async loginWithGoogle(dto: GoogleAuthDto, ipAddress?: string) {
     return this.googleAuth(dto, ipAddress);
   }
@@ -763,7 +1001,10 @@ export class AuthService {
    * 4a. Send Registration Mobile OTP
    * Validates +91 mobile, ensures not already registered, enforces 30s resend cooldown.
    */
-  async sendRegistrationMobileOtp(dto: SendRegistrationMobileOtpDto, ipAddress?: string) {
+  async sendRegistrationMobileOtp(
+    dto: SendRegistrationMobileOtpDto,
+    ipAddress?: string,
+  ) {
     const normalizedMobile = this.normalizeMobile(dto.mobile);
 
     // Ensure mobile is not already registered
@@ -778,7 +1019,9 @@ export class AuthService {
       },
     });
     if (existing) {
-      throw new ConflictException('This mobile number is already registered. Please log in.');
+      throw new ConflictException(
+        'This mobile number is already registered. Please log in.',
+      );
     }
 
     // Cooldown check (30s)
@@ -791,7 +1034,11 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestOtp && latestOtp.resendAfter && latestOtp.resendAfter > new Date()) {
+    if (
+      latestOtp &&
+      latestOtp.resendAfter &&
+      latestOtp.resendAfter > new Date()
+    ) {
       const remainingSeconds = Math.ceil(
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
@@ -848,7 +1095,10 @@ export class AuthService {
    * 4b. Verify Registration Mobile OTP
    * Verifies OTP, marks used, and issues a 15-minute single-use registration verification token.
    */
-  async verifyRegistrationMobileOtp(dto: VerifyRegistrationMobileOtpDto, ipAddress?: string) {
+  async verifyRegistrationMobileOtp(
+    dto: VerifyRegistrationMobileOtpDto,
+    ipAddress?: string,
+  ) {
     const normalizedMobile = this.normalizeMobile(dto.mobile);
     const cleanOtp = (dto.otp || '').trim();
 
@@ -866,7 +1116,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active OTP found. Please request an OTP.');
+      throw new BadRequestException(
+        'No active OTP found. Please request an OTP.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -874,7 +1126,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      throw new BadRequestException(
+        'OTP has expired. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -882,7 +1136,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     // Increment attempts
@@ -900,9 +1156,13 @@ export class AuthService {
           where: { id: activeOtp.id },
           data: { isUsed: true },
         });
-        throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+        throw new BadRequestException(
+          'Maximum verification attempts exceeded. Please request a new OTP.',
+        );
       }
-      throw new BadRequestException(`Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`);
+      throw new BadRequestException(
+        `Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`,
+      );
     }
 
     // Mark OTP used
@@ -947,20 +1207,22 @@ export class AuthService {
   /**
    * 4b-email. Send Registration Email OTP
    */
-  async sendRegistrationEmailOtp(dto: SendRegistrationEmailOtpDto, ipAddress?: string) {
+  async sendRegistrationEmailOtp(
+    dto: SendRegistrationEmailOtpDto,
+    ipAddress?: string,
+  ) {
     const email = dto.email.toLowerCase().trim();
 
     // Ensure email is not already registered
     const existing = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email },
-          { personalEmail: email },
-        ],
+        OR: [{ email }, { personalEmail: email }],
       },
     });
     if (existing) {
-      throw new ConflictException('This email is already registered. Please log in.');
+      throw new ConflictException(
+        'This email is already registered. Please log in.',
+      );
     }
 
     // Cooldown check (30s)
@@ -973,7 +1235,11 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestOtp && latestOtp.resendAfter && latestOtp.resendAfter > new Date()) {
+    if (
+      latestOtp &&
+      latestOtp.resendAfter &&
+      latestOtp.resendAfter > new Date()
+    ) {
       const remainingSeconds = Math.ceil(
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
@@ -1029,7 +1295,10 @@ export class AuthService {
   /**
    * 4b-email. Verify Registration Email OTP
    */
-  async verifyRegistrationEmailOtp(dto: VerifyRegistrationEmailOtpDto, ipAddress?: string) {
+  async verifyRegistrationEmailOtp(
+    dto: VerifyRegistrationEmailOtpDto,
+    ipAddress?: string,
+  ) {
     const email = dto.email.toLowerCase().trim();
     const cleanOtp = (dto.otp || '').trim();
 
@@ -1047,7 +1316,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active OTP found. Please request an OTP.');
+      throw new BadRequestException(
+        'No active OTP found. Please request an OTP.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -1055,7 +1326,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      throw new BadRequestException(
+        'OTP has expired. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -1063,7 +1336,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     const newAttempts = activeOtp.attempts + 1;
@@ -1080,9 +1355,13 @@ export class AuthService {
           where: { id: activeOtp.id },
           data: { isUsed: true },
         });
-        throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+        throw new BadRequestException(
+          'Maximum verification attempts exceeded. Please request a new OTP.',
+        );
       }
-      throw new BadRequestException(`Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`);
+      throw new BadRequestException(
+        `Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`,
+      );
     }
 
     await this.prisma.otpVerification.update({
@@ -1136,7 +1415,9 @@ export class AuthService {
     }
 
     if (dto.confirmPassword && dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Password and Confirm Password do not match.');
+      throw new BadRequestException(
+        'Password and Confirm Password do not match.',
+      );
     }
 
     if (!dto.state || !dto.state.trim()) {
@@ -1152,7 +1433,9 @@ export class AuthService {
 
     // MANDATORY BACKEND MOBILE VERIFICATION CHECK (Requirement 2)
     if (!dto.verificationToken || !dto.verificationToken.trim()) {
-      throw new BadRequestException('Mobile number verification is required before creating an account. Please verify your mobile number with OTP.');
+      throw new BadRequestException(
+        'Mobile number verification is required before creating an account. Please verify your mobile number with OTP.',
+      );
     }
 
     const tokenHash = this.hashOtp(dto.verificationToken.trim());
@@ -1167,7 +1450,9 @@ export class AuthService {
     });
 
     if (!validVerifiedRecord) {
-      throw new BadRequestException('Mobile verification is invalid or expired. Please verify your mobile number again.');
+      throw new BadRequestException(
+        'Mobile verification is invalid or expired. Please verify your mobile number again.',
+      );
     }
 
     // Invalidate token immediately
@@ -1177,20 +1462,27 @@ export class AuthService {
     });
 
     // OPTIONAL EMAIL VERIFICATION CHECK (Only enforce token check if emailVerificationToken was provided)
-    if (email && dto.emailVerificationToken && dto.emailVerificationToken.trim()) {
+    if (
+      email &&
+      dto.emailVerificationToken &&
+      dto.emailVerificationToken.trim()
+    ) {
       const emailTokenHash = this.hashOtp(dto.emailVerificationToken.trim());
-      const validEmailVerifiedRecord = await this.prisma.otpVerification.findFirst({
-        where: {
-          identifier: email,
-          type: 'REGISTRATION_EMAIL_VERIFIED_TOKEN',
-          otpHash: emailTokenHash,
-          isUsed: false,
-          expiresAt: { gt: new Date() },
-        },
-      });
+      const validEmailVerifiedRecord =
+        await this.prisma.otpVerification.findFirst({
+          where: {
+            identifier: email,
+            type: 'REGISTRATION_EMAIL_VERIFIED_TOKEN',
+            otpHash: emailTokenHash,
+            isUsed: false,
+            expiresAt: { gt: new Date() },
+          },
+        });
 
       if (!validEmailVerifiedRecord) {
-        throw new BadRequestException('Email verification is invalid or expired. Please verify your email again.');
+        throw new BadRequestException(
+          'Email verification is invalid or expired. Please verify your email again.',
+        );
       }
 
       await this.prisma.otpVerification.update({
@@ -1211,8 +1503,13 @@ export class AuthService {
 
     // Mandatory Registration Legal Consent (Requirement 7)
     let policiesToAccept = dto.acceptedPolicies;
-    if ((!policiesToAccept || policiesToAccept.length === 0) && dto.termsAccepted && dto.privacyAccepted) {
-      const regReqs = await this.consentService.getActionRequirements('REGISTRATION');
+    if (
+      (!policiesToAccept || policiesToAccept.length === 0) &&
+      dto.termsAccepted &&
+      dto.privacyAccepted
+    ) {
+      const regReqs =
+        await this.consentService.getActionRequirements('REGISTRATION');
       policiesToAccept = regReqs.policies.map((p) => ({
         policyId: p.id,
         policyType: p.policyType,
@@ -1248,7 +1545,8 @@ export class AuthService {
     }
 
     const studentId = await this.idGenerator.generateStudentId();
-    const registrationNumber = await this.idGenerator.generateRegistrationNumber();
+    const registrationNumber =
+      await this.idGenerator.generateRegistrationNumber();
 
     const user = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
@@ -1364,7 +1662,9 @@ export class AuthService {
       include: {
         department: { select: { id: true, name: true, code: true } },
         unit: { select: { id: true, name: true, code: true } },
-        roleEntity: { select: { id: true, name: true, slug: true, color: true } },
+        roleEntity: {
+          select: { id: true, name: true, slug: true, color: true },
+        },
         state: { select: { id: true, name: true, code: true } },
         district: { select: { id: true, name: true, code: true } },
         assignments: {
@@ -1376,7 +1676,10 @@ export class AuthService {
     });
 
     if (position) {
-      if (position.emailStatus !== 'ACTIVE' || position.positionStatus === 'RETIRED') {
+      if (
+        position.emailStatus !== 'ACTIVE' ||
+        position.positionStatus === 'RETIRED'
+      ) {
         throw new UnauthorizedException(
           `This position account is currently ${position.positionStatus.toLowerCase()}. Access denied.`,
         );
@@ -1394,15 +1697,22 @@ export class AuthService {
       this.enforceAccountState(user);
 
       if (!user.password) {
-        throw new UnauthorizedException('Password not set. Please use OTP or Google login.');
+        throw new UnauthorizedException(
+          'Password not set. Please use OTP or Google login.',
+        );
       }
 
       // 3-Domain Architecture Validation for Positions
       if (dto.domain === 'PUBLIC') {
-        throw new ForbiddenException('Corporate Credentials cannot be used on the Public Domain.');
+        throw new ForbiddenException(
+          'Corporate Credentials cannot be used on the Public Domain.',
+        );
       }
 
-      const isPasswordValid = await bcryptLib.compare(dto.password, user.password);
+      const isPasswordValid = await bcryptLib.compare(
+        dto.password,
+        user.password,
+      );
       if (!isPasswordValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -1417,7 +1727,9 @@ export class AuthService {
       };
 
       try {
-        const access = await this.authorizationService.getUserEffectiveAccess(user.id);
+        const access = await this.authorizationService.getUserEffectiveAccess(
+          user.id,
+        );
         iamAccess = {
           roles: access.roles,
           effectivePermissions: access.effectivePermissions,
@@ -1479,16 +1791,22 @@ export class AuthService {
 
     if (activeUser.role === Role.STUDENT) {
       const studentUpdates: any = {};
-      if (!activeUser.isApproved || activeUser.status === 'PENDING_APPROVAL' || !activeUser.isActive) {
+      if (
+        !activeUser.isApproved ||
+        activeUser.status === 'PENDING_APPROVAL' ||
+        !activeUser.isActive
+      ) {
         studentUpdates.isApproved = true;
         studentUpdates.status = 'ACTIVE';
         studentUpdates.isActive = true;
       }
-      if (!activeUser.studentId) studentUpdates.studentId = await this.idGenerator.generateStudentId();
+      if (!activeUser.studentId)
+        studentUpdates.studentId = await this.idGenerator.generateStudentId();
       if (!activeUser.registrationNumber) {
-        studentUpdates.registrationNumber = await this.idGenerator.generateRegistrationNumber(
-          new Date(activeUser.createdAt).getFullYear(),
-        );
+        studentUpdates.registrationNumber =
+          await this.idGenerator.generateRegistrationNumber(
+            new Date(activeUser.createdAt).getFullYear(),
+          );
       }
       if (Object.keys(studentUpdates).length > 0) {
         activeUser = await this.prisma.user.update({
@@ -1501,11 +1819,16 @@ export class AuthService {
     this.enforceAccountState(activeUser);
 
     if (!activeUser.password) {
-      throw new UnauthorizedException('Password not set for this account. Please log in using Mobile OTP or Google.');
+      throw new UnauthorizedException(
+        'Password not set for this account. Please log in using Mobile OTP or Google.',
+      );
     }
 
     // Temporary Password Expiry Check
-    if (activeUser.mustChangePassword && activeUser.temporaryPasswordExpiresAt) {
+    if (
+      activeUser.mustChangePassword &&
+      activeUser.temporaryPasswordExpiresAt
+    ) {
       if (activeUser.temporaryPasswordExpiresAt < new Date()) {
         throw new UnauthorizedException(
           'Your temporary credentials have expired. Please contact HR at hr@swayamadmission.com to have your credentials re-issued.',
@@ -1513,7 +1836,10 @@ export class AuthService {
       }
     }
 
-    const isPasswordValid = await bcryptLib.compare(dto.password, activeUser.password);
+    const isPasswordValid = await bcryptLib.compare(
+      dto.password,
+      activeUser.password,
+    );
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -1526,19 +1852,23 @@ export class AuthService {
     };
 
     try {
-      const access = await this.authorizationService.getUserEffectiveAccess(activeUser.id);
+      const access = await this.authorizationService.getUserEffectiveAccess(
+        activeUser.id,
+      );
       iamAccess = {
         roles: access.roles,
         effectivePermissions: access.effectivePermissions,
         dataScopes: access.dataScopes,
-        isSuperAdmin: access.isSuperAdmin || activeUser.role === Role.SUPER_ADMIN,
+        isSuperAdmin:
+          access.isSuperAdmin || activeUser.role === Role.SUPER_ADMIN,
       };
     } catch {
       iamAccess.isSuperAdmin = activeUser.role === Role.SUPER_ADMIN;
     }
 
     // 2-Portal / Domain Architecture Enforcement
-    const isSuperAdminUser = activeUser.role === Role.SUPER_ADMIN || iamAccess.isSuperAdmin;
+    const isSuperAdminUser =
+      activeUser.role === Role.SUPER_ADMIN || iamAccess.isSuperAdmin;
     const isProtectedRole =
       isSuperAdminUser ||
       activeUser.role === Role.ADMIN ||
@@ -1558,12 +1888,16 @@ export class AuthService {
           (identifier === activeUser.employeeId ||
             identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
         if (!empIdMatches) {
-          throw new BadRequestException('Protected Admin Portal login requires your assigned Employee ID.');
+          throw new BadRequestException(
+            'Protected Admin Portal login requires your assigned Employee ID.',
+          );
         }
       }
     } else if (dto.domain === 'ERP') {
       if (activeUser.role === Role.STUDENT) {
-        throw new ForbiddenException('Students cannot access the Employee ERP portal.');
+        throw new ForbiddenException(
+          'Students cannot access the Employee ERP portal.',
+        );
       }
 
       // Normal employees must log in using their assigned Employee ID
@@ -1573,7 +1907,9 @@ export class AuthService {
           (identifier === activeUser.employeeId ||
             identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
         if (!empIdMatches) {
-          throw new BadRequestException('Employee ERP Portal login requires your assigned Employee ID.');
+          throw new BadRequestException(
+            'Employee ERP Portal login requires your assigned Employee ID.',
+          );
         }
       }
     }
@@ -1613,7 +1949,11 @@ export class AuthService {
   /**
    * 6. Send Mailbox Verification Code (Email Verification)
    */
-  async sendEmailVerification(userId?: string, rawEmail?: string, ipAddress?: string) {
+  async sendEmailVerification(
+    userId?: string,
+    rawEmail?: string,
+    ipAddress?: string,
+  ) {
     let targetEmail: string;
     let targetUser: any = null;
 
@@ -1644,7 +1984,11 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestOtp && latestOtp.resendAfter && latestOtp.resendAfter > new Date()) {
+    if (
+      latestOtp &&
+      latestOtp.resendAfter &&
+      latestOtp.resendAfter > new Date()
+    ) {
       const remainingSeconds = Math.ceil(
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
@@ -1700,9 +2044,16 @@ export class AuthService {
   /**
    * 7. Verify Mailbox Email Code
    */
-  async verifyEmail(userId?: string, rawEmail?: string, rawCode?: string, ipAddress?: string) {
+  async verifyEmail(
+    userId?: string,
+    rawEmail?: string,
+    rawCode?: string,
+    ipAddress?: string,
+  ) {
     if (!rawCode || rawCode.trim().length !== 6) {
-      throw new BadRequestException('Please enter a valid 6-digit verification code.');
+      throw new BadRequestException(
+        'Please enter a valid 6-digit verification code.',
+      );
     }
     const cleanCode = rawCode.trim();
 
@@ -1711,7 +2062,8 @@ export class AuthService {
       targetEmail = this.normalizeEmail(rawEmail);
     } else if (userId) {
       const u = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!u || !u.email) throw new BadRequestException('No email registered on account.');
+      if (!u || !u.email)
+        throw new BadRequestException('No email registered on account.');
       targetEmail = u.email;
     } else {
       throw new BadRequestException('Email address is required.');
@@ -1727,7 +2079,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active verification code found. Please request a new code.');
+      throw new BadRequestException(
+        'No active verification code found. Please request a new code.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -1735,7 +2089,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Verification code has expired. Please request a new code.');
+      throw new BadRequestException(
+        'Verification code has expired. Please request a new code.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -1743,7 +2099,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new code.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new code.',
+      );
     }
 
     const newAttempts = activeOtp.attempts + 1;
@@ -1770,7 +2128,9 @@ export class AuthService {
     const userToUpdate = userId
       ? await this.prisma.user.findUnique({ where: { id: userId } })
       : await this.prisma.user.findFirst({
-          where: { OR: [{ email: targetEmail }, { personalEmail: targetEmail }] },
+          where: {
+            OR: [{ email: targetEmail }, { personalEmail: targetEmail }],
+          },
         });
 
     if (userToUpdate) {
@@ -1835,7 +2195,9 @@ export class AuthService {
       }
 
       if (tokenRecord.expiresAt < new Date()) {
-        throw new UnauthorizedException('Refresh token has expired. Please log in again.');
+        throw new UnauthorizedException(
+          'Refresh token has expired. Please log in again.',
+        );
       }
 
       const user = await this.prisma.user.findUnique({
@@ -1848,7 +2210,10 @@ export class AuthService {
 
       this.enforceAccountState(user);
 
-      if (payload.sessionVersion && payload.sessionVersion !== (user.sessionVersion || 1)) {
+      if (
+        payload.sessionVersion &&
+        payload.sessionVersion !== (user.sessionVersion || 1)
+      ) {
         throw new UnauthorizedException(
           'Session expired due to password reset or administrative revocation.',
         );
@@ -1879,7 +2244,9 @@ export class AuthService {
       };
 
       try {
-        const access = await this.authorizationService.getUserEffectiveAccess(user.id);
+        const access = await this.authorizationService.getUserEffectiveAccess(
+          user.id,
+        );
         iamAccess = {
           roles: access.roles,
           effectivePermissions: access.effectivePermissions,
@@ -1949,7 +2316,8 @@ export class AuthService {
     const email = rawEmail.trim().toLowerCase();
 
     const genericResponse = {
-      message: 'If an account exists for this email, a password reset link has been sent.',
+      message:
+        'If an account exists for this email, a password reset link has been sent.',
     };
 
     // Check if corporate position email
@@ -1980,7 +2348,10 @@ export class AuthService {
     });
 
     const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await this.prisma.passwordResetToken.create({
@@ -2065,7 +2436,8 @@ export class AuthService {
     });
 
     return {
-      message: 'Password reset successfully. You can now log in with your new password.',
+      message:
+        'Password reset successfully. You can now log in with your new password.',
     };
   }
 
@@ -2073,7 +2445,10 @@ export class AuthService {
    * 12. Forgot Password - Send OTP via Mobile or Email
    * Generic response prevents account enumeration. Enforces 30s resend cooldown and 5m expiry.
    */
-  async forgotPasswordSendOtp(dto: ForgotPasswordSendOtpDto, ipAddress?: string) {
+  async forgotPasswordSendOtp(
+    dto: ForgotPasswordSendOtpDto,
+    ipAddress?: string,
+  ) {
     const method = dto.method;
     const isMobile = method === 'MOBILE';
     const identifier = isMobile
@@ -2100,7 +2475,11 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestOtp && latestOtp.resendAfter && latestOtp.resendAfter > new Date()) {
+    if (
+      latestOtp &&
+      latestOtp.resendAfter &&
+      latestOtp.resendAfter > new Date()
+    ) {
       const remainingSeconds = Math.ceil(
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
@@ -2174,7 +2553,10 @@ export class AuthService {
   /**
    * 13. Forgot Password - Verify OTP and Issue Reset Token
    */
-  async forgotPasswordVerifyOtp(dto: ForgotPasswordVerifyOtpDto, ipAddress?: string) {
+  async forgotPasswordVerifyOtp(
+    dto: ForgotPasswordVerifyOtpDto,
+    ipAddress?: string,
+  ) {
     const method = dto.method;
     const isMobile = method === 'MOBILE';
     const identifier = isMobile
@@ -2196,7 +2578,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active OTP found. Please request an OTP.');
+      throw new BadRequestException(
+        'No active OTP found. Please request an OTP.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -2204,7 +2588,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      throw new BadRequestException(
+        'OTP has expired. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -2212,7 +2598,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     const newAttempts = activeOtp.attempts + 1;
@@ -2229,9 +2617,13 @@ export class AuthService {
           where: { id: activeOtp.id },
           data: { isUsed: true },
         });
-        throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+        throw new BadRequestException(
+          'Maximum verification attempts exceeded. Please request a new OTP.',
+        );
       }
-      throw new BadRequestException(`Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`);
+      throw new BadRequestException(
+        `Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`,
+      );
     }
 
     // Mark OTP used
@@ -2273,7 +2665,10 @@ export class AuthService {
 
     // Issue single-use reset token valid for 15 minutes
     const rawResetToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawResetToken)
+      .digest('hex');
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await this.prisma.passwordResetToken.create({
@@ -2303,15 +2698,22 @@ export class AuthService {
    * 14. Reset Password with Single-Use Token (from OTP flow)
    * Enforces matching passwords and revokes old sessions.
    */
-  async resetPasswordWithToken(dto: ResetPasswordWithTokenDto, ipAddress?: string) {
+  async resetPasswordWithToken(
+    dto: ResetPasswordWithTokenDto,
+    ipAddress?: string,
+  ) {
     if (!dto.resetToken || !dto.resetToken.trim()) {
       throw new BadRequestException('Reset token is required.');
     }
     if (!dto.newPassword || dto.newPassword.length < 6) {
-      throw new BadRequestException('New password must be at least 6 characters.');
+      throw new BadRequestException(
+        'New password must be at least 6 characters.',
+      );
     }
     if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('New Password and Confirm Password do not match.');
+      throw new BadRequestException(
+        'New Password and Confirm Password do not match.',
+      );
     }
 
     const tokenHash = crypto
@@ -2324,8 +2726,14 @@ export class AuthService {
       include: { user: true },
     });
 
-    if (!resetRecord || resetRecord.isUsed || resetRecord.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token. Please request a new OTP.');
+    if (
+      !resetRecord ||
+      resetRecord.isUsed ||
+      resetRecord.expiresAt < new Date()
+    ) {
+      throw new BadRequestException(
+        'Invalid or expired reset token. Please request a new OTP.',
+      );
     }
 
     const user = resetRecord.user;
@@ -2362,21 +2770,28 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Password reset successfully. You can now log in with your new password.',
+      message:
+        'Password reset successfully. You can now log in with your new password.',
     };
   }
 
   /**
    * 15. Send User Mobile Verification Code (for logged-in student)
    */
-  async sendUserMobileVerification(userId?: string, rawMobile?: string, ipAddress?: string) {
+  async sendUserMobileVerification(
+    userId?: string,
+    rawMobile?: string,
+    ipAddress?: string,
+  ) {
     let targetMobile: string;
     let targetUser: any = null;
 
     if (userId) {
       targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!targetUser) throw new NotFoundException('User not found');
-      targetMobile = rawMobile ? this.normalizeMobile(rawMobile) : targetUser.mobile;
+      targetMobile = rawMobile
+        ? this.normalizeMobile(rawMobile)
+        : targetUser.mobile;
     } else if (rawMobile) {
       targetMobile = this.normalizeMobile(rawMobile);
     } else {
@@ -2401,7 +2816,9 @@ export class AuthService {
     });
 
     if (existingOther) {
-      throw new ConflictException('This mobile number is already linked to another account.');
+      throw new ConflictException(
+        'This mobile number is already linked to another account.',
+      );
     }
 
     // Cooldown check (30s)
@@ -2414,7 +2831,11 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (latestOtp && latestOtp.resendAfter && latestOtp.resendAfter > new Date()) {
+    if (
+      latestOtp &&
+      latestOtp.resendAfter &&
+      latestOtp.resendAfter > new Date()
+    ) {
       const remainingSeconds = Math.ceil(
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
@@ -2471,9 +2892,16 @@ export class AuthService {
   /**
    * 16. Verify User Mobile Code (for logged-in student)
    */
-  async verifyUserMobile(userId?: string, rawMobile?: string, rawOtp?: string, ipAddress?: string) {
+  async verifyUserMobile(
+    userId?: string,
+    rawMobile?: string,
+    rawOtp?: string,
+    ipAddress?: string,
+  ) {
     if (!rawOtp || rawOtp.trim().length !== 6) {
-      throw new BadRequestException('Please enter a valid 6-digit verification code.');
+      throw new BadRequestException(
+        'Please enter a valid 6-digit verification code.',
+      );
     }
     const cleanOtp = rawOtp.trim();
 
@@ -2483,7 +2911,9 @@ export class AuthService {
     if (userId) {
       targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!targetUser) throw new NotFoundException('User not found');
-      targetMobile = rawMobile ? this.normalizeMobile(rawMobile) : targetUser.mobile;
+      targetMobile = rawMobile
+        ? this.normalizeMobile(rawMobile)
+        : targetUser.mobile;
     } else if (rawMobile) {
       targetMobile = this.normalizeMobile(rawMobile);
     } else {
@@ -2500,7 +2930,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active verification code found. Please request a new OTP.');
+      throw new BadRequestException(
+        'No active verification code found. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -2508,7 +2940,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      throw new BadRequestException(
+        'OTP has expired. Please request a new OTP.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -2516,7 +2950,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     const newAttempts = activeOtp.attempts + 1;
@@ -2533,9 +2969,13 @@ export class AuthService {
           where: { id: activeOtp.id },
           data: { isUsed: true },
         });
-        throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+        throw new BadRequestException(
+          'Maximum verification attempts exceeded. Please request a new OTP.',
+        );
       }
-      throw new BadRequestException(`Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`);
+      throw new BadRequestException(
+        `Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`,
+      );
     }
 
     // Invalidate OTP
@@ -2574,12 +3014,23 @@ export class AuthService {
   /**
    * First-Login Verification Code Dispatch
    */
-  async sendFirstLoginOtp(dto: FirstLoginSendOtpDto, ipAddress?: string, currentUser?: any) {
-    const rawId = (dto.identifier || currentUser?.employeeId || currentUser?.email || '').trim();
+  async sendFirstLoginOtp(
+    dto: FirstLoginSendOtpDto,
+    ipAddress?: string,
+    currentUser?: any,
+  ) {
+    const rawId = (
+      dto.identifier ||
+      currentUser?.employeeId ||
+      currentUser?.email ||
+      ''
+    ).trim();
     const rawIdLower = rawId.toLowerCase();
 
     if (!rawId) {
-      throw new BadRequestException('Employee ID or official email is required.');
+      throw new BadRequestException(
+        'Employee ID or official email is required.',
+      );
     }
 
     const user = await this.prisma.user.findFirst({
@@ -2594,7 +3045,9 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('No staff account found matching the provided identifier.');
+      throw new NotFoundException(
+        'No staff account found matching the provided identifier.',
+      );
     }
 
     if (!user.mustChangePassword) {
@@ -2605,7 +3058,9 @@ export class AuthService {
 
     const officialEmail = user.email || user.personalEmail;
     if (!officialEmail) {
-      throw new BadRequestException('No official email registered for this staff member.');
+      throw new BadRequestException(
+        'No official email registered for this staff member.',
+      );
     }
 
     // Rate-limiting: Check recent OTP requests in last 5 minutes
@@ -2619,7 +3074,9 @@ export class AuthService {
     });
 
     if (recentCount >= 5) {
-      throw new BadRequestException('Too many OTP requests. Please wait 5 minutes before trying again.');
+      throw new BadRequestException(
+        'Too many OTP requests. Please wait 5 minutes before trying again.',
+      );
     }
 
     // Generate 6-digit cryptographic OTP
@@ -2682,12 +3139,17 @@ export class AuthService {
           },
         );
       } catch (err: any) {
-        this.logger.warn(`Failed sending first login email OTP: ${err.message}`);
+        this.logger.warn(
+          `Failed sending first login email OTP: ${err.message}`,
+        );
       }
     }
 
     const [userPart, domainPart] = officialEmail.split('@');
-    const maskedUser = userPart.length > 2 ? `${userPart[0]}***${userPart[userPart.length - 1]}` : `${userPart[0]}***`;
+    const maskedUser =
+      userPart.length > 2
+        ? `${userPart[0]}***${userPart[userPart.length - 1]}`
+        : `${userPart[0]}***`;
     const maskedEmail = `${maskedUser}@${domainPart}`;
 
     return {
@@ -2707,11 +3169,18 @@ export class AuthService {
     ipAddress?: string,
     currentUser?: any,
   ) {
-    const rawId = (dto.identifier || currentUser?.employeeId || currentUser?.email || '').trim();
+    const rawId = (
+      dto.identifier ||
+      currentUser?.employeeId ||
+      currentUser?.email ||
+      ''
+    ).trim();
     const rawIdLower = rawId.toLowerCase();
 
     if (!rawId) {
-      throw new BadRequestException('Employee ID or official email is required.');
+      throw new BadRequestException(
+        'Employee ID or official email is required.',
+      );
     }
 
     const user = await this.prisma.user.findFirst({
@@ -2730,7 +3199,9 @@ export class AuthService {
     }
 
     if (!user.mustChangePassword) {
-      throw new BadRequestException('This account has already completed first-time activation.');
+      throw new BadRequestException(
+        'This account has already completed first-time activation.',
+      );
     }
 
     if (!user.password) {
@@ -2738,13 +3209,21 @@ export class AuthService {
     }
 
     // Verify current temporary password
-    const isCurrentValid = await bcryptLib.compare(dto.currentPassword, user.password);
+    const isCurrentValid = await bcryptLib.compare(
+      dto.currentPassword,
+      user.password,
+    );
     if (!isCurrentValid) {
-      throw new BadRequestException('Current temporary password does not match.');
+      throw new BadRequestException(
+        'Current temporary password does not match.',
+      );
     }
 
     // Check expiry
-    if (user.temporaryPasswordExpiresAt && user.temporaryPasswordExpiresAt < new Date()) {
+    if (
+      user.temporaryPasswordExpiresAt &&
+      user.temporaryPasswordExpiresAt < new Date()
+    ) {
       throw new UnauthorizedException(
         'Your temporary password has expired. Please contact HR at hr@swayamadmission.com.',
       );
@@ -2752,20 +3231,28 @@ export class AuthService {
 
     // Verify passwords match
     if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('New password and confirmation password do not match.');
+      throw new BadRequestException(
+        'New password and confirmation password do not match.',
+      );
     }
 
     // New password complexity check (min 8 chars, mixed case, number/special char)
     if (dto.newPassword.length < 8) {
-      throw new BadRequestException('New password must be at least 8 characters long.');
+      throw new BadRequestException(
+        'New password must be at least 8 characters long.',
+      );
     }
     if (dto.newPassword === dto.currentPassword) {
-      throw new BadRequestException('New password cannot be identical to your temporary password.');
+      throw new BadRequestException(
+        'New password cannot be identical to your temporary password.',
+      );
     }
 
     const officialEmail = user.email || user.personalEmail;
     if (!officialEmail) {
-      throw new BadRequestException('No official email found for verification.');
+      throw new BadRequestException(
+        'No official email found for verification.',
+      );
     }
 
     // Verify OTP
@@ -2784,7 +3271,9 @@ export class AuthService {
     });
 
     if (!activeOtp) {
-      throw new BadRequestException('No active OTP found. Please request a verification code.');
+      throw new BadRequestException(
+        'No active OTP found. Please request a verification code.',
+      );
     }
 
     if (activeOtp.expiresAt < new Date()) {
@@ -2792,7 +3281,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Verification code has expired. Please request a new code.');
+      throw new BadRequestException(
+        'Verification code has expired. Please request a new code.',
+      );
     }
 
     if (activeOtp.attempts >= activeOtp.maxAttempts) {
@@ -2800,7 +3291,9 @@ export class AuthService {
         where: { id: activeOtp.id },
         data: { isUsed: true },
       });
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     const newAttempts = activeOtp.attempts + 1;
@@ -2817,9 +3310,13 @@ export class AuthService {
           where: { id: activeOtp.id },
           data: { isUsed: true },
         });
-        throw new BadRequestException('Maximum attempts exceeded. Please request a new code.');
+        throw new BadRequestException(
+          'Maximum attempts exceeded. Please request a new code.',
+        );
       }
-      throw new BadRequestException(`Incorrect verification code. (${remaining} attempts remaining)`);
+      throw new BadRequestException(
+        `Incorrect verification code. (${remaining} attempts remaining)`,
+      );
     }
 
     // Invalidate OTP
@@ -2890,7 +3387,9 @@ export class AuthService {
           },
         );
       } catch (confirmErr: any) {
-        this.logger.warn(`Failed sending password confirmation email: ${confirmErr.message}`);
+        this.logger.warn(
+          `Failed sending password confirmation email: ${confirmErr.message}`,
+        );
       }
     }
 
@@ -2900,7 +3399,8 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Password successfully updated! Your account is now fully activated.',
+      message:
+        'Password successfully updated! Your account is now fully activated.',
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
       access_token: tokens.access_token,

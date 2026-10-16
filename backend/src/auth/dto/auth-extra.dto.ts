@@ -112,19 +112,25 @@ export class VerifyMobileOtpDto {
 }
 
 export class GoogleAuthDto {
-  @IsEmail()
-  email: string;
+  @IsOptional()
+  @IsString()
+  idToken?: string;
 
-  @IsNotEmpty()
-  fullName: string;
+  @IsOptional()
+  @IsString()
+  credential?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  fullName?: string;
 
   @IsOptional()
   @IsString()
   googleId?: string;
-
-  @IsOptional()
-  @IsString()
-  idToken?: string;
 
   @IsOptional()
   @IsString()
