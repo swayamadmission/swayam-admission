@@ -321,3 +321,212 @@ export function buildWelcomeEmailHtml(params: WelcomeEmailTemplateParams): strin
 </html>
   `.trim();
 }
+
+export interface EmployeeActivationEmailTemplateParams {
+  employeeName: string;
+  employeeId: string;
+  officialEmail: string;
+  activationUrl: string;
+  expiryHours?: number;
+  expiresInHours?: number;
+  portalUrl?: string;
+  portalName?: string;
+  roleName?: string;
+  designation?: string;
+  departmentName?: string;
+  supportEmail?: string;
+}
+
+/**
+ * Secure Employee Account Activation Email Template
+ * NO temporary password is included. Recipient sets their own password via the single-use activation link.
+ */
+export function buildEmployeeActivationEmailHtml(params: EmployeeActivationEmailTemplateParams): string {
+  const {
+    employeeName,
+    employeeId,
+    officialEmail,
+    activationUrl,
+    portalUrl = 'https://admin.swayamadmission.com',
+    portalName = 'Swayam Staff & Administration Portal',
+    roleName,
+    designation,
+    departmentName,
+    supportEmail = 'swayamadmissions@gmail.com',
+  } = params;
+  const expiryHours = params.expiryHours || params.expiresInHours || 24;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activate Your Swayam Admission Staff Account</title>
+</head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER_STYLES}">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #312E81 100%); padding: 36px 24px; text-align: center; color: #FFFFFF;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">SWAYAM ADMISSION</h1>
+      <p style="margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; font-weight: 600;">Staff & Employee Activation</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 36px 28px;">
+      <h2 style="margin-top: 0; color: #0F172A; font-size: 21px; font-weight: 700;">Welcome to the Team, ${employeeName}!</h2>
+      <p style="color: #334155; font-size: 15px; margin-bottom: 22px;">
+        An employee profile has been created for you at <strong>Swayam Admission</strong>. To begin using your workspace, please activate your account and set your permanent password.
+      </p>
+
+      <!-- Account Details Card -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 20px; margin: 24px 0;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; width: 140px; font-weight: 500;">Employee ID:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 700; font-family: monospace; font-size: 15px;">${employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Official Email:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${officialEmail}</td>
+          </tr>
+          ${designation || roleName ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Designation / Role:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${designation || roleName}</td>
+          </tr>` : ''}
+          ${departmentName ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Department:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${departmentName}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Login Portal:</td>
+            <td style="padding: 6px 0; color: #4338CA; font-weight: 600;"><a href="${portalUrl}" style="color: #4338CA; text-decoration: none;">${portalName}</a></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Action Button -->
+      <div style="text-align: center; margin: 32px 0 24px;">
+        <a href="${activationUrl}" style="background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: #FFFFFF; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: 700; display: inline-block; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);">
+          Activate Account & Set Password
+        </a>
+      </div>
+
+      <!-- Expiry Notice -->
+      <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 4px; margin: 24px 0;">
+        <p style="margin: 0; font-size: 13px; color: #1E40AF;">
+          ⏳ <strong>Single-Use Link Security:</strong> This activation link is valid for <strong>${expiryHours} hours</strong> and can only be used once. For security reasons, no temporary password is provided. You will create your own secure password upon clicking the link.
+        </p>
+      </div>
+
+      <!-- Plain Text Link Fallback -->
+      <p style="color: #64748B; font-size: 12px; margin-top: 24px; word-break: break-all;">
+        If the button above doesn't work, copy and paste this link into your browser:<br>
+        <a href="${activationUrl}" style="color: #4F46E5;">${activationUrl}</a>
+      </p>
+
+      <p style="color: #475569; font-size: 13px; margin-top: 24px;">
+        If you experience any issues or need assistance, please contact the Swayam Admissions IT / HR team at <a href="mailto:${supportEmail}" style="color: #4F46E5;">${supportEmail}</a>.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="${FOOTER_STYLES}">
+      <p style="margin: 0 0 6px;">© ${new Date().getFullYear()} Swayam Admission. All rights reserved.</p>
+      <p style="margin: 0;">Confidential — for intended recipient employee only.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+export interface EmployeeActivationSuccessTemplateParams {
+  employeeName: string;
+  employeeId: string;
+  officialEmail: string;
+  portalUrl: string;
+  portalName?: string;
+  supportEmail?: string;
+}
+
+/**
+ * Confirmation template when employee account has been successfully activated
+ */
+export function buildEmployeeActivationSuccessEmailHtml(params: EmployeeActivationSuccessTemplateParams): string {
+  const {
+    employeeName,
+    employeeId,
+    officialEmail,
+    portalUrl,
+    portalName = 'Swayam Admission Portal',
+    supportEmail = 'swayamadmissions@gmail.com',
+  } = params;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Activated Successfully — Swayam Admission</title>
+</head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER_STYLES}">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #059669 0%, #10B981 100%); padding: 32px 24px; text-align: center; color: #FFFFFF;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800;">SWAYAM ADMISSION</h1>
+      <p style="margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.95;">Account Activated</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 32px 28px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <span style="font-size: 44px;">🎉</span>
+      </div>
+      <h2 style="margin-top: 0; color: #111827; font-size: 20px; font-weight: 700; text-align: center;">Welcome, ${employeeName}!</h2>
+      <p style="color: #374151; font-size: 15px; margin-top: 16px; text-align: center;">
+        Your employee account has been successfully activated. You can now log in using your Employee ID or official email address with your chosen password.
+      </p>
+
+      <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 18px; margin: 24px 0;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 4px 0; color: #6B7280; width: 140px;">Employee ID:</td>
+            <td style="padding: 4px 0; color: #111827; font-weight: 700; font-family: monospace;">${employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #6B7280;">Official Email:</td>
+            <td style="padding: 4px 0; color: #111827; font-weight: 600;">${officialEmail}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #6B7280;">Portal:</td>
+            <td style="padding: 4px 0; color: #059669; font-weight: 600;">${portalName}</td>
+          </tr>
+        </table>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${portalUrl}" style="background: #059669; color: #FFFFFF; padding: 12px 32px; border-radius: 6px; text-decoration: none; font-size: 15px; font-weight: 600; display: inline-block;">
+          Sign In to Portal
+        </a>
+      </div>
+
+      <p style="color: #6B7280; font-size: 13px; text-align: center; margin-top: 24px;">
+        If you did not activate this account, please immediately contact our team at <a href="mailto:${supportEmail}" style="color: #059669;">${supportEmail}</a>.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="${FOOTER_STYLES}">
+      <p style="margin: 0 0 6px;">© ${new Date().getFullYear()} Swayam Admission. All rights reserved.</p>
+      <p style="margin: 0;">Automated account activation confirmation.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+

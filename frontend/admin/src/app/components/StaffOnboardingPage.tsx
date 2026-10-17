@@ -194,12 +194,10 @@ export default function StaffOnboardingPage() {
         departmentId: approvalForm.departmentId,
         unitId: approvalForm.unitId || undefined,
         positionId: approvalForm.positionId || undefined,
-        temporaryPassword: approvalForm.temporaryPassword.trim() || undefined,
-        forcePasswordChange: approvalForm.forcePasswordChange,
       });
 
       alert(
-        `Staff member '${selectedRequest.fullName}' approved successfully! Position and Company Email activated.`,
+        `Staff member '${selectedRequest.fullName}' approved successfully! Secure account activation link sent to official and personal email.`,
       );
       setDrawerOpen(false);
       loadData();
@@ -238,8 +236,7 @@ export default function StaffOnboardingPage() {
     setSecurityTab("reset_password");
     setPasswordResetReason("Security Incident");
     setPasswordResetCustomReason("");
-    const randomTemp = `Sw@yam${Math.random().toString(36).slice(-5)}88!`;
-    setCustomTempPassword(randomTemp);
+    setCustomTempPassword("");
     setResetSuccessData(null);
     setSecurityModalOpen(true);
   };
@@ -258,13 +255,10 @@ export default function StaffOnboardingPage() {
         {
           reason: passwordResetReason,
           customReason: passwordResetCustomReason.trim() || undefined,
-          temporaryPassword: customTempPassword.trim() || undefined,
-          forcePasswordChange: true,
         },
       );
       setResetSuccessData({
-        temporaryPassword: res.temporaryPassword,
-        message: res.message,
+        message: res.message || "Secure password reset / activation link sent to official email.",
       });
       loadData();
     } catch (err: any) {
@@ -834,55 +828,14 @@ export default function StaffOnboardingPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-[#4A7B5B] block">
-                      Initial Temporary Password for Candidate
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={approvalForm.temporaryPassword}
-                        onChange={(e) =>
-                          setApprovalForm((f) => ({
-                            ...f,
-                            temporaryPassword: e.target.value,
-                          }))
-                        }
-                        className="h-9 text-xs border-[#CBD5E1] font-mono"
-                        placeholder="Temporary password"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const rand = `Sw@yam${Math.random().toString(36).slice(-5)}99!`;
-                          setApprovalForm((f) => ({ ...f, temporaryPassword: rand }));
-                        }}
-                        className="h-9 text-xs shrink-0"
-                      >
-                        Generate
-                      </Button>
+                  <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl space-y-1.5 text-xs">
+                    <div className="font-semibold text-emerald-900 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Single-Use Account Activation Link</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="checkbox"
-                        id="forcePass"
-                        checked={approvalForm.forcePasswordChange}
-                        onChange={(e) =>
-                          setApprovalForm((f) => ({
-                            ...f,
-                            forcePasswordChange: e.target.checked,
-                          }))
-                        }
-                        className="w-3.5 h-3.5 rounded accent-[#4A7B5B]"
-                      />
-                      <Label
-                        htmlFor="forcePass"
-                        className="text-[11px] text-[#64748B] cursor-pointer"
-                      >
-                        Require password change on candidate's first login
-                      </Label>
-                    </div>
+                    <p className="text-[11px] text-emerald-700 leading-relaxed">
+                      Upon approval, a cryptographically secure account activation link (valid 24h) will be dispatched to the candidate's email. The employee will establish their own confidential password upon activation.
+                    </p>
                   </div>
 
                   <div className="flex items-center gap-2 pt-2 border-t border-emerald-200">
@@ -1070,41 +1023,19 @@ export default function StaffOnboardingPage() {
                 {resetSuccessData ? (
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
                     <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                      <CheckCircle2 className="w-4 h-4" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                       <span>{resetSuccessData.message}</span>
                     </div>
-                    <div className="p-3 bg-white border border-emerald-200 rounded-lg flex items-center justify-between">
-                      <span className="font-mono text-sm font-bold text-[#4A7B5B]">
-                        {resetSuccessData.temporaryPassword}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          navigator.clipboard.writeText(
-                            resetSuccessData.temporaryPassword || "",
-                          );
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="h-8 text-xs"
-                      >
-                        {copied ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3.5 h-3.5 mr-1" />
-                            Copy Temporary Password
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-[11px] text-emerald-700">
-                      Share this temporary password securely with the staff member. They will be required to establish their private permanent password upon login.
+                    <p className="text-[11px] text-emerald-700 leading-relaxed">
+                      A secure, single-use activation / password reset link (valid for 24 hours) has been dispatched to the employee's official email address. No temporary passwords are sent or exposed.
                     </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setSecurityModalOpen(false)}
+                      className="w-full bg-[#4A7B5B] text-white text-xs h-9 font-semibold"
+                    >
+                      Done
+                    </Button>
                   </div>
                 ) : (
                   <>
@@ -1150,30 +1081,14 @@ export default function StaffOnboardingPage() {
                       </div>
                     )}
 
-                    <div>
-                      <Label className="text-xs font-semibold mb-1 block">
-                        Temporary Password
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={customTempPassword}
-                          onChange={(e) => setCustomTempPassword(e.target.value)}
-                          className="h-9 text-xs border-[#CBD5E1] font-mono"
-                          placeholder="Leave blank to auto-generate"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const rand = `Sw@yam${Math.random().toString(36).slice(-5)}88!`;
-                            setCustomTempPassword(rand);
-                          }}
-                          className="h-9 text-xs shrink-0"
-                        >
-                          Regenerate
-                        </Button>
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl text-xs space-y-1">
+                      <div className="font-semibold text-emerald-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Single-Use Activation Link</span>
                       </div>
+                      <p className="text-[11px] text-emerald-700">
+                        A secure account activation / password-reset link will be emailed to the staff member's official email address. The staff member will create their own password securely.
+                      </p>
                     </div>
 
                     <Button

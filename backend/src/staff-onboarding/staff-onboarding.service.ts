@@ -4,9 +4,11 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PositionsService } from '../positions/positions.service';
+import { EmailChannel } from '../notifications/notification-channels.service';
 import {
   StaffRegisterDto,
   VerifyOtpDto,
@@ -21,6 +23,7 @@ import {
   StaffSecurityActionDto,
 } from './dto/staff-onboarding.dto';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { Role } from '@prisma/client';
 
 const bcryptLib = bcrypt as unknown as {
@@ -35,6 +38,7 @@ export class StaffOnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly positionsService: PositionsService,
+    @Optional() private readonly emailChannel?: EmailChannel,
   ) {}
 
   /**
@@ -610,29 +614,62 @@ export class StaffOnboardingService {
       });
     }
 
-    // Set employee password if temporary password provided
-    let passwordUpdate: any = {};
-    if (dto.temporaryPassword) {
-      const hashed = await bcryptLib.hash(dto.temporaryPassword, 10);
-      passwordUpdate = {
-        password: hashed,
-        mustChangePassword: true,
-        sessionVersion: (request.user.sessionVersion || 1) + 1,
-      };
-    }
+    // Generate secure activation token for staff onboarding
+    const rawActivationToken = crypto.randomBytes(32).toString('hex');
+    const activationTokenHash = crypto.createHash('sha256').update(rawActivationToken).digest('hex');
+    const activationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Activate User
+    await this.prisma.accountActivationToken.create({
+      data: {
+        userId: request.userId,
+        tokenHash: activationTokenHash,
+        expiresAt: activationExpiresAt,
+        isUsed: false,
+      },
+    });
+
+    // Update User account state to PENDING_ACTIVATION
     await this.prisma.user.update({
       where: { id: request.userId },
       data: {
         isApproved: true,
-        isActive: true,
-        status: 'ACTIVE',
+        isActive: false,
+        status: 'PENDING_ACTIVATION',
         departmentId: dto.departmentId,
         joiningDate: new Date(),
-        ...passwordUpdate,
+        password: null,
+        mustChangePassword: false,
+        temporaryPasswordExpiresAt: null,
+        activationTokenHash,
+        activationExpiresAt,
+        sessionVersion: (request.user.sessionVersion || 1) + 1,
       },
     });
+
+    // Determine appropriate portal URL
+    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(request.user.role);
+    const portalUrl = isProtected
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawActivationToken}`;
+
+    // Dispatch branded activation email via centralized SMTP service
+    const targetEmail = position?.companyEmail || request.user?.email;
+    if (this.emailChannel && targetEmail) {
+      try {
+        await this.emailChannel.sendEmployeeActivationEmail({
+          officialEmail: targetEmail,
+          employeeName: request.fullName,
+          employeeId: request.user.employeeId || '',
+          activationUrl,
+          expiresInHours: 24,
+          portalUrl,
+        });
+      } catch (mailErr: any) {
+        this.logger.warn(`Failed sending activation email on staff approval: ${mailErr?.message}`);
+      }
+    }
 
     // Update Request status
     const approvedRequest = await this.prisma.staffRegistrationRequest.update({
@@ -839,25 +876,59 @@ export class StaffOnboardingService {
       throw new NotFoundException(`User ID ${userId} not found`);
     }
 
-    // Generate secure temporary password if not provided
-    const tempPassword =
-      dto.temporaryPassword ||
-      `Sw@yam${Math.random().toString(36).slice(-6)}${Math.floor(10 + Math.random() * 90)}!`;
-
-    const hashedPassword = await bcryptLib.hash(tempPassword, 10);
+    // Generate secure single-use password reset / activation token (24h validity)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const newSessionVersion = (user.sessionVersion || 1) + 1;
 
     const activePos = user.positionAssignments[0]?.position;
 
-    // Update user
+    // Update user: invalidate password, store activation token hash, revoke sessions
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        password: hashedPassword,
-        mustChangePassword: dto.forcePasswordChange !== false,
+        password: null,
+        activationTokenHash: tokenHash,
+        activationExpiresAt: expiresAt,
+        mustChangePassword: false,
+        temporaryPasswordExpiresAt: null,
         sessionVersion: newSessionVersion,
       },
     });
+
+    await this.prisma.accountActivationToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        isUsed: false,
+      },
+    });
+
+    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(user.role);
+    const portalUrl = isProtected
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+
+    // Dispatch branded activation / password-set email via centralized SMTP service
+    const targetEmail = activePos?.companyEmail || user.email;
+    if (this.emailChannel && targetEmail) {
+      try {
+        await this.emailChannel.sendEmployeeActivationEmail({
+          officialEmail: targetEmail,
+          employeeName: user.fullName,
+          employeeId: user.employeeId || '',
+          activationUrl,
+          expiryHours: 24,
+          portalUrl,
+        });
+      } catch (mailErr: any) {
+        this.logger.warn(`Failed sending activation reset email to staff ${user.id}: ${mailErr?.message}`);
+      }
+    }
 
     const fullReason =
       dto.reason === 'Other' && dto.customReason
@@ -872,7 +943,7 @@ export class StaffOnboardingService {
         module: 'SECURITY',
         severity: 'WARN',
         status: 'SUCCESS',
-        description: `Admin initiated password reset for staff '${user.fullName}' (ID: ${user.employeeId || user.id}). Reason: ${fullReason}. Sessions revoked (SessionVersion: ${newSessionVersion}).`,
+        description: `Admin initiated password reset for staff '${user.fullName}' (ID: ${user.employeeId || user.id}). Reason: ${fullReason}. Sessions revoked (SessionVersion: ${newSessionVersion}). Activation link sent.`,
         positionId: activePos?.id,
         positionCode: activePos?.code,
         companyEmail: activePos?.companyEmail,
@@ -881,8 +952,7 @@ export class StaffOnboardingService {
     });
 
     return {
-      message: 'Staff password reset successfully. All previous sessions have been revoked.',
-      temporaryPassword: tempPassword,
+      message: 'Staff password reset invitation dispatched to official email. All previous sessions have been revoked.',
       mustChangePassword: true,
       sessionVersion: newSessionVersion,
       targetUser: {

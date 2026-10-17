@@ -4124,6 +4124,10 @@ model User {
   selfServicePasswordReset                                    Boolean                    @default(true)
   mustChangePassword                                          Boolean                    @default(false)
   temporaryPasswordExpiresAt                                  DateTime?
+  activationTokenHash                                         String?
+  activationExpiresAt                                         DateTime?
+  activatedAt                                                 DateTime?
+  accountActivationTokens                                     AccountActivationToken[]
   sessionVersion                                              Int                        @default(1)
   lockReason                                                  String?
   lockedAt                                                    DateTime?
@@ -6140,4 +6144,19 @@ model AccessScope {
 
   @@index([userId])
   @@index([scopeType, scopeValue])
+}
+
+model AccountActivationToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  isUsed     Boolean   @default(false)
+  usedAt     DateTime?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
 }

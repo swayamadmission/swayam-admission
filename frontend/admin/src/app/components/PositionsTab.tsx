@@ -24,6 +24,7 @@ import {
   MapPin,
   CheckCircle2,
   Loader2,
+  ShieldCheck,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { positionsApi, PositionItem } from '../../api/positions.api';
@@ -324,8 +325,7 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
     setSecurityTargetUser(user);
     setPasswordResetReason('Security Incident');
     setPasswordResetCustomReason('');
-    const randomTemp = `Sw@yam${Math.random().toString(36).slice(-5)}77!`;
-    setCustomTempPassword(randomTemp);
+    setCustomTempPassword('');
     setResetSuccessData(null);
     setSecurityModalOpen(true);
   };
@@ -343,13 +343,10 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
         {
           reason: passwordResetReason,
           customReason: passwordResetCustomReason.trim() || undefined,
-          temporaryPassword: customTempPassword.trim() || undefined,
-          forcePasswordChange: true,
         },
       );
       setResetSuccessData({
-        temporaryPassword: res.temporaryPassword,
-        message: res.message,
+        message: res.message || 'Secure password reset link sent to official email.',
       });
       queryClient.invalidateQueries({ queryKey: ['position360'] });
     } catch (err: any) {
@@ -1091,42 +1088,16 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
             {resetSuccessData ? (
               <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
                 <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>{resetSuccessData.message}</span>
                 </div>
-                <div className="p-3 bg-white border border-emerald-200 rounded-lg flex items-center justify-between">
-                  <span className="font-mono text-sm font-bold text-[#4A7B5B]">
-                    {resetSuccessData.temporaryPassword}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
-                        resetSuccessData.temporaryPassword || '',
-                      );
-                      setCopiedTempPass(true);
-                      setTimeout(() => setCopiedTempPass(false), 2000);
-                    }}
-                    className="h-8 text-xs"
-                  >
-                    {copiedTempPass ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600 mr-1" />
-                        Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 mr-1" />
-                        Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  A secure, single-use activation / password-reset link (valid for 24 hours) has been dispatched to the employee's official email address. No temporary passwords are sent or exposed.
+                </p>
                 <Button
                   size="sm"
                   onClick={() => setSecurityModalOpen(false)}
-                  className="w-full bg-[#4A7B5B] text-white text-xs h-9"
+                  className="w-full bg-[#4A7B5B] text-white text-xs h-9 font-semibold"
                 >
                   Done
                 </Button>
@@ -1170,13 +1141,14 @@ export const PositionsTab: React.FC<PositionsTabProps> = ({ departments, states 
                   </div>
                 )}
 
-                <div>
-                  <Label className="text-xs mb-1 block">Temporary Password</Label>
-                  <Input
-                    value={customTempPassword}
-                    onChange={(e) => setCustomTempPassword(e.target.value)}
-                    className="h-9 text-xs border-[#CBD5E1] font-mono"
-                  />
+                <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-xl text-xs space-y-1">
+                  <div className="font-semibold text-emerald-900 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Single-Use Activation Link</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    A secure account activation / password-reset link will be emailed to the staff member's official email address. The staff member will create their own password securely.
+                  </p>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">

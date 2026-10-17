@@ -58,6 +58,12 @@ export class EmployeesController {
     return this.employeesService.updateStatus(id, dto, req.user?.id);
   }
 
+  @Post(':id/resend-activation')
+  @Roles('ADMIN', 'SUPER_ADMIN', 'HR_MANAGER')
+  resendActivation(@Param('id') id: string, @Req() req: any) {
+    return this.employeesService.resendActivation(id, req.user?.id, req.ip);
+  }
+
   @Post(':id/reset-password')
   @Roles('ADMIN', 'SUPER_ADMIN')
   resetPassword(@Param('id') id: string, @Req() req: any) {

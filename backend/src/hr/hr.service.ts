@@ -235,38 +235,66 @@ export class HrService {
   }
 
   async listVacancies(filters?: any) {
-    const where: any = {};
+    const andConditions: any[] = [];
 
     if (filters?.status) {
-      where.status = filters.status;
+      andConditions.push({ status: filters.status });
     }
-    if (filters?.department) {
-      where.department = { contains: filters.department, mode: 'insensitive' };
+    if (filters?.department && filters.department !== 'ALL') {
+      andConditions.push({ department: { contains: filters.department, mode: 'insensitive' } });
     }
-    if (filters?.location) {
-      where.location = { contains: filters.location, mode: 'insensitive' };
+    if (filters?.location && filters.location !== 'ALL') {
+      andConditions.push({ location: { contains: filters.location, mode: 'insensitive' } });
     }
-    if (filters?.employmentType) {
-      where.employmentType = filters.employmentType;
+    if (filters?.employmentType && filters.employmentType !== 'ALL') {
+      andConditions.push({ employmentType: filters.employmentType });
     }
-    if (filters?.workMode) {
-      where.workMode = filters.workMode;
+    if (filters?.workMode && filters.workMode !== 'ALL') {
+      andConditions.push({ workMode: filters.workMode });
     }
-    if (filters?.search) {
-      where.OR = [
-        { title: { contains: filters.search, mode: 'insensitive' } },
-        { department: { contains: filters.search, mode: 'insensitive' } },
-        { vacancyCode: { contains: filters.search, mode: 'insensitive' } },
-        { location: { contains: filters.search, mode: 'insensitive' } },
-        { designation: { contains: filters.search, mode: 'insensitive' } },
-      ];
+    if (filters?.search && typeof filters.search === 'string' && filters.search.trim()) {
+      const q = filters.search.trim();
+      andConditions.push({
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { department: { contains: q, mode: 'insensitive' } },
+          { vacancyCode: { contains: q, mode: 'insensitive' } },
+          { location: { contains: q, mode: 'insensitive' } },
+          { designation: { contains: q, mode: 'insensitive' } },
+        ],
+      });
     }
-    if (filters?.applicationStartDate) {
-      where.applicationStartDate = filters.applicationStartDate;
+
+    if (filters?.onlyActivePublication) {
+      const today = new Date();
+      andConditions.push({
+        OR: [
+          { applicationStartDate: null },
+          { applicationStartDate: { lte: today } },
+        ],
+      });
+      andConditions.push({
+        OR: [
+          { applicationEndDate: null },
+          { applicationEndDate: { gte: today } },
+        ],
+      });
+      andConditions.push({
+        OR: [
+          { applicationDeadline: null },
+          { applicationDeadline: { gte: today } },
+        ],
+      });
+    } else {
+      if (filters?.applicationStartDate) {
+        andConditions.push({ applicationStartDate: filters.applicationStartDate });
+      }
+      if (filters?.OR) {
+        andConditions.push({ OR: filters.OR });
+      }
     }
-    if (filters?.OR && !where.OR) {
-      where.OR = filters.OR;
-    }
+
+    const where = andConditions.length > 0 ? { AND: andConditions } : {};
 
     return this.prisma.jobVacancy.findMany({
       where,
@@ -2690,14 +2718,14 @@ export class HrService {
       targetRole = Role.COUNSELOR;
     }
 
-    // Generate cryptographically random temporary password
-    const rawTempPassword = `Swy@${crypto.randomBytes(3).toString('hex')}${crypto.randomInt(10, 99)}`;
-    const hashedTempPassword = await bcryptLib.hash(rawTempPassword, 10);
-    const tempPasswordExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days validity
-    let credentialsAssigned = false;
+    // Generate secure single-use activation token (24h validity)
+    const rawActivationToken = crypto.randomBytes(32).toString('hex');
+    const activationTokenHash = crypto.createHash('sha256').update(rawActivationToken).digest('hex');
+    const activationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    let sendActivationEmail = false;
 
     if (linkedUser) {
-      const needsPassword = !linkedUser.password || linkedUser.mustChangePassword;
+      const needsActivation = !linkedUser.password || linkedUser.status === 'PENDING_ACTIVATION';
       linkedUser = await this.prisma.user.update({
         where: { id: linkedUser.id },
         data: {
@@ -2706,21 +2734,33 @@ export class HrService {
           designation: onboarding.designation,
           joiningDate: onboarding.joiningDate,
           role: linkedUser.role === Role.STUDENT ? targetRole : linkedUser.role,
-          isActive: true,
+          isActive: !needsActivation,
           isApproved: true,
-          isVerified: true,
-          status: 'ACTIVE',
+          status: needsActivation ? 'PENDING_ACTIVATION' : linkedUser.status || 'ACTIVE',
           kycStatus: 'APPROVED',
-          ...(needsPassword
+          ...(needsActivation
             ? {
-                password: hashedTempPassword,
-                mustChangePassword: true,
-                temporaryPasswordExpiresAt: tempPasswordExpiresAt,
+                password: null,
+                mustChangePassword: false,
+                temporaryPasswordExpiresAt: null,
+                activationTokenHash,
+                activationExpiresAt,
               }
             : {}),
         },
       });
-      credentialsAssigned = needsPassword;
+
+      if (needsActivation) {
+        sendActivationEmail = true;
+        await this.prisma.accountActivationToken.create({
+          data: {
+            userId: linkedUser.id,
+            tokenHash: activationTokenHash,
+            expiresAt: activationExpiresAt,
+            isUsed: false,
+          },
+        });
+      }
     } else {
       linkedUser = await this.prisma.user.create({
         data: {
@@ -2734,99 +2774,55 @@ export class HrService {
           designation: onboarding.designation,
           joiningDate: onboarding.joiningDate,
           role: targetRole,
-          password: hashedTempPassword,
-          mustChangePassword: true,
-          temporaryPasswordExpiresAt: tempPasswordExpiresAt,
-          isActive: true,
+          password: null,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          activationTokenHash,
+          activationExpiresAt,
+          isActive: false,
           isApproved: true,
-          isVerified: true,
-          status: 'ACTIVE',
+          isVerified: false,
+          emailVerified: false,
+          status: 'PENDING_ACTIVATION',
           kycStatus: 'APPROVED',
           sessionVersion: 1,
         },
       });
-      credentialsAssigned = true;
+
+      sendActivationEmail = true;
+      await this.prisma.accountActivationToken.create({
+        data: {
+          userId: linkedUser.id,
+          tokenHash: activationTokenHash,
+          expiresAt: activationExpiresAt,
+          isUsed: false,
+        },
+      });
     }
 
-    // Dispatch branded joining email containing credentials & portal info
-    if (this.emailChannel) {
+    // Determine appropriate portal URL
+    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(linkedUser.role);
+    const portalUrl = isProtected
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawActivationToken}`;
+
+    // Dispatch branded activation email via centralized SMTP service
+    if (this.emailChannel && sendActivationEmail) {
       try {
-        const portalUrl = 'https://erp.swayamadmission.com';
-        await this.emailChannel.send(
-          {
-            id: linkedUser.id,
-            name: candidateFullName,
-            email: officialEmail,
-            mobile: officialMobile,
-            type: 'STAFF',
-          },
-          {
-            title: 'Welcome to Swayam Admission — Your Joining Information & Login Credentials',
-            subject: 'Welcome to Swayam Admission — Your Official Joining Credentials',
-            message: `Dear ${candidateFullName},\n\nCongratulations on joining Swayam Admission as ${onboarding.designation} (${onboarding.department})!\n\nYour Employee ID: ${employeeId}\nTemporary Password: ${credentialsAssigned ? rawTempPassword : '[Already set]'}\nPortal URL: ${portalUrl}\n\nPlease log in within 7 days to verify your email and set your permanent password.\n\nWarm regards,\nHR Department, Swayam Admission`,
-            emailHtml: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
-                <div style="background-color: #4A7B5B; padding: 20px; border-radius: 6px; text-align: center; margin-bottom: 24px;">
-                  <h1 style="color: #FFFFFF; margin: 0; font-size: 24px;">Welcome to Swayam Admission</h1>
-                  <p style="color: #F0AE1A; margin: 6px 0 0 0; font-size: 14px; font-weight: bold;">Official Employee Onboarding</p>
-                </div>
-                <p>Dear <strong>${candidateFullName}</strong>,</p>
-                <p>We are thrilled to welcome you to the Swayam Admission team! Your onboarding clearance has been approved, and your official employee profile is now active.</p>
-                
-                <div style="background-color: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                  <h3 style="margin-top: 0; color: #1E293B;">Your Official Account Credentials</h3>
-                  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Employee ID:</strong></td>
-                      <td style="padding: 6px 0; color: #1E293B; font-weight: bold;">${employeeId}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Official Email:</strong></td>
-                      <td style="padding: 6px 0; color: #1E293B;">${officialEmail}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Temporary Password:</strong></td>
-                      <td style="padding: 6px 0; color: #4A7B5B; font-family: monospace; font-size: 16px; font-weight: bold;">
-                        ${credentialsAssigned ? rawTempPassword : 'Use your existing password'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Designation:</strong></td>
-                      <td style="padding: 6px 0; color: #1E293B;">${onboarding.designation}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Department:</strong></td>
-                      <td style="padding: 6px 0; color: #1E293B;">${onboarding.department}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 6px 0; color: #64748B;"><strong>Portal URL:</strong></td>
-                      <td style="padding: 6px 0;"><a href="${portalUrl}" style="color: #4A7B5B; font-weight: bold;">${portalUrl}</a></td>
-                    </tr>
-                  </table>
-                </div>
-
-                <div style="background-color: #FEF9C3; border-left: 4px solid #F0AE1A; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-                  <p style="margin: 0; font-size: 13px; color: #854D0E;">
-                    <strong>Important:</strong> Your temporary password is valid for <strong>7 days</strong>. Upon first sign-in at the Employee ERP Portal, you will be required to verify an Email OTP and set a permanent personal password.
-                  </p>
-                </div>
-
-                <p style="text-align: center; margin: 30px 0;">
-                  <a href="${portalUrl}" style="background-color: #4A7B5B; color: #FFFFFF; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                    Log In to Employee ERP Portal
-                  </a>
-                </p>
-
-                <hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;" />
-                <p style="font-size: 12px; color: #94A3B8; text-align: center; margin: 0;">
-                  Need assistance? Contact HR at <a href="mailto:hr@swayamadmission.com" style="color: #4A7B5B;">hr@swayamadmission.com</a>
-                </p>
-              </div>
-            `,
-          },
-        );
+        await this.emailChannel.sendEmployeeActivationEmail({
+          officialEmail,
+          employeeName: candidateFullName,
+          employeeId,
+          designation: onboarding.designation,
+          departmentName: onboarding.department,
+          activationUrl,
+          expiresInHours: 24,
+          portalUrl,
+        });
       } catch (mailErr: any) {
-        this.logger.warn(`Failed sending joining letter email: ${mailErr.message}`);
+        this.logger.warn(`Failed sending employee activation email: ${mailErr?.message}`);
       }
     }
 

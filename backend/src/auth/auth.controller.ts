@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Post,
+  Query,
   HttpCode,
   HttpStatus,
   Req,
@@ -33,6 +35,7 @@ import {
   VerifyUserMobileDto,
   FirstLoginSendOtpDto,
   FirstLoginChangePasswordDto,
+  ActivateAccountDto,
 } from './dto/auth-extra.dto';
 
 import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
@@ -266,6 +269,22 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Permanent password set and fresh credentials issued' })
   firstLoginChangePassword(@Body() dto: FirstLoginChangePasswordDto, @Req() req: any) {
     return this.authService.completeFirstLoginPasswordChange(dto, req.ip, req.user);
+  }
+
+  @Get('activate-account/verify')
+  @ApiOperation({ summary: 'Verify employee activation token' })
+  @ApiResponse({ status: 200, description: 'Activation token verification result' })
+  verifyActivationToken(@Query('token') token: string) {
+    return this.authService.verifyActivationToken(token);
+  }
+
+  @Post('activate-account')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Activate employee account and set permanent password' })
+  @ApiBody({ type: ActivateAccountDto })
+  @ApiResponse({ status: 200, description: 'Account activated successfully' })
+  activateAccount(@Body() dto: ActivateAccountDto, @Req() req: any) {
+    return this.authService.activateAccount(dto, req.ip);
   }
 }
 

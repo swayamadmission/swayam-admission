@@ -29,6 +29,7 @@ import {
   VerifyUserMobileDto,
   FirstLoginSendOtpDto,
   FirstLoginChangePasswordDto,
+  ActivateAccountDto,
 } from './dto/auth-extra.dto';
 import { Role } from '@prisma/client';
 import { AuthorizationService } from './authorization.service';
@@ -161,6 +162,11 @@ export class AuthService {
     isActive?: boolean | null;
     lockReason?: string | null;
   }) {
+    if (user.status === 'PENDING_ACTIVATION') {
+      throw new UnauthorizedException(
+        'Account is pending activation. Please check your official email for the secure activation link to set your password.',
+      );
+    }
     if (user.status === 'LOCKED') {
       throw new UnauthorizedException(
         `Account is temporarily locked: ${user.lockReason || 'Security review in progress'}. Please contact administrator.`,
@@ -1918,18 +1924,6 @@ export class AuthService {
       );
     }
 
-    // Temporary Password Expiry Check
-    if (
-      activeUser.mustChangePassword &&
-      activeUser.temporaryPasswordExpiresAt
-    ) {
-      if (activeUser.temporaryPasswordExpiresAt < new Date()) {
-        throw new UnauthorizedException(
-          'Your temporary credentials have expired. Please contact HR at hr@swayamadmission.com to have your credentials re-issued.',
-        );
-      }
-    }
-
     const isPasswordValid = await bcryptLib.compare(
       dto.password,
       activeUser.password,
@@ -1975,15 +1969,18 @@ export class AuthService {
         );
       }
 
-      // Non-Super-Admin protected users must authenticate using their assigned Employee ID
+      // Non-Super-Admin protected users must authenticate using their assigned Employee ID or official email
       if (!isSuperAdminUser) {
         const empIdMatches =
           activeUser.employeeId &&
           (identifier === activeUser.employeeId ||
             identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
-        if (!empIdMatches) {
+        const emailMatches =
+          activeUser.email &&
+          identifier.toLowerCase() === activeUser.email.toLowerCase();
+        if (!empIdMatches && !emailMatches) {
           throw new BadRequestException(
-            'Protected Admin Portal login requires your assigned Employee ID.',
+            'Protected Admin Portal login requires your assigned Employee ID or registered official email address.',
           );
         }
       }
@@ -1994,15 +1991,18 @@ export class AuthService {
         );
       }
 
-      // Normal employees must log in using their assigned Employee ID
+      // Normal employees must log in using their assigned Employee ID or official email
       if (!isSuperAdminUser) {
         const empIdMatches =
           activeUser.employeeId &&
           (identifier === activeUser.employeeId ||
             identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
-        if (!empIdMatches) {
+        const emailMatches =
+          activeUser.email &&
+          identifier.toLowerCase() === activeUser.email.toLowerCase();
+        if (!empIdMatches && !emailMatches) {
           throw new BadRequestException(
-            'Employee ERP Portal login requires your assigned Employee ID.',
+            'Employee ERP Portal login requires your assigned Employee ID or registered official email address.',
           );
         }
       }
@@ -3623,6 +3623,260 @@ export class AuthService {
       refresh_token: tokens.refresh_token,
       mustChangePassword: false,
       user: safeUser,
+    };
+  }
+
+  /**
+   * Verify an employee account activation token
+   */
+  async verifyActivationToken(rawToken: string) {
+    if (!rawToken || typeof rawToken !== 'string') {
+      throw new BadRequestException('Activation token is required.');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(rawToken.trim()).digest('hex');
+
+    // Check AccountActivationToken table
+    const tokenRecord = await this.prisma.accountActivationToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            employeeId: true,
+            role: true,
+            status: true,
+            isActive: true,
+            emailVerified: true,
+          },
+        },
+      },
+    });
+
+    let targetUser: any = null;
+    let isUsed = false;
+    let expiresAt: Date | null = null;
+
+    if (tokenRecord) {
+      targetUser = tokenRecord.user;
+      isUsed = tokenRecord.isUsed;
+      expiresAt = tokenRecord.expiresAt;
+    } else {
+      // Fallback to User table direct token hash
+      const user = await this.prisma.user.findFirst({
+        where: { activationTokenHash: tokenHash },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          employeeId: true,
+          role: true,
+          status: true,
+          isActive: true,
+          emailVerified: true,
+          activationExpiresAt: true,
+        },
+      });
+      if (user) {
+        targetUser = user;
+        isUsed = false;
+        expiresAt = user.activationExpiresAt;
+      }
+    }
+
+    if (!targetUser) {
+      return {
+        valid: false,
+        reason: 'INVALID',
+        message: 'This activation link is invalid or has expired. Please contact your administrator for a new activation link.',
+      };
+    }
+
+    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(targetUser.role);
+    const portalUrl = isProtected
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+
+    if (isUsed) {
+      return {
+        valid: false,
+        reason: 'ALREADY_USED',
+        message: 'This activation link has already been used. Please log in to your account.',
+        portalUrl,
+      };
+    }
+
+    if (expiresAt && expiresAt < new Date()) {
+      return {
+        valid: false,
+        reason: 'EXPIRED',
+        message: 'This activation link has expired (links are valid for 24 hours). Please contact your administrator to request a new link.',
+      };
+    }
+
+    if (targetUser.status === 'ACTIVE' && targetUser.isActive && targetUser.emailVerified) {
+      return {
+        valid: false,
+        reason: 'ALREADY_ACTIVATED',
+        message: 'This account has already been activated. Please proceed to the login portal.',
+        portalUrl,
+      };
+    }
+
+    return {
+      valid: true,
+      user: {
+        fullName: targetUser.fullName,
+        email: targetUser.email,
+        employeeId: targetUser.employeeId,
+        role: targetUser.role,
+      },
+      portalUrl,
+    };
+  }
+
+  /**
+   * Complete employee account activation and set initial password
+   */
+  async activateAccount(dto: ActivateAccountDto, ipAddress?: string) {
+    if (!dto.token || typeof dto.token !== 'string') {
+      throw new BadRequestException('Activation token is required.');
+    }
+
+    if (!dto.password || dto.password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long.');
+    }
+
+    // Password policy check
+    const hasUpper = /[A-Z]/.test(dto.password);
+    const hasLower = /[a-z]/.test(dto.password);
+    const hasNumber = /[0-9]/.test(dto.password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(dto.password);
+
+    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+      throw new BadRequestException(
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
+      );
+    }
+
+    if (dto.confirmPassword && dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Password and confirmation password do not match.');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(dto.token.trim()).digest('hex');
+
+    // Run atomic check and consumption in a transaction
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Check token in AccountActivationToken table
+      const tokenRecord = await tx.accountActivationToken.findUnique({
+        where: { tokenHash },
+        include: { user: true },
+      });
+
+      let user: any = null;
+      let recordId: string | null = null;
+
+      if (tokenRecord) {
+        if (tokenRecord.isUsed) {
+          throw new BadRequestException('This activation link has already been used. Please log in.');
+        }
+        if (tokenRecord.expiresAt < new Date()) {
+          throw new BadRequestException('This activation link has expired (links are valid for 24 hours). Please contact your administrator.');
+        }
+        user = tokenRecord.user;
+        recordId = tokenRecord.id;
+      } else {
+        // Fallback to User table
+        user = await tx.user.findFirst({
+          where: { activationTokenHash: tokenHash },
+        });
+
+        if (!user) {
+          throw new BadRequestException('Invalid or expired activation link.');
+        }
+
+        if (user.activationExpiresAt && user.activationExpiresAt < new Date()) {
+          throw new BadRequestException('This activation link has expired. Please contact your administrator.');
+        }
+      }
+
+      if (['SUSPENDED', 'DEACTIVATED', 'DISABLED', 'RESIGNED'].includes(user.status)) {
+        throw new BadRequestException(`This account cannot be activated due to account status (${user.status}). Please contact HR.`);
+      }
+
+      // Hash the new password securely
+      const hashedPassword = await bcryptLib.hash(dto.password, 12);
+
+      // Invalidate token
+      if (recordId) {
+        await tx.accountActivationToken.update({
+          where: { id: recordId },
+          data: { isUsed: true, usedAt: new Date() },
+        });
+      }
+
+      // Invalidate all tokens for this user
+      await tx.accountActivationToken.updateMany({
+        where: { userId: user.id, isUsed: false },
+        data: { isUsed: true, usedAt: new Date() },
+      });
+
+      // Update user account to ACTIVE
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          status: 'ACTIVE',
+          isActive: true,
+          emailVerified: true,
+          isVerified: true,
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          activationTokenHash: null,
+          activationExpiresAt: null,
+          activatedAt: new Date(),
+          sessionVersion: { increment: 1 },
+        },
+      });
+
+      return updatedUser;
+    });
+
+    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(result.role);
+    const portalUrl = isProtected
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+
+    // Audit log
+    await this.logAuthEvent({
+      userId: result.id,
+      action: 'AUTH_ACCOUNT_ACTIVATED',
+      description: `Employee account activated successfully (${result.employeeId || result.email}) from IP ${ipAddress || 'unknown'}`,
+      ipAddress,
+    });
+
+    // Send confirmation email
+    if (this.emailChannel && result.email) {
+      try {
+        await this.emailChannel.sendEmployeeActivationSuccessEmail({
+          officialEmail: result.email,
+          employeeName: result.fullName,
+          employeeId: result.employeeId || '',
+          portalUrl,
+        });
+      } catch (mailErr: any) {
+        this.logger.warn(`Failed to dispatch activation success email to ${result.email}: ${mailErr?.message}`);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Your account has been activated successfully! You can now log in with your credentials.',
+      portalUrl,
+      employeeId: result.employeeId,
+      email: result.email,
     };
   }
 }

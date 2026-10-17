@@ -36,17 +36,12 @@ export class CareersController {
     @Query('employmentType') employmentType?: string,
     @Query('workMode') workMode?: string,
   ) {
-    const today = new Date();
     const filter: any = {
       status: 'PUBLISHED',
-      applicationStartDate: { lte: today },
-      OR: [
-        { applicationEndDate: null },
-        { applicationEndDate: { gte: today } },
-      ],
+      onlyActivePublication: true,
     };
 
-    if (search) filter.search = search;
+    if (search && search.trim()) filter.search = search.trim();
     if (department && department !== 'ALL') filter.department = department;
     if (location && location !== 'ALL') filter.location = location;
     if (employmentType && employmentType !== 'ALL') filter.employmentType = employmentType;

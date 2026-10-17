@@ -56,6 +56,33 @@ export interface SignupResponse {
   user: AuthUser;
 }
 
+export interface ActivationVerifyResponse {
+  success: boolean;
+  message: string;
+  user: {
+    fullName: string;
+    employeeId: string | null;
+    email: string | null;
+    role: string;
+    department?: string | null;
+    designation?: string | null;
+  };
+  loginPortalUrl: string;
+  portalName: string;
+}
+
+export interface ActivateAccountResponse {
+  success: boolean;
+  message: string;
+  loginPortalUrl: string;
+  user: {
+    fullName: string;
+    employeeId: string | null;
+    email: string | null;
+    role: string;
+  };
+}
+
 export const authApi = {
   login: (data: LoginPayload) =>
     api.post<LoginResponse>("/auth/login", data),
@@ -74,6 +101,12 @@ export const authApi = {
 
   getMe: () =>
     api.get<AuthUser>("/users/me"),
+
+  verifyActivationToken: (token: string) =>
+    api.get<ActivationVerifyResponse>("/auth/activate-account/verify", { params: { token } }).then((res) => res.data),
+
+  activateAccount: (data: { token: string; password: string; confirmPassword?: string }) =>
+    api.post<ActivateAccountResponse>("/auth/activate-account", data).then((res) => res.data),
 
   firstLoginSendOtp: (userId: string) =>
     api.post<{ success: boolean; message: string; maskedEmail: string }>("/auth/first-login/send-otp", { userId }),

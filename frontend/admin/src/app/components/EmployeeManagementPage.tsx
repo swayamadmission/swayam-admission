@@ -3,7 +3,7 @@ import {
   Search, Plus, Phone, Mail, Clock, Filter, Edit3, UserCheck, UserX,
   ShieldAlert, Award, Calendar, CheckCircle2, AlertCircle, FileText,
   Users, Briefcase, ChevronRight, RefreshCw, X, Shield, Lock, Laptop,
-  Activity, ArrowRight, Eye, Globe, Sparkles, Key, Check, AlertTriangle, LogOut
+  Activity, ArrowRight, Eye, Globe, Sparkles, Key, Check, AlertTriangle, LogOut, Send
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { employeesApi, EmployeeListItem, CreateEmployeePayload, UpdateEmployeePayload } from "../../api/employees.api";
@@ -15,6 +15,7 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string; i
   SUSPENDED: { bg: "#FEF2F2", text: "#DC2626", label: "Suspended", icon: AlertTriangle },
   DEACTIVATED: { bg: "#F1F5F9", text: "#64748B", label: "Deactivated", icon: UserX },
   PENDING: { bg: "#FFFBEB", text: "#D97706", label: "Pending Setup", icon: Clock },
+  PENDING_ACTIVATION: { bg: "#FEF3C7", text: "#D97706", label: "Pending Activation", icon: Clock },
 };
 
 const ROLE_OPTIONS = [
@@ -100,7 +101,7 @@ export default function EmployeeManagementPage() {
   const createMutation = useMutation({
     mutationFn: (payload: CreateEmployeePayload) => employeesApi.createEmployee(payload),
     onSuccess: (res: any) => {
-      toast.success(res?.message || "Employee created successfully with temporary credentials.");
+      toast.success(res?.message || "Employee created successfully. Activation link dispatched to official email.");
       setCreateModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin_employees_list"] });
     },
@@ -137,10 +138,22 @@ export default function EmployeeManagementPage() {
     },
   });
 
+  const resendActivationMutation = useMutation({
+    mutationFn: (id: string) => employeesApi.resendActivation(id),
+    onSuccess: (res: any) => {
+      toast.success(res?.message || "Secure activation link resent successfully.");
+      queryClient.invalidateQueries({ queryKey: ["admin_employees_list"] });
+      if (selectedEmpId) refetchDetail();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to resend activation link.");
+    },
+  });
+
   const resetPasswordMutation = useMutation({
     mutationFn: (id: string) => employeesApi.resetPassword(id, true),
     onSuccess: (res: any) => {
-      toast.success(res?.message || "Temporary password generated and sent to official email.");
+      toast.success(res?.message || "Password reset and activation link dispatched to official email.");
       if (selectedEmpId) refetchDetail();
     },
     onError: (err: any) => {
@@ -440,9 +453,14 @@ export default function EmployeeManagementPage() {
                           <statusCfg.icon className="w-3 h-3" />
                           {statusCfg.label}
                         </span>
-                        {emp.mustChangePassword && (
-                          <div className="text-[10px] text-amber-600 font-semibold mt-0.5">
-                            Temp Password
+                        {emp.status === "PENDING_ACTIVATION" && (
+                          <div className="text-[10px] text-amber-600 font-semibold mt-0.5 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" /> Activation Sent
+                          </div>
+                        )}
+                        {emp.activatedAt && (
+                          <div className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                            <CheckCircle2 className="w-2.5 h-2.5" /> Activated
                           </div>
                         )}
                       </td>
@@ -453,6 +471,21 @@ export default function EmployeeManagementPage() {
 
                       <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
+                          {(emp.status === "PENDING_ACTIVATION" || !emp.activatedAt) && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Resend secure account activation email to ${emp.fullName} (${emp.email})?`)) {
+                                  resendActivationMutation.mutate(emp.id);
+                                }
+                              }}
+                              disabled={resendActivationMutation.isPending}
+                              className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition"
+                              title="Resend Activation Link"
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+                          )}
+
                           <button
                             onClick={() => setSelectedEmpId(emp.id)}
                             className="p-1.5 rounded-lg text-gray-500 hover:text-[#4A7B5B] hover:bg-emerald-50 transition"
@@ -819,24 +852,43 @@ export default function EmployeeManagementPage() {
 
                       {/* Password & Security Actions */}
                       <div className="bg-white p-5 rounded-xl border border-gray-100 space-y-4">
-                        <h3 className="text-xs font-bold uppercase text-gray-400 tracking-wider">Credentials & Access Actions</h3>
+                        <h3 className="text-xs font-bold uppercase text-gray-400 tracking-wider">Account Activation & Security</h3>
 
                         <div className="flex items-center justify-between py-2 border-b border-gray-50 text-xs">
                           <div>
-                            <div className="font-semibold text-gray-900">Mandatory First-Login Password Change</div>
+                            <div className="font-semibold text-gray-900">Official Email Verification & Activation</div>
                             <div className="text-gray-500">
-                              {detailRes.user.mustChangePassword ? "Pending change on next login" : "Completed / Standard password set"}
+                              {detailRes.user.activatedAt
+                                ? `Activated on ${new Date(detailRes.user.activatedAt).toLocaleString()}`
+                                : detailRes.user.status === "PENDING_ACTIVATION"
+                                ? "Pending employee password setup via activation link"
+                                : "Awaiting activation"}
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${detailRes.user.mustChangePassword ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"}`}>
-                            {detailRes.user.mustChangePassword ? "PENDING" : "SET"}
+                          <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${detailRes.user.activatedAt ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                            {detailRes.user.activatedAt ? "ACTIVATED" : "PENDING ACTIVATION"}
                           </span>
                         </div>
 
                         <div className="flex flex-wrap gap-3 pt-2">
+                          {(!detailRes.user.activatedAt || detailRes.user.status === "PENDING_ACTIVATION") && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Resend secure account activation link to ${detailRes.user.email}?`)) {
+                                  resendActivationMutation.mutate(detailRes.user.id);
+                                }
+                              }}
+                              disabled={resendActivationMutation.isPending}
+                              className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 transition"
+                            >
+                              <Send className="w-3.5 h-3.5 text-amber-700" />
+                              <span>Resend Activation Email</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
-                              if (confirm("Generate new temporary password and email credentials to this employee?")) {
+                              if (confirm("Send secure password reset / activation link to this employee's official email?")) {
                                 resetPasswordMutation.mutate(detailRes.user.id);
                               }
                             }}
@@ -844,7 +896,7 @@ export default function EmployeeManagementPage() {
                             className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-gray-200 hover:border-gray-300 text-gray-700 bg-white transition hover:bg-gray-50"
                           >
                             <Key className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Reset Credentials (Temp Password Email)</span>
+                            <span>Send Password Reset Link</span>
                           </button>
 
                           <button
@@ -1090,11 +1142,11 @@ export default function EmployeeManagementPage() {
                     className="w-4 h-4 text-[#4A7B5B] rounded border-gray-300"
                   />
                   <span className="font-semibold text-emerald-900">
-                    Generate Temporary Password & Email Joining Credentials
+                    Send Secure Account Activation Link
                   </span>
                 </label>
                 <p className="text-[11px] text-emerald-700">
-                  A unique Employee ID and temporary password will be cryptographically generated and sent to the official email with login instructions. First-login password change will be enforced.
+                  A unique Employee ID and single-use account activation link (valid 24h) will be sent to the employee's official email. The employee sets their private password securely on the activation page. No temporary passwords are sent or exposed.
                 </p>
               </div>
 

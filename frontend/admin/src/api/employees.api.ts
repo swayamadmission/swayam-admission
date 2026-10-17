@@ -17,6 +17,9 @@ export interface EmployeeListItem {
   lastLogin: string | null;
   avatar: string | null;
   mustChangePassword: boolean;
+  emailVerified?: boolean;
+  activationExpiresAt?: string | null;
+  activatedAt?: string | null;
   assignedRoles: string[];
 }
 
@@ -131,6 +134,9 @@ export const employeesApi = {
 
   resetPassword: (id: string, sendEmail: boolean = true) =>
     api.post(`/employees/${id}/reset-password`, { sendEmail }).then((res) => res.data),
+
+  resendActivation: (id: string) =>
+    api.post<{ success: boolean; message: string; activationExpiresAt?: string }>(`/employees/${id}/resend-activation`).then((res) => res.data),
 
   revokeSessions: (id: string) =>
     api.post(`/employees/${id}/revoke-sessions`).then((res) => res.data),

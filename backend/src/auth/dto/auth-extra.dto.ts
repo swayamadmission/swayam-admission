@@ -197,3 +197,19 @@ export class FirstLoginChangePasswordDto {
   @IsString()
   otp: string;
 }
+
+export class ActivateAccountDto {
+  @IsNotEmpty({ message: 'Activation token is required' })
+  @IsString()
+  token: string;
+
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(8, { message: 'New password must be at least 8 characters long' })
+  @IsString()
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  confirmPassword?: string;
+}
+

@@ -291,7 +291,7 @@ export default function LoginPage({
       setLocalError(
         loginMode === "admin"
           ? "Please enter your Admin Email or Employee ID and password."
-          : "Please enter your Employee ID and password."
+          : "Please enter your Employee ID or registered email and password."
       );
       return;
     }
@@ -578,7 +578,9 @@ export default function LoginPage({
                 )}
                 <div>
                   <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
-                    {loginMode === "admin" ? "Admin Email or Employee ID" : "Employee ID"}
+                    {loginMode === "admin"
+                      ? "Admin Email or Employee ID"
+                      : "Employee ID or Official Email"}
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
@@ -586,7 +588,7 @@ export default function LoginPage({
                       placeholder={
                         loginMode === "admin"
                           ? "admin@swayamadmission.com or SWY-EMP-2026-0001"
-                          : "SWY-EMP-2026-XXXX"
+                          : "SWY-EMP-2026-XXXX or name@swayamadmission.com"
                       }
                       className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl"
                       value={loginForm.identifier}
@@ -598,7 +600,7 @@ export default function LoginPage({
                   <p className="text-[11px] text-gray-400 mt-1">
                     {loginMode === "admin"
                       ? "Super Admin can authenticate with email or Employee ID. Other administrators require Employee ID."
-                      : "Employees authenticate strictly with their permanent Employee ID (e.g. SWY-EMP-2026-4616)."}
+                      : "Employees can authenticate with their permanent Employee ID or registered official email address."}
                   </p>
                 </div>
 

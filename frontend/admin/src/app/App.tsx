@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import LoginPage from "./components/LoginPage";
 import AppLayout from "./components/AppLayout";
+import AccountActivationPage from "./components/AccountActivationPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,6 +19,16 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { user, isAuthenticated, isLoading, login, logout, error, clearError } = useAdminAuth();
   const [currentPage, setCurrentPage] = useState("dashboard");
+
+  // Check if user is navigating to account activation
+  const isActivationRoute =
+    typeof window !== "undefined" &&
+    (window.location.pathname.startsWith("/activate") ||
+      (window.location.search.includes("token=") && !window.location.search.includes("type=reset")));
+
+  if (isActivationRoute) {
+    return <AccountActivationPage />;
+  }
 
   // Loading state while checking for existing session
   if (isLoading && !user) {

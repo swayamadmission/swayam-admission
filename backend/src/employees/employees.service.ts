@@ -102,6 +102,9 @@ export class EmployeesService {
           isActive: true,
           isApproved: true,
           isVerified: true,
+          emailVerified: true,
+          activationExpiresAt: true,
+          activatedAt: true,
           joiningDate: true,
           avatar: true,
           lastLogin: true,
@@ -310,53 +313,70 @@ export class EmployeesService {
       employeeId = `SWY-EMP-${currentYear}-${String(count + 101).padStart(4, '0')}`;
     }
 
-    // Generate cryptographic temporary password
-    const rawTempPassword = `Swy@${crypto.randomBytes(3).toString('hex')}${crypto.randomInt(10, 99)}`;
-    const hashedPassword = await bcryptLib.hash(rawTempPassword, 10);
-    const temporaryPasswordExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
     const names = dto.fullName.trim().split(' ');
     const firstName = names[0];
     const lastName = names.slice(1).join(' ') || null;
 
-    const newEmployee = await this.prisma.user.create({
-      data: {
-        fullName: dto.fullName.trim(),
-        firstName,
-        lastName,
-        displayName: dto.fullName.trim(),
-        email,
-        mobile,
-        employeeId,
-        department: dto.department || 'General Administration',
-        designation: dto.designation || 'Staff Member',
-        role: dto.role || Role.COUNSELOR,
-        password: hashedPassword,
-        mustChangePassword: true,
-        temporaryPasswordExpiresAt,
-        joiningDate: dto.joiningDate ? new Date(dto.joiningDate) : new Date(),
-        gender: dto.gender,
-        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
-        qualification: dto.qualification,
-        experience: dto.experience,
-        bio: dto.bio,
-        address: dto.address,
-        city: dto.city,
-        state: dto.state,
-        pincode: dto.pincode,
-        isActive: true,
-        isApproved: true,
-        isVerified: true,
-        status: 'ACTIVE',
-        kycStatus: 'APPROVED',
-        sessionVersion: 1,
-      },
+    // Cryptographically secure single-use account activation token (32 bytes hex)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const activationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours expiry
+
+    // Atomic transaction for employee user record and activation token creation
+    const newEmployee = await this.prisma.$transaction(async (tx) => {
+      const employee = await tx.user.create({
+        data: {
+          fullName: dto.fullName.trim(),
+          firstName,
+          lastName,
+          displayName: dto.fullName.trim(),
+          email,
+          mobile,
+          employeeId,
+          department: dto.department || 'General Administration',
+          designation: dto.designation || 'Staff Member',
+          role: dto.role || Role.COUNSELOR,
+          password: null, // No temporary password. Password is created during activation.
+          mustChangePassword: false,
+          temporaryPasswordExpiresAt: null,
+          activationTokenHash: tokenHash,
+          activationExpiresAt,
+          joiningDate: dto.joiningDate ? new Date(dto.joiningDate) : new Date(),
+          gender: dto.gender,
+          dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
+          qualification: dto.qualification,
+          experience: dto.experience,
+          bio: dto.bio,
+          address: dto.address,
+          city: dto.city,
+          state: dto.state,
+          pincode: dto.pincode,
+          isActive: false, // Inactive until user completes activation
+          isApproved: true,
+          isVerified: false,
+          emailVerified: false,
+          status: 'PENDING_ACTIVATION',
+          kycStatus: 'APPROVED',
+          sessionVersion: 1,
+        },
+      });
+
+      await tx.accountActivationToken.create({
+        data: {
+          userId: employee.id,
+          tokenHash,
+          expiresAt: activationExpiresAt,
+          isUsed: false,
+        },
+      });
+
+      return employee;
     });
 
     await this.auditService.logAction({
       module: 'EMPLOYEE_MANAGEMENT',
       action: 'EMPLOYEE_CREATED',
-      description: `Created new staff record for ${newEmployee.fullName} (${employeeId}) with role ${newEmployee.role}`,
+      description: `Created new staff record for ${newEmployee.fullName} (${employeeId}) with role ${newEmployee.role}. Pending activation.`,
       userId: actorId,
       entityId: newEmployee.id,
       entityType: 'User',
@@ -365,58 +385,56 @@ export class EmployeesService {
       metadata: { employeeId, email, role: newEmployee.role, department: newEmployee.department },
     });
 
-    // Send credentials email
+    // Send single-use activation email via centralized SMTP service
+    let emailDelivered = false;
+    let deliveryError: string | undefined;
+
     if (this.emailChannel && dto.sendWelcomeEmail !== false) {
       try {
-        const portalUrl = 'https://erp.swayamadmission.com';
-        await this.emailChannel.send(
-          {
-            id: newEmployee.id,
-            name: newEmployee.fullName,
-            email,
-            mobile,
-            type: 'STAFF',
-          },
-          {
-            title: 'Welcome to Swayam Admission — Your Employee Credentials',
-            subject: 'Your Swayam Admission Employee Account & Login Information',
-            message: `Dear ${newEmployee.fullName},\n\nYour employee account has been created successfully.\n\nEmployee ID: ${employeeId}\nTemporary Password: ${rawTempPassword}\nPortal URL: ${portalUrl}\n\nPlease sign in within 7 days to set your permanent password.\n\nWarm regards,\nSwayam Admission Team`,
-            emailHtml: `
-              <div style="font-family: Arial, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
-                <div style="background-color: #4A7B5B; padding: 18px; border-radius: 6px; text-align: center; margin-bottom: 20px;">
-                  <h2 style="color: #FFFFFF; margin: 0;">Welcome to Swayam Admission</h2>
-                  <p style="color: #F0AE1A; margin: 4px 0 0 0; font-size: 13px; font-weight: bold;">Employee Account Setup</p>
-                </div>
-                <p>Dear <strong>${newEmployee.fullName}</strong>,</p>
-                <p>Your official employee profile has been created. Here are your credentials to access the Employee ERP Portal:</p>
-                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 8px; padding: 18px; margin: 20px 0;">
-                  <p style="margin: 4px 0;"><strong>Employee ID:</strong> ${employeeId}</p>
-                  <p style="margin: 4px 0;"><strong>Official Email:</strong> ${email}</p>
-                  <p style="margin: 4px 0;"><strong>Temporary Password:</strong> <code style="color: #4A7B5B; font-weight: bold; font-size: 15px;">${rawTempPassword}</code></p>
-                  <p style="margin: 4px 0;"><strong>Department:</strong> ${newEmployee.department}</p>
-                  <p style="margin: 4px 0;"><strong>Designation:</strong> ${newEmployee.designation}</p>
-                </div>
-                <p style="font-size: 13px; color: #64748B;">
-                  <strong>Note:</strong> Your temporary password is valid for 7 days. On your first login, you will verify your email via OTP and set a permanent personal password.
-                </p>
-                <p style="text-align: center; margin: 28px 0;">
-                  <a href="${portalUrl}" style="background-color: #4A7B5B; color: #FFFFFF; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
-                    Log In to Employee ERP Portal
-                  </a>
-                </p>
-              </div>
-            `,
-          },
-        );
+        const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(newEmployee.role);
+        const portalUrl = isProtectedRole
+          ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+          : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+        const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
+
+        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+        const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+
+        const mailResult = await this.emailChannel.sendEmployeeActivationEmail({
+          employeeName: newEmployee.fullName,
+          employeeId,
+          officialEmail: email,
+          activationUrl,
+          expiryHours: 24,
+          portalUrl,
+          portalName,
+          roleName: newEmployee.role,
+          departmentName: newEmployee.department || undefined,
+        });
+
+        emailDelivered = mailResult.success;
+        if (!mailResult.success) {
+          deliveryError = mailResult.errorMessage || mailResult.failureReason;
+        }
       } catch (err: any) {
-        this.logger.warn(`Failed sending welcome email to employee ${employeeId}: ${err.message}`);
+        deliveryError = err.message;
+        this.logger.warn(`Failed sending activation email to employee ${employeeId}: ${err.message}`);
       }
     }
 
-    const { password: _p, twoFactorSecret: _t, ...safeCreated } = newEmployee;
+    const {
+      password: _p,
+      twoFactorSecret: _t,
+      activationTokenHash,
+      ...safeCreated
+    } = newEmployee;
+
     return {
       success: true,
-      message: `Employee ${newEmployee.fullName} created successfully.`,
+      message: emailDelivered
+        ? `Employee ${newEmployee.fullName} created successfully. Activation email sent to ${email}.`
+        : `Employee ${newEmployee.fullName} created. (Email warning: ${deliveryError || 'Pending SMTP delivery'}). The employee is in PENDING_ACTIVATION and invitation can be resent anytime.`,
+      emailDelivered,
       employee: safeCreated,
     };
   }
@@ -575,81 +593,241 @@ export class EmployeesService {
   }
 
   /**
-   * Admin-Triggered Temporary Password Reset for Employee
+   * Admin-Triggered Secure Password Reset Link Dispatch
+   * NO temporary password is generated or sent. The employee receives a secure password-setting link.
    */
-  async resetPassword(id: string, actorId: string) {
-    const employee = await this.prisma.user.findUnique({ where: { id } });
+  async resetPassword(id: string, actorId: string, ipAddress?: string) {
+    const employee = await this.prisma.user.findFirst({
+      where: { OR: [{ id }, { employeeId: id }] },
+    });
     if (!employee) {
       throw new NotFoundException('Employee not found.');
     }
 
-    const rawTempPassword = `Swy@${crypto.randomBytes(3).toString('hex')}${crypto.randomInt(10, 99)}`;
-    const hashedPassword = await bcryptLib.hash(rawTempPassword, 10);
-    const temporaryPasswordExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        password: hashedPassword,
-        mustChangePassword: true,
-        temporaryPasswordExpiresAt,
-        sessionVersion: (employee.sessionVersion || 1) + 1,
-      },
-    });
+    const targetEmail = employee.email || employee.personalEmail;
+    if (!targetEmail) {
+      throw new BadRequestException('Employee does not have a registered official email address.');
+    }
 
     // Invalidate existing sessions
     await this.prisma.userDeviceSession.deleteMany({
-      where: { userId: id },
+      where: { userId: employee.id },
     });
+
+    const newSessionVersion = (employee.sessionVersion || 1) + 1;
+    await this.prisma.user.update({
+      where: { id: employee.id },
+      data: { sessionVersion: newSessionVersion },
+    });
+
+    // Invalidate previous activation tokens
+    await this.prisma.accountActivationToken.updateMany({
+      where: { userId: employee.id, isUsed: false },
+      data: { isUsed: true },
+    });
+
+    // Generate single-use activation / password reset token
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await this.prisma.accountActivationToken.create({
+      data: {
+        userId: employee.id,
+        tokenHash,
+        expiresAt,
+        isUsed: false,
+      },
+    });
+
+    await this.prisma.user.update({
+      where: { id: employee.id },
+      data: {
+        activationTokenHash: tokenHash,
+        activationExpiresAt: expiresAt,
+        temporaryPasswordExpiresAt: null,
+      },
+    });
+
+    const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(employee.role);
+    const portalUrl = isProtectedRole
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
+
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+
+    let emailDelivered = false;
+    let deliveryError: string | undefined;
+
+    if (this.emailChannel) {
+      try {
+        const mailRes = await this.emailChannel.sendEmployeeActivationEmail({
+          employeeName: employee.fullName,
+          employeeId: employee.employeeId || 'STAFF',
+          officialEmail: targetEmail,
+          activationUrl,
+          expiryHours: 24,
+          portalUrl,
+          portalName,
+          roleName: employee.role,
+          departmentName: employee.department || undefined,
+        });
+        emailDelivered = mailRes.success;
+        if (!mailRes.success) deliveryError = mailRes.errorMessage || mailRes.failureReason;
+      } catch (err: any) {
+        deliveryError = err.message;
+        this.logger.warn(`Failed sending password reset link to employee ${employee.employeeId}: ${err.message}`);
+      }
+    }
 
     await this.auditService.logAction({
       module: 'EMPLOYEE_MANAGEMENT',
-      action: 'EMPLOYEE_PASSWORD_RESET_BY_ADMIN',
-      description: `Admin reset credentials for employee ${employee.fullName} (${employee.employeeId})`,
+      action: 'EMPLOYEE_PASSWORD_RESET_LINK_ISSUED',
+      description: `Admin dispatched secure password reset/activation link for employee ${employee.fullName} (${employee.employeeId}) to ${targetEmail}`,
       userId: actorId,
-      entityId: id,
+      entityId: employee.id,
       entityType: 'User',
       entityName: employee.fullName,
-      targetUserId: id,
+      targetUserId: employee.id,
+      ipAddress,
+      metadata: { targetEmail, emailDelivered, deliveryError },
     });
 
-    const targetEmail = employee.email || employee.personalEmail;
-    if (this.emailChannel && targetEmail) {
+    return {
+      success: true,
+      message: emailDelivered
+        ? `Secure password setup link successfully sent to ${targetEmail}.`
+        : `Password setup link generated. (Email warning: ${deliveryError || 'SMTP failure'}).`,
+      emailDelivered,
+    };
+  }
+
+  /**
+   * Resend Account Activation Link for Pending Employees
+   */
+  async resendActivation(id: string, actorId: string, ipAddress?: string) {
+    const employee = await this.prisma.user.findFirst({
+      where: { OR: [{ id }, { employeeId: id }] },
+    });
+
+    if (!employee) {
+      throw new NotFoundException('Employee not found.');
+    }
+
+    if (employee.status !== 'PENDING_ACTIVATION' && employee.status !== 'PENDING') {
+      throw new BadRequestException(
+        `Account cannot be resent activation link. Current account status is ${employee.status}. Only pending activation accounts are eligible.`,
+      );
+    }
+
+    const officialEmail = employee.email || employee.personalEmail;
+    if (!officialEmail) {
+      throw new BadRequestException('Employee does not have a registered official email address.');
+    }
+
+    // Rate limiting: at least 60 seconds between resends
+    const lastToken = await this.prisma.accountActivationToken.findFirst({
+      where: { userId: employee.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastToken && Date.now() - new Date(lastToken.createdAt).getTime() < 60 * 1000) {
+      throw new BadRequestException('Please wait at least 1 minute before resending another activation link.');
+    }
+
+    // Invalidate previous unused tokens
+    await this.prisma.accountActivationToken.updateMany({
+      where: { userId: employee.id, isUsed: false },
+      data: { isUsed: true },
+    });
+
+    // Generate cryptographically secure random token (32 bytes hex)
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await this.prisma.accountActivationToken.create({
+      data: {
+        userId: employee.id,
+        tokenHash,
+        expiresAt,
+        isUsed: false,
+      },
+    });
+
+    await this.prisma.user.update({
+      where: { id: employee.id },
+      data: {
+        activationTokenHash: tokenHash,
+        activationExpiresAt: expiresAt,
+        status: 'PENDING_ACTIVATION',
+      },
+    });
+
+    const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(employee.role);
+    const portalUrl = isProtectedRole
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
+
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+
+    let emailDelivered = false;
+    let deliveryError: string | undefined;
+
+    if (this.emailChannel) {
       try {
-        await this.emailChannel.send(
-          {
-            id: employee.id,
-            name: employee.fullName,
-            email: targetEmail,
-            mobile: employee.mobile || undefined,
-            type: 'STAFF',
-          },
-          {
-            title: 'Swayam Admission — Account Credentials Reset',
-            subject: 'Your Password Has Been Reset by Administration',
-            message: `Dear ${employee.fullName},\n\nYour account credentials for Employee ID ${employee.employeeId} have been reset by IT administration.\n\nTemporary Password: ${rawTempPassword}\nPortal: https://erp.swayamadmission.com\n\nPlease log in and update your password.\n\nWarm regards,\nSwayam Admission IT Security`,
-            emailHtml: `
-              <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 24px; border: 1px solid #E2E8F0; border-radius: 8px;">
-                <h3 style="color: #4A7B5B; margin-top: 0;">Account Credentials Reset</h3>
-                <p>Dear <strong>${employee.fullName}</strong>,</p>
-                <p>An administrator has reset your access credentials for Employee ID <strong>${employee.employeeId}</strong>.</p>
-                <div style="background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 16px; margin: 20px 0;">
-                  <p style="margin: 4px 0;"><strong>Employee ID:</strong> ${employee.employeeId}</p>
-                  <p style="margin: 4px 0;"><strong>New Temporary Password:</strong> <code style="color: #4A7B5B; font-weight: bold; font-size: 15px;">${rawTempPassword}</code></p>
-                </div>
-                <p style="font-size: 13px; color: #64748B;">Please sign in to the Employee ERP Portal within 7 days to complete mandatory password setup.</p>
-              </div>
-            `,
-          },
-        );
+        const mailResult = await this.emailChannel.sendEmployeeActivationEmail({
+          employeeName: employee.fullName,
+          employeeId: employee.employeeId || 'STAFF',
+          officialEmail,
+          activationUrl,
+          expiryHours: 24,
+          portalUrl,
+          portalName,
+          roleName: employee.role,
+          departmentName: employee.department || undefined,
+        });
+
+        emailDelivered = mailResult.success;
+        if (!mailResult.success) {
+          deliveryError = mailResult.errorMessage || mailResult.failureReason;
+        }
       } catch (err: any) {
-        this.logger.warn(`Failed sending reset email: ${err.message}`);
+        deliveryError = err.message;
+        this.logger.warn(`Failed sending activation email to employee ${employee.employeeId}: ${err.message}`);
       }
+    }
+
+    await this.auditService.logAction({
+      module: 'EMPLOYEE_MANAGEMENT',
+      action: 'ACTIVATION_LINK_RESENT',
+      description: `Resent account activation invitation to ${employee.fullName} (${officialEmail}). Delivery ${emailDelivered ? 'succeeded' : 'failed'}.`,
+      userId: actorId,
+      entityId: employee.id,
+      entityType: 'User',
+      entityName: employee.fullName,
+      targetUserId: employee.id,
+      ipAddress,
+      metadata: { emailDelivered, deliveryError },
+    });
+
+    if (!emailDelivered) {
+      return {
+        success: false,
+        warning: true,
+        message: `Activation link generated, but email delivery to ${officialEmail} failed: ${deliveryError || 'SMTP failure'}. The employee remains in PENDING_ACTIVATION.`,
+        deliveryStatus: 'FAILED',
+      };
     }
 
     return {
       success: true,
-      message: `Temporary password generated and dispatched to ${targetEmail || 'employee'}.`,
+      message: `Activation invitation email successfully sent to ${officialEmail}.`,
+      deliveryStatus: 'SENT',
     };
   }
 

@@ -66,7 +66,13 @@ export default function CareersPage() {
     queryKey: ["careers_public_vacancies"],
     queryFn: () => careersApi.getVacancies(),
   });
-  const allVacancies = vacanciesRes?.data || [];
+  const rawVacancies = vacanciesRes?.data;
+  const allVacancies: Vacancy[] = useMemo(() => {
+    if (Array.isArray(rawVacancies)) return rawVacancies;
+    if (Array.isArray((rawVacancies as any)?.data)) return (rawVacancies as any).data;
+    if (Array.isArray((rawVacancies as any)?.vacancies)) return (rawVacancies as any).vacancies;
+    return [];
+  }, [rawVacancies]);
 
   // Extract unique departments and locations for filter dropdowns
   const departments = useMemo(() => {

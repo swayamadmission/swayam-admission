@@ -13,6 +13,10 @@ import {
   buildForgotPasswordOtpEmailHtml,
   buildPasswordResetSuccessEmailHtml,
   buildWelcomeEmailHtml,
+  buildEmployeeActivationEmailHtml,
+  buildEmployeeActivationSuccessEmailHtml,
+  EmployeeActivationEmailTemplateParams,
+  EmployeeActivationSuccessTemplateParams,
 } from './email-templates';
 
 export interface ChannelSendResult {
@@ -154,20 +158,21 @@ export class EmailChannel implements INotificationChannel {
   }
 
   private async resolveSmtpConfig() {
-    // 1. Prioritize Environment Variables (.env)
+    // 1. Prioritize Environment Variables (.env / Render runtime)
     const envUser = (process.env.SMTP_USER || '').trim();
     const rawPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
     const envPass = rawPass.replace(/\s+/g, '');
     const envHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
     const envPort = parseInt(process.env.SMTP_PORT || '587', 10);
-    const envFromName = process.env.SMTP_FROM_NAME || 'Swayam Admission';
-    const envFromEmail = process.env.SMTP_FROM_EMAIL || envUser;
+    const envFromName = (process.env.SMTP_FROM_NAME || 'Swayam Admission').trim();
+    const envFromEmail = (process.env.SMTP_FROM || process.env.SMTP_FROM_EMAIL || envUser || 'swayamadmissions@gmail.com').trim();
+    const isSecure = process.env.SMTP_SECURE === 'true' || envPort === 465;
 
     if (envUser && envPass && !envPass.includes('*')) {
       return {
         host: envHost,
         port: envPort,
-        secure: envPort === 465,
+        secure: isSecure,
         user: envUser,
         pass: envPass,
         fromEmail: envFromEmail,
@@ -206,14 +211,14 @@ export class EmailChannel implements INotificationChannel {
       // Safe fallback if DB is unreachable
     }
 
-    // Default simulation fallback (no valid credentials yet)
+    // Default fallback when credentials not yet set
     return {
       host: envHost,
       port: envPort,
-      secure: envPort === 465,
+      secure: isSecure,
       user: '',
       pass: '',
-      fromEmail: envFromEmail || 'no-reply@swayamadmission.in',
+      fromEmail: envFromEmail || 'swayamadmissions@gmail.com',
       fromName: envFromName,
     };
   }
@@ -266,58 +271,41 @@ export class EmailChannel implements INotificationChannel {
     try {
       const { transporter, from } = await this.getTransporter();
 
-      if (transporter) {
-        try {
-          // Live Nodemailer delivery to recipient inbox
-          const info = await transporter.sendMail({
-            from,
-            to: recipient.email,
-            subject,
-            text: payload.emailText || payload.message,
-            html:
-              payload.emailHtml ||
-              `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937; padding: 16px;">${payload.message.replace(/\n/g, '<br/>')}</div>`,
-          });
-
-          this.logger.log(
-            `[NODEMAILER DELIVERED] ID: ${info.messageId} | To: ${recipient.email} | Subject: "${subject}"`,
-          );
-
-          return {
-            channel: this.channelName,
-            success: true,
-            status: CommunicationDeliveryStatus.SENT,
-            providerMessageId: info.messageId,
-          };
-        } catch (transportErr: any) {
-          this.logger.warn(
-            `[NODEMAILER LIVE DISPATCH FAILED] ${transportErr.message}. Falling back to dev simulation.`,
-          );
-          if (process.env.NODE_ENV !== 'production') {
-            const providerMessageId = `email_fallback_${crypto.randomUUID()}`;
-            return {
-              channel: this.channelName,
-              success: true,
-              status: CommunicationDeliveryStatus.SENT,
-              providerMessageId,
-            };
-          }
-          throw transportErr;
-        }
-      } else {
-        // Safe Development / Simulation mode when SMTP_USER/SMTP_PASSWORD not yet in .env
-        const providerMessageId = `email_sim_${crypto.randomUUID()}`;
-        this.logger.warn(
-          `[NODEMAILER DEV SIMULATION] (SMTP credentials not yet set in backend/.env) | To: ${recipient.email} | Subject: "${subject}" | Content: ${payload.message?.slice(0, 160)}`,
+      if (!transporter) {
+        this.logger.error(
+          `[NODEMAILER NOT CONFIGURED] Missing SMTP credentials (SMTP_USER/SMTP_PASS). Delivery to ${recipient.email} skipped.`,
         );
-
         return {
           channel: this.channelName,
-          success: true,
-          status: CommunicationDeliveryStatus.SENT,
-          providerMessageId,
+          success: false,
+          status: CommunicationDeliveryStatus.FAILED,
+          errorMessage: 'SMTP credentials are not configured on the server',
+          failureReason: 'MISSING_SMTP_CREDENTIALS',
+          isRetryable: true,
         };
       }
+
+      // Live Nodemailer delivery to recipient inbox
+      const info = await transporter.sendMail({
+        from,
+        to: recipient.email,
+        subject,
+        text: payload.emailText || payload.message,
+        html:
+          payload.emailHtml ||
+          `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937; padding: 16px;">${payload.message.replace(/\n/g, '<br/>')}</div>`,
+      });
+
+      this.logger.log(
+        `[NODEMAILER DELIVERED] ID: ${info.messageId} | To: ${recipient.email} | Subject: "${subject}"`,
+      );
+
+      return {
+        channel: this.channelName,
+        success: true,
+        status: CommunicationDeliveryStatus.SENT,
+        providerMessageId: info.messageId,
+      };
     } catch (err: any) {
       this.logger.error(
         `[NODEMAILER DELIVERY FAILED] To: ${recipient.email} | Subject: "${subject}" | Error: ${err.message}`,
@@ -332,6 +320,61 @@ export class EmailChannel implements INotificationChannel {
         isRetryable: true,
       };
     }
+  }
+
+  /**
+   * Helper: Send secure employee activation email with single-use link
+   * Never includes any password.
+   */
+  async sendEmployeeActivationEmail(params: EmployeeActivationEmailTemplateParams): Promise<ChannelSendResult> {
+    const html = buildEmployeeActivationEmailHtml(params);
+    const text = `Welcome to Swayam Admission, ${params.employeeName}!
+Your Employee ID is ${params.employeeId}.
+Please activate your account and set your permanent password using this secure link:
+${params.activationUrl}
+
+This single-use activation link is valid for ${params.expiryHours || 24} hours. For security reasons, no temporary password is provided.
+Login Portal: ${params.portalUrl || 'https://admin.swayamadmission.com'}`;
+
+    return this.send(
+      {
+        id: params.employeeId,
+        name: params.employeeName,
+        email: params.officialEmail,
+        type: 'EMPLOYEE',
+      },
+      {
+        title: 'Activate Your Swayam Admission Staff Account',
+        subject: `Welcome to Swayam Admission — Activate Your Account (ID: ${params.employeeId})`,
+        message: text,
+        emailHtml: html,
+        emailText: text,
+      },
+    );
+  }
+
+  /**
+   * Helper: Send confirmation email upon successful employee activation
+   */
+  async sendEmployeeActivationSuccessEmail(params: EmployeeActivationSuccessTemplateParams): Promise<ChannelSendResult> {
+    const html = buildEmployeeActivationSuccessEmailHtml(params);
+    const text = `Welcome ${params.employeeName}! Your Swayam Admission employee account (ID: ${params.employeeId}) has been successfully activated. You can now log in at ${params.portalUrl}`;
+
+    return this.send(
+      {
+        id: params.employeeId,
+        name: params.employeeName,
+        email: params.officialEmail,
+        type: 'EMPLOYEE',
+      },
+      {
+        title: 'Account Activated Successfully — Swayam Admission',
+        subject: 'Account Activated Successfully — Swayam Admission',
+        message: text,
+        emailHtml: html,
+        emailText: text,
+      },
+    );
   }
 }
 
