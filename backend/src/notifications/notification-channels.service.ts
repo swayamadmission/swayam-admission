@@ -156,7 +156,8 @@ export class EmailChannel implements INotificationChannel {
   private async resolveSmtpConfig() {
     // 1. Prioritize Environment Variables (.env)
     const envUser = (process.env.SMTP_USER || '').trim();
-    const envPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+    const rawPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+    const envPass = rawPass.replace(/\s+/g, '');
     const envHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
     const envPort = parseInt(process.env.SMTP_PORT || '587', 10);
     const envFromName = process.env.SMTP_FROM_NAME || 'Swayam Admission';
