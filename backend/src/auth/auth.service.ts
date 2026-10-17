@@ -1356,7 +1356,6 @@ export class AuthService {
       message: `OTP sent successfully to ${email}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
-      devOtp: rawOtp,
     };
   }
 
@@ -2658,7 +2657,11 @@ export class AuthService {
     });
 
     if (!user) {
-      return genericResponse;
+      throw new NotFoundException(
+        isMobile
+          ? 'This mobile number is not registered with us. Please check your number or create a new account.'
+          : 'This email address is not registered with us. Please check your email or create a new account.',
+      );
     }
 
     // Invalidate previous pending OTPs
@@ -2726,8 +2729,13 @@ export class AuthService {
     }
 
     return {
-      ...genericResponse,
-      devOtp: rawOtp,
+      success: true,
+      method,
+      message: isMobile
+        ? 'A 6-digit verification code has been sent to your registered mobile number.'
+        : `A 6-digit verification code has been sent to your registered email (${identifier}). Please check your inbox or spam folder.`,
+      resendCooldownSeconds: 30,
+      expiresInSeconds: 300,
     };
   }
 

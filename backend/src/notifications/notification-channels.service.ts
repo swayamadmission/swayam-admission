@@ -180,12 +180,13 @@ export class EmailChannel implements INotificationChannel {
       const dbConfig = await this.prisma.otpConfiguration.findUnique({
         where: { channel: 'EMAIL' },
       });
+      const rawDbPass = (dbConfig?.apiPassword || '').trim();
+      const cleanDbPass = rawDbPass.replace(/\s+/g, '');
       if (
         dbConfig &&
         dbConfig.enabled &&
-        dbConfig.apiPassword &&
-        !dbConfig.apiPassword.includes('*') &&
-        !dbConfig.apiPassword.includes(' ')
+        cleanDbPass &&
+        !cleanDbPass.includes('*')
       ) {
         const user = (dbConfig.apiUser || dbConfig.fromEmail || dbConfig.senderId || '').trim();
         const port = dbConfig.apiPort || envPort;
@@ -195,7 +196,7 @@ export class EmailChannel implements INotificationChannel {
             port,
             secure: port === 465,
             user,
-            pass: dbConfig.apiPassword.trim(),
+            pass: cleanDbPass,
             fromEmail: dbConfig.fromEmail || user,
             fromName: dbConfig.fromName || envFromName,
           };

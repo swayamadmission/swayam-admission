@@ -358,9 +358,7 @@ export default function AuthModal({
       const res = await authApi.sendRegistrationMobileOtp({ mobile: cleanMobile });
       setRegOtpSent(true);
       setRegResendCooldown(res.data?.resendCooldownSeconds || 30);
-      if (res.data?.devOtp) {
-        setRegOtp(res.data.devOtp);
-      }
+      setRegOtp(""); // User manually enters OTP
 
     } catch (err: any) {
       const msg =
@@ -521,11 +519,12 @@ export default function AuthModal({
       });
 
       setForgotStep("otp");
+      setForgotOtp(""); // Never autofill OTP - user enters OTP from their email
       setForgotCooldown(res.data?.resendCooldownSeconds || 30);
-      setForgotMessage(res.data?.message || "OTP sent successfully.");
-      if (res.data?.devOtp) {
-        setForgotOtp(res.data.devOtp);
-      }
+      setForgotMessage(
+        res.data?.message ||
+          "A 6-digit verification code has been sent to your registered email. Please check your inbox or spam folder."
+      );
 
     } catch (err: any) {
       const msg =
@@ -658,8 +657,32 @@ export default function AuthModal({
         <div className="px-6 py-5 overflow-y-auto space-y-4">
           {/* Error Display */}
           {displayError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-medium">
-              {displayError}
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-medium space-y-2">
+              <p>{displayError}</p>
+              {tab === "forgot" &&
+                (displayError.toLowerCase().includes("not registered") ||
+                  displayError.toLowerCase().includes("register") ||
+                  displayError.toLowerCase().includes("create a new account")) && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const emailOrMobile = forgotIdentifier.trim();
+                        switchTab("signup");
+                        if (emailOrMobile) {
+                          if (emailOrMobile.includes("@")) {
+                            setSignupForm((prev) => ({ ...prev, email: emailOrMobile }));
+                          } else {
+                            setSignupForm((prev) => ({ ...prev, mobile: emailOrMobile.replace(/\D/g, "") }));
+                          }
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#4A7B5B] text-white rounded-lg text-xs font-semibold hover:bg-[#3d6b4d] transition-colors shadow-sm"
+                    >
+                      Create Account / Register Now →
+                    </button>
+                  </div>
+                )}
             </div>
           )}
 
