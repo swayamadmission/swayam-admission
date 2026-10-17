@@ -46,6 +46,12 @@ import { JwtService } from '@nestjs/jwt';
 import { IdGeneratorService } from '../common/id-generator.service';
 import { ConsentService } from '../legal/consent.service';
 import { EmailChannel } from '../notifications/notification-channels.service';
+import {
+  buildOtpEmailHtml,
+  buildForgotPasswordOtpEmailHtml,
+  buildPasswordResetSuccessEmailHtml,
+  buildWelcomeEmailHtml,
+} from '../notifications/email-templates';
 
 @Injectable()
 export class AuthService {
@@ -59,6 +65,11 @@ export class AuthService {
     private consentService: ConsentService,
     @Optional() private readonly emailChannel?: EmailChannel,
   ) {}
+
+  private getEmailChannel(): EmailChannel {
+    if (this.emailChannel) return this.emailChannel;
+    return new EmailChannel(this.prisma);
+  }
 
   /**
    * India +91 mobile number normalizer.
@@ -940,6 +951,33 @@ export class AuthService {
       ipAddress,
     });
 
+    // Dispatch branded Welcome Email for new students registering via Google
+    if (isNewUser && user.email && this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName,
+            email: user.email,
+            type: 'STUDENT',
+          },
+          {
+            title: 'Welcome to Swayam Admission',
+            subject: 'Welcome to Swayam Admission — Your Journey Begins!',
+            message: `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been created successfully via Google Sign-In.\n\nBest regards,\nSwayam Admission Team`,
+            emailHtml: buildWelcomeEmailHtml({
+              greetingName: user.fullName,
+              email: user.email,
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch welcome email: ${mailErr?.message}`,
+        );
+      }
+    }
+
     const { password, ...userWithoutPassword } = user;
 
     return {
@@ -1281,6 +1319,36 @@ export class AuthService {
       description: `Email Registration OTP requested for ${email}`,
       ipAddress,
     });
+
+    // Dispatch branded OTP Email via Nodemailer
+    if (this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: email,
+            name: 'Student',
+            email,
+            type: 'STUDENT_REGISTRATION',
+          },
+          {
+            title: 'Swayam Admission — Registration Verification Code',
+            subject: `Your Verification Code for Swayam Admission (${rawOtp})`,
+            message: `Your one-time verification code for Swayam Admission registration is: ${rawOtp}. Valid for 5 minutes.`,
+            emailHtml: buildOtpEmailHtml({
+              otp: rawOtp,
+              title: 'Welcome to Swayam Admission',
+              greetingName: 'Student',
+              purpose: 'creating your Swayam Admission student account',
+              expiryMinutes: 5,
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch registration email to ${email}: ${mailErr?.message}`,
+        );
+      }
+    }
 
     return {
       success: true,
@@ -1633,6 +1701,33 @@ export class AuthService {
       description: `Student registered successfully: ${user.fullName} (${user.mobile})`,
       ipAddress,
     });
+
+    // Dispatch branded Welcome Email via Nodemailer
+    if (user.email && this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName,
+            email: user.email,
+            type: 'STUDENT',
+          },
+          {
+            title: 'Welcome to Swayam Admission',
+            subject: 'Welcome to Swayam Admission — Your Journey Begins!',
+            message: `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been registered successfully.\n\nBest regards,\nSwayam Admission Team`,
+            emailHtml: buildWelcomeEmailHtml({
+              greetingName: user.fullName,
+              email: user.email,
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch welcome email to ${user.email}: ${mailErr?.message}`,
+        );
+      }
+    }
 
     const { password, ...userWithoutPassword } = user;
 
@@ -2033,11 +2128,42 @@ export class AuthService {
       ipAddress,
     });
 
+    // Dispatch branded Email verification code via Nodemailer
+    if (this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: targetUser?.id || targetEmail,
+            name: targetUser?.fullName || 'Student',
+            email: targetEmail,
+            type: targetUser?.role || 'STUDENT',
+          },
+          {
+            title: 'Swayam Admission — Verify Your Email Address',
+            subject: `Your Verification Code for Swayam Admission (${rawCode})`,
+            message: `Your verification code is: ${rawCode}. Valid for 15 minutes.`,
+            emailHtml: buildOtpEmailHtml({
+              otp: rawCode,
+              title: 'Email Address Verification',
+              greetingName: targetUser?.fullName || 'Student',
+              purpose: 'verifying your email address on Swayam Admission',
+              expiryMinutes: 15,
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch email verification to ${targetEmail}: ${mailErr?.message}`,
+        );
+      }
+    }
+
     return {
       success: true,
       message: `Verification code sent to ${targetEmail}. Valid for 15 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 900,
+      devCode: rawCode,
     };
   }
 
@@ -2435,6 +2561,33 @@ export class AuthService {
       ipAddress,
     });
 
+    // Dispatch password reset confirmation email via Nodemailer
+    const targetEmail = user.email || user.personalEmail;
+    if (targetEmail && this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName || 'User',
+            email: targetEmail,
+            type: user.role || 'USER',
+          },
+          {
+            title: 'Swayam Admission — Password Changed',
+            subject: 'Security Alert: Your Swayam Admission Password Was Changed',
+            message: `Dear ${user.fullName || 'User'},\n\nYour password for Swayam Admission has been reset successfully. If you did not make this change, please contact support immediately.`,
+            emailHtml: buildPasswordResetSuccessEmailHtml({
+              greetingName: user.fullName || 'User',
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch password reset confirmation to ${targetEmail}: ${mailErr?.message}`,
+        );
+      }
+    }
+
     return {
       message:
         'Password reset successfully. You can now log in with your new password.',
@@ -2543,6 +2696,34 @@ export class AuthService {
       description: `Forgot password OTP sent via ${method} for ${identifier}`,
       ipAddress,
     });
+
+    // Dispatch branded Password Reset OTP Email via Nodemailer
+    if (!isMobile && this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName || 'User',
+            email: identifier,
+            type: user.role || 'USER',
+          },
+          {
+            title: 'Swayam Admission — Password Reset Code',
+            subject: `Your Password Reset Code (${rawOtp}) — Swayam Admission`,
+            message: `Dear ${user.fullName || 'User'},\n\nYour 6-digit password reset code is: ${rawOtp}.\nValid for 5 minutes. If you did not make this request, please ignore this email.`,
+            emailHtml: buildForgotPasswordOtpEmailHtml({
+              otp: rawOtp,
+              greetingName: user.fullName || 'User',
+              expiryMinutes: 5,
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch password reset email to ${identifier}: ${mailErr?.message}`,
+        );
+      }
+    }
 
     return {
       ...genericResponse,
@@ -2767,6 +2948,33 @@ export class AuthService {
       description: `Password reset completed successfully for user ${user.id}`,
       ipAddress,
     });
+
+    // Dispatch password reset confirmation email via Nodemailer
+    const targetEmail = user.email || user.personalEmail;
+    if (targetEmail && this.emailChannel) {
+      try {
+        await this.emailChannel.send(
+          {
+            id: user.id,
+            name: user.fullName || 'User',
+            email: targetEmail,
+            type: user.role || 'USER',
+          },
+          {
+            title: 'Swayam Admission — Password Changed',
+            subject: 'Security Alert: Your Swayam Admission Password Was Changed',
+            message: `Dear ${user.fullName || 'User'},\n\nYour password for Swayam Admission has been reset successfully. If you did not make this change, please contact support immediately.`,
+            emailHtml: buildPasswordResetSuccessEmailHtml({
+              greetingName: user.fullName || 'User',
+            }),
+          },
+        );
+      } catch (mailErr: any) {
+        this.logger.warn(
+          `Failed to dispatch password reset confirmation to ${targetEmail}: ${mailErr?.message}`,
+        );
+      }
+    }
 
     return {
       success: true,

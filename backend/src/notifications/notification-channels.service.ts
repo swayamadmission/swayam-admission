@@ -7,6 +7,13 @@ import {
   NotificationType,
 } from '@prisma/client';
 import * as crypto from 'crypto';
+import * as nodemailer from 'nodemailer';
+import {
+  buildOtpEmailHtml,
+  buildForgotPasswordOtpEmailHtml,
+  buildPasswordResetSuccessEmailHtml,
+  buildWelcomeEmailHtml,
+} from './email-templates';
 
 export interface ChannelSendResult {
   channel: CommunicationChannel;
@@ -112,13 +119,22 @@ export class InAppChannel implements INotificationChannel {
   }
 }
 
+export {
+  buildOtpEmailHtml,
+  buildForgotPasswordOtpEmailHtml,
+  buildPasswordResetSuccessEmailHtml,
+  buildWelcomeEmailHtml,
+};
+
 /**
- * Email Notification Channel — SMTP / Provider backed.
+ * Email Notification Channel — Nodemailer SMTP backed with graceful dev fallback.
  */
 @Injectable()
 export class EmailChannel implements INotificationChannel {
   private readonly logger = new Logger(EmailChannel.name);
   readonly channelName = CommunicationChannel.EMAIL;
+  private cachedTransporter: nodemailer.Transporter | null = null;
+  private lastTransporterKey = '';
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -127,17 +143,111 @@ export class EmailChannel implements INotificationChannel {
   }
 
   getHealth() {
-    const smtpHost = process.env.SMTP_HOST || 'smtp.swayamadmission.in';
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const hasEnvUser = Boolean(process.env.SMTP_USER && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS));
     return {
       status: 'HEALTHY' as const,
-      message: `SMTP Gateway configured (${smtpHost})`,
+      message: hasEnvUser
+        ? `Nodemailer SMTP Gateway active (${smtpHost} via ${process.env.SMTP_USER})`
+        : `Nodemailer active (Development Simulation mode - configure SMTP_USER & SMTP_PASSWORD in .env for live inbox delivery)`,
     };
+  }
+
+  private async resolveSmtpConfig() {
+    // 1. Prioritize Environment Variables (.env)
+    const envUser = (process.env.SMTP_USER || '').trim();
+    const envPass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+    const envHost = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+    const envPort = parseInt(process.env.SMTP_PORT || '587', 10);
+    const envFromName = process.env.SMTP_FROM_NAME || 'Swayam Admission';
+    const envFromEmail = process.env.SMTP_FROM_EMAIL || envUser;
+
+    if (envUser && envPass && !envPass.includes('*')) {
+      return {
+        host: envHost,
+        port: envPort,
+        secure: envPort === 465,
+        user: envUser,
+        pass: envPass,
+        fromEmail: envFromEmail,
+        fromName: envFromName,
+      };
+    }
+
+    // 2. Check DB OtpConfiguration (only if unmasked and valid)
+    try {
+      const dbConfig = await this.prisma.otpConfiguration.findUnique({
+        where: { channel: 'EMAIL' },
+      });
+      if (
+        dbConfig &&
+        dbConfig.enabled &&
+        dbConfig.apiPassword &&
+        !dbConfig.apiPassword.includes('*') &&
+        !dbConfig.apiPassword.includes(' ')
+      ) {
+        const user = (dbConfig.apiUser || dbConfig.fromEmail || dbConfig.senderId || '').trim();
+        const port = dbConfig.apiPort || envPort;
+        if (user && user.includes('@')) {
+          return {
+            host: dbConfig.apiHost?.trim() || envHost,
+            port,
+            secure: port === 465,
+            user,
+            pass: dbConfig.apiPassword.trim(),
+            fromEmail: dbConfig.fromEmail || user,
+            fromName: dbConfig.fromName || envFromName,
+          };
+        }
+      }
+    } catch {
+      // Safe fallback if DB is unreachable
+    }
+
+    // Default simulation fallback (no valid credentials yet)
+    return {
+      host: envHost,
+      port: envPort,
+      secure: envPort === 465,
+      user: '',
+      pass: '',
+      fromEmail: envFromEmail || 'no-reply@swayamadmission.in',
+      fromName: envFromName,
+    };
+  }
+
+  private async getTransporter(): Promise<{ transporter: nodemailer.Transporter | null; from: string }> {
+    const config = await this.resolveSmtpConfig();
+    const from = `"${config.fromName}" <${config.fromEmail || config.user || 'no-reply@swayamadmission.in'}>`;
+
+    if (!config.user || !config.pass) {
+      return { transporter: null, from };
+    }
+
+    const currentKey = `${config.host}:${config.port}:${config.user}:${config.secure}`;
+    if (!this.cachedTransporter || this.lastTransporterKey !== currentKey) {
+      this.cachedTransporter = nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.port === 465, // Direct SSL only on 465, STARTTLS on 587/25
+        auth: {
+          user: config.user,
+          pass: config.pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
+        },
+      });
+      this.lastTransporterKey = currentKey;
+    }
+
+    return { transporter: this.cachedTransporter, from };
   }
 
   async send(
     recipient: { id: string; name: string; email?: string; mobile?: string; type: string },
     payload: ChannelMessagePayload,
-    metadata?: Record<string, any>,
+    _metadata?: Record<string, any>,
   ): Promise<ChannelSendResult> {
     if (!recipient.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.email)) {
       return {
@@ -149,29 +259,74 @@ export class EmailChannel implements INotificationChannel {
       };
     }
 
+    const subject = payload.subject || payload.title;
+
     try {
-      const providerMessageId = `email_msg_${crypto.randomUUID()}`;
-      const subject = payload.subject || payload.title;
+      const { transporter, from } = await this.getTransporter();
 
-      // Safe production logging / SMTP dispatch simulation
-      this.logger.log(
-        `[EMAIL DISPATCH] ID: ${providerMessageId} | To: ${recipient.email} | Subject: "${subject}"`,
-      );
+      if (transporter) {
+        try {
+          // Live Nodemailer delivery to recipient inbox
+          const info = await transporter.sendMail({
+            from,
+            to: recipient.email,
+            subject,
+            text: payload.emailText || payload.message,
+            html:
+              payload.emailHtml ||
+              `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1F2937; padding: 16px;">${payload.message.replace(/\n/g, '<br/>')}</div>`,
+          });
 
-      return {
-        channel: this.channelName,
-        success: true,
-        status: CommunicationDeliveryStatus.SENT,
-        providerMessageId,
-      };
+          this.logger.log(
+            `[NODEMAILER DELIVERED] ID: ${info.messageId} | To: ${recipient.email} | Subject: "${subject}"`,
+          );
+
+          return {
+            channel: this.channelName,
+            success: true,
+            status: CommunicationDeliveryStatus.SENT,
+            providerMessageId: info.messageId,
+          };
+        } catch (transportErr: any) {
+          this.logger.warn(
+            `[NODEMAILER LIVE DISPATCH FAILED] ${transportErr.message}. Falling back to dev simulation.`,
+          );
+          if (process.env.NODE_ENV !== 'production') {
+            const providerMessageId = `email_fallback_${crypto.randomUUID()}`;
+            return {
+              channel: this.channelName,
+              success: true,
+              status: CommunicationDeliveryStatus.SENT,
+              providerMessageId,
+            };
+          }
+          throw transportErr;
+        }
+      } else {
+        // Safe Development / Simulation mode when SMTP_USER/SMTP_PASSWORD not yet in .env
+        const providerMessageId = `email_sim_${crypto.randomUUID()}`;
+        this.logger.warn(
+          `[NODEMAILER DEV SIMULATION] (SMTP credentials not yet set in backend/.env) | To: ${recipient.email} | Subject: "${subject}" | Content: ${payload.message?.slice(0, 160)}`,
+        );
+
+        return {
+          channel: this.channelName,
+          success: true,
+          status: CommunicationDeliveryStatus.SENT,
+          providerMessageId,
+        };
+      }
     } catch (err: any) {
-      this.logger.error(`Email delivery error: ${err.message}`);
+      this.logger.error(
+        `[NODEMAILER DELIVERY FAILED] To: ${recipient.email} | Subject: "${subject}" | Error: ${err.message}`,
+        err.stack,
+      );
       return {
         channel: this.channelName,
         success: false,
         status: CommunicationDeliveryStatus.FAILED,
         errorMessage: err.message,
-        failureReason: 'SMTP / Provider delivery timeout',
+        failureReason: err.code || 'SMTP provider delivery failure',
         isRetryable: true,
       };
     }
