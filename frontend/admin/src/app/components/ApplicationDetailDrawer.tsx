@@ -217,6 +217,7 @@ export default function ApplicationDetailDrawer({
   });
 
   const [isCompleteOnboardingModalOpen, setIsCompleteOnboardingModalOpen] = useState(false);
+  const [completeOnboardingError, setCompleteOnboardingError] = useState<string | null>(null);
   const [completeOnboardingForm, setCompleteOnboardingForm] = useState({
     employeeId: "",
     role: "COUNSELOR",
@@ -533,21 +534,58 @@ export default function ApplicationDetailDrawer({
   const completeOnboardingMutation = useMutation({
     mutationFn: (payload: any) => hrApi.completeOnboarding(applicationId!, payload),
     onSuccess: (res: any) => {
+      const staffEmail = res.data?.user?.email || app?.email || "Candidate";
+      const staffEmpId = res.data?.onboarding?.employeeId || res.data?.user?.employeeId || completeOnboardingForm.employeeId;
+      const isAlready = res.data?.alreadyCompleted;
       toast.success(
-        `Onboarding completed! Candidate is now JOINED & ACTIVE. Staff Account: ${res.data?.user?.email || "Staff ID linked"}`,
+        isAlready
+          ? `Candidate is already linked to Staff record ${staffEmpId}. Status: JOINED.`
+          : `Onboarding completed! ${app?.firstName || "Candidate"} is now JOINED. Activation email dispatched to ${staffEmail} (ID: ${staffEmpId}).`,
       );
       queryClient.invalidateQueries({ queryKey: ["admin_applications"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_application_detail", applicationId] });
       queryClient.invalidateQueries({ queryKey: ["admin_application_onboarding", applicationId] });
+      queryClient.invalidateQueries({ queryKey: ["admin_application_clearance", applicationId] });
       queryClient.invalidateQueries({ queryKey: ["admin_clearances"] });
+      queryClient.invalidateQueries({ queryKey: ["admin_employees"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
       refetch();
       refetchOnboarding();
+      refetchClearance();
       setIsCompleteOnboardingModalOpen(false);
+      setCompleteOnboardingError(null);
       setActiveTab("workflow");
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || "Failed to complete onboarding");
+      const msg = Array.isArray(err?.response?.data?.message)
+        ? err.response.data.message.join(", ")
+        : err?.response?.data?.message || err?.message || "Failed to complete onboarding";
+      setCompleteOnboardingError(msg);
+      toast.error(msg);
     },
   });
+
+  const handleConfirmCompleteOnboarding = () => {
+    setCompleteOnboardingError(null);
+    const trimmedEmpId = completeOnboardingForm.employeeId?.trim();
+    if (!trimmedEmpId) {
+      setCompleteOnboardingError("Employee ID is required.");
+      return;
+    }
+    if (!/^[A-Za-z0-9_-]{4,30}$/.test(trimmedEmpId)) {
+      setCompleteOnboardingError("Employee ID must be 4 to 30 characters (letters, numbers, hyphens, or underscores).");
+      return;
+    }
+    if (!completeOnboardingForm.role) {
+      setCompleteOnboardingError("Please select a system role for this staff member.");
+      return;
+    }
+    completeOnboardingMutation.mutate({
+      employeeId: trimmedEmpId,
+      role: completeOnboardingForm.role,
+      notes: completeOnboardingForm.notes?.trim() || undefined,
+    });
+  };
 
   // If no application selected, drawer is not open
   if (!applicationId) return null;
@@ -803,7 +841,10 @@ export default function ApplicationDetailDrawer({
 
           {app.status === "ONBOARDING" && (
             <button
-              onClick={() => setIsCompleteOnboardingModalOpen(true)}
+              onClick={() => {
+                setCompleteOnboardingError(null);
+                setIsCompleteOnboardingModalOpen(true);
+              }}
               className="px-3 py-1.5 bg-[#4A7B5B] hover:bg-[#3D664A] text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center gap-1.5"
             >
               <UserCheck className="w-3.5 h-3.5" />
@@ -1906,7 +1947,10 @@ export default function ApplicationDetailDrawer({
                           </button>
                         </div>
                         <button
-                          onClick={() => setIsCompleteOnboardingModalOpen(true)}
+                          onClick={() => {
+                            setCompleteOnboardingError(null);
+                            setIsCompleteOnboardingModalOpen(true);
+                          }}
                           className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3D664A] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
                         >
                           <UserCheck className="w-3.5 h-3.5" />
@@ -2678,40 +2722,112 @@ export default function ApplicationDetailDrawer({
 
       {/* 5. COMPLETE ONBOARDING & LINK STAFF MODAL */}
       {isCompleteOnboardingModalOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-2 text-emerald-800">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-slate-900 text-base">Complete Onboarding & Link Staff</h3>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2 text-emerald-800">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <h3 className="font-bold text-slate-900 text-base">Complete Onboarding & Link Staff</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCompleteOnboardingModalOpen(false);
+                  setCompleteOnboardingError(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
+
             <p className="text-xs text-slate-600 leading-relaxed">
-              This action will link <strong>{app.firstName} {app.lastName || ""}</strong> to the system Staff/User database without duplicates, mark the candidate as <strong>JOINED / ACTIVE</strong>, and dispatch completion alerts.
+              This action links <strong>{app.firstName} {app.lastName || ""}</strong> to the system Staff/User directory, sets recruitment status to <strong>JOINED</strong>, and dispatches an account activation invitation.
             </p>
+
+            {/* Candidate & Account Identity Preview */}
+            <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3 text-xs space-y-1.5">
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-500">Candidate:</span>
+                <span className="font-semibold text-slate-900">{app.firstName} {app.lastName || ""}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-500">Official / Linked Email:</span>
+                <span className="font-semibold text-emerald-800 font-mono text-[11px]">{onboarding?.officialEmail || app.email}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-500">Designation & Department:</span>
+                <span className="font-medium text-slate-800">
+                  {onboarding?.designation || offer?.designation || app.vacancy?.title || "Staff Member"} • {onboarding?.department || offer?.department || "General"}
+                </span>
+              </div>
+            </div>
+
+            {/* Passwordless Security Notice */}
+            <div className="p-3 bg-blue-50/70 border border-blue-200/70 rounded-xl text-[11px] text-blue-800 leading-relaxed flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold block mb-0.5">Passwordless Activation Security</span>
+                A secure single-use activation link (valid for 24h) will be emailed to <strong className="font-mono text-blue-900">{onboarding?.officialEmail || app.email}</strong>. No temporary passwords are used; the employee securely sets their own password upon first sign-in.
+              </div>
+            </div>
+
+            {/* Inline Error Alert */}
+            {completeOnboardingError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5 animate-in fade-in duration-150">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <span className="font-semibold block mb-0.5">Action Blocked</span>
+                  <span>{completeOnboardingError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCompleteOnboardingError(null)}
+                  className="text-red-400 hover:text-red-700 font-bold ml-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             <div className="space-y-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Employee ID</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Employee ID <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   value={completeOnboardingForm.employeeId}
-                  onChange={(e) => setCompleteOnboardingForm({ ...completeOnboardingForm, employeeId: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-mono font-bold"
+                  onChange={(e) => {
+                    setCompleteOnboardingError(null);
+                    setCompleteOnboardingForm({ ...completeOnboardingForm, employeeId: e.target.value });
+                  }}
+                  placeholder="e.g. SWY-EMP-2026-1001"
+                  className="w-full p-2 border border-slate-300 rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 focus:border-[#4A7B5B]"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Unique identifier (4-30 alphanumeric characters, hyphens or underscores).
+                </p>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Assigned System Role *</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  Assigned System Role <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={completeOnboardingForm.role}
-                  onChange={(e) => setCompleteOnboardingForm({ ...completeOnboardingForm, role: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg font-semibold"
+                  onChange={(e) => {
+                    setCompleteOnboardingError(null);
+                    setCompleteOnboardingForm({ ...completeOnboardingForm, role: e.target.value });
+                  }}
+                  className="w-full p-2 border border-slate-300 rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 focus:border-[#4A7B5B]"
                 >
-                  <option value="COUNSELOR">Counselor</option>
-                  <option value="SENIOR_COUNSELOR">Senior Counselor</option>
-                  <option value="ACCOUNTS_MANAGER">Accounts Manager</option>
-                  <option value="MARKETING_TEAM">Marketing Team</option>
-                  <option value="CONTENT_MANAGER">Content Manager</option>
-                  <option value="ADMIN">Admin</option>
+                  <option value="COUNSELOR">Counselor (Admissions Portal)</option>
+                  <option value="SENIOR_COUNSELOR">Senior Counselor (Admissions Portal)</option>
+                  <option value="ACCOUNTS_MANAGER">Accounts Manager (Finance / ERP)</option>
+                  <option value="MARKETING_TEAM">Marketing Team (ERP Portal)</option>
+                  <option value="CONTENT_MANAGER">Content Manager (ERP Portal)</option>
+                  <option value="ADMIN">System Administrator (Admin Portal)</option>
                 </select>
               </div>
 
@@ -2721,26 +2837,41 @@ export default function ApplicationDetailDrawer({
                   rows={2}
                   value={completeOnboardingForm.notes}
                   onChange={(e) => setCompleteOnboardingForm({ ...completeOnboardingForm, notes: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg"
+                  placeholder="Optional audit or onboarding completion notes..."
+                  className="w-full p-2 border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#4A7B5B]/30 focus:border-[#4A7B5B]"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-1 border-t">
+            <div className="flex justify-end items-center gap-2 pt-2 border-t border-slate-100">
               <button
-                onClick={() => setIsCompleteOnboardingModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                type="button"
+                onClick={() => {
+                  setIsCompleteOnboardingModalOpen(false);
+                  setCompleteOnboardingError(null);
+                }}
+                disabled={completeOnboardingMutation.isPending}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  completeOnboardingMutation.mutate(completeOnboardingForm);
-                }}
+                type="button"
+                onClick={handleConfirmCompleteOnboarding}
                 disabled={completeOnboardingMutation.isPending}
-                className="px-5 py-2 bg-[#4A7B5B] hover:bg-[#3D664A] text-white text-xs font-bold rounded-lg shadow-sm"
+                className="px-5 py-2.5 bg-[#4A7B5B] hover:bg-[#3D664A] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-2"
               >
-                {completeOnboardingMutation.isPending ? "Completing..." : "Confirm & Activate Employee"}
+                {completeOnboardingMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Completing & Activating...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Confirm & Activate Employee</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   InternalServerErrorException,
   Optional,
 } from '@nestjs/common';
@@ -71,6 +72,11 @@ export class HrService {
     @Optional() private readonly emailChannel?: EmailChannel,
     @Optional() private readonly notificationsService?: NotificationsService,
   ) {}
+
+  private getEmailChannel(): EmailChannel {
+    if (this.emailChannel) return this.emailChannel;
+    return new EmailChannel(this.prisma);
+  }
 
   // ---------------------------------------------------------
   // 1. RECRUITMENT SETTINGS MANAGEMENT
@@ -2666,264 +2672,462 @@ export class HrService {
       where: { OR: [{ id: applicationId }, { applicationId }] },
       include: {
         vacancy: true,
-        offer: true,
+        offer: {
+          include: {
+            clearance: {
+              include: { checklistItems: true },
+            },
+          },
+        },
         onboarding: true,
+        user: true,
       },
     });
 
     if (!app) {
-      throw new NotFoundException('Candidate application not found');
+      throw new NotFoundException('Candidate recruitment application not found');
     }
 
-    if (!app.onboarding) {
-      throw new BadRequestException('Onboarding record does not exist. Start onboarding first.');
+    // 1. CLEARANCE & MANDATORY REQUIREMENTS VALIDATION
+    const clearance = app.offer?.clearance;
+    if (clearance) {
+      if (clearance.status === 'FAILED') {
+        throw new BadRequestException(
+          `Cannot complete onboarding. Candidate clearance verification failed: ${clearance.failureReason || 'Clearance rejected'}.`,
+        );
+      }
+      const pendingRequired = (clearance.checklistItems || []).filter(
+        (item) => item.isRequired && item.status !== 'VERIFIED' && item.status !== 'NOT_REQUIRED',
+      );
+      if (pendingRequired.length > 0) {
+        throw new BadRequestException(
+          `Cannot complete onboarding. ${pendingRequired.length} required clearance item(s) are pending verification: ${pendingRequired.map((i) => i.title).join(', ')}. Please verify all required clearance items first.`,
+        );
+      }
     }
 
-    const onboarding = app.onboarding;
+    // 2. CANDIDATE IDENTITY & ONBOARDING DETAILS RESOLUTION
     const candidateFullName = `${app.firstName} ${app.lastName || ''}`.trim();
+    const officialEmail = (dto.officialEmail || app.onboarding?.officialEmail || app.email).trim().toLowerCase();
+    const officialMobile = (dto.officialMobile || app.onboarding?.officialMobile || app.mobile).trim();
 
-    const officialEmail = (dto.officialEmail || onboarding.officialEmail || app.email).trim().toLowerCase();
-    const officialMobile = (dto.officialMobile || onboarding.officialMobile || app.mobile).trim();
-    let employeeId = dto.employeeId || onboarding.employeeId;
+    let employeeId = (dto.employeeId || app.onboarding?.employeeId || '').trim();
     if (!employeeId) {
-      const currentYear = new Date().getFullYear();
       const count = await this.prisma.user.count({ where: { employeeId: { not: null } } });
-      employeeId = `SWY-EMP-${currentYear}-${String(count + 101).padStart(4, '0')}`;
+      employeeId = `SA-EMP-${String(count + 101).padStart(4, '0')}`;
     }
 
-    // SECTION 6: EMPLOYEE RECORD LINKING & CREDENTIAL ISSUANCE
-    let linkedUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          ...(app.userId ? [{ id: app.userId }] : []),
-          { email: officialEmail },
-          { mobile: officialMobile },
-          { employeeId },
-        ],
-      },
-    });
+    if (!/^[A-Za-z0-9_-]{4,30}$/.test(employeeId)) {
+      throw new BadRequestException(
+        'Employee ID must be between 4 and 30 characters containing only letters, numbers, hyphens, and underscores.',
+      );
+    }
 
+    // Validate system role
     let targetRole: Role = Role.COUNSELOR;
-    if (dto.role && Object.values(Role).includes(dto.role as Role)) {
-      targetRole = dto.role as Role;
-    } else if (onboarding.department.toLowerCase().includes('account') || onboarding.department.toLowerCase().includes('finance')) {
+    if (dto.role) {
+      const roleStr = dto.role.trim().toUpperCase() as Role;
+      if (Object.values(Role).includes(roleStr)) {
+        targetRole = roleStr;
+      } else {
+        throw new BadRequestException(`Invalid system role: "${dto.role}". Please select a valid role.`);
+      }
+    } else if (app.onboarding?.department?.toLowerCase().includes('account') || app.onboarding?.department?.toLowerCase().includes('finance')) {
       targetRole = Role.ACCOUNTS_MANAGER;
-    } else if (onboarding.department.toLowerCase().includes('market')) {
+    } else if (app.onboarding?.department?.toLowerCase().includes('market')) {
       targetRole = Role.MARKETING_TEAM;
-    } else if (onboarding.department.toLowerCase().includes('content')) {
+    } else if (app.onboarding?.department?.toLowerCase().includes('content')) {
       targetRole = Role.CONTENT_MANAGER;
-    } else if (onboarding.designation.toLowerCase().includes('senior')) {
+    } else if (app.onboarding?.designation?.toLowerCase().includes('senior')) {
       targetRole = Role.SENIOR_COUNSELOR;
     } else {
       targetRole = Role.COUNSELOR;
     }
 
-    // Generate secure single-use activation token (24h validity)
+    // Check if Employee ID is already assigned to a DIFFERENT user
+    const existingUserWithEmpId = await this.prisma.user.findFirst({
+      where: { employeeId },
+    });
+    if (
+      existingUserWithEmpId &&
+      existingUserWithEmpId.id !== app.userId &&
+      existingUserWithEmpId.email?.toLowerCase() !== officialEmail
+    ) {
+      throw new ConflictException(
+        `Employee ID "${employeeId}" is already assigned to another staff member (${existingUserWithEmpId.fullName || existingUserWithEmpId.email}). Please provide a unique Employee ID.`,
+      );
+    }
+
+    // 3. FIND LINKED USER IDENTITY
+    let existingUser = app.user;
+    if (!existingUser && app.userId) {
+      existingUser = await this.prisma.user.findUnique({ where: { id: app.userId } });
+    }
+    if (!existingUser) {
+      existingUser = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { email: officialEmail },
+            { employeeId },
+            { mobile: officialMobile },
+          ],
+        },
+      });
+    }
+
+    // 4. IDEMPOTENCY CHECK
+    if (
+      app.status === 'JOINED' &&
+      app.onboarding?.status === 'COMPLETED' &&
+      existingUser &&
+      existingUser.id === app.userId &&
+      existingUser.employeeId === employeeId
+    ) {
+      let resendSent = false;
+      if (existingUser.status === 'PENDING_ACTIVATION') {
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await this.prisma.accountActivationToken.updateMany({
+          where: { userId: existingUser.id, isUsed: false },
+          data: { isUsed: true, usedAt: new Date() },
+        });
+
+        await this.prisma.accountActivationToken.create({
+          data: {
+            userId: existingUser.id,
+            tokenHash,
+            expiresAt,
+            isUsed: false,
+          },
+        });
+
+        await this.prisma.user.update({
+          where: { id: existingUser.id },
+          data: { activationTokenHash: tokenHash, activationExpiresAt: expiresAt },
+        });
+
+        const channel = this.getEmailChannel();
+        const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(existingUser.role);
+        const portalUrl = isProtected
+          ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+          : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+        const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+
+        try {
+          await channel.sendEmployeeActivationEmail({
+            officialEmail,
+            employeeName: candidateFullName,
+            employeeId,
+            designation: app.onboarding?.designation || 'Staff',
+            departmentName: app.onboarding?.department || 'General',
+            activationUrl,
+            expiresInHours: 24,
+            portalUrl,
+          });
+          resendSent = true;
+        } catch (err: any) {
+          this.logger.warn(`Failed sending activation email in idempotent step: ${err.message}`);
+        }
+      }
+
+      return {
+        success: true,
+        alreadyCompleted: true,
+        onboarding: app.onboarding,
+        user: existingUser,
+        status: 'JOINED',
+        emailSent: resendSent,
+        message: 'Candidate is already onboarded and linked to this employee record.',
+      };
+    }
+
+    // 5. DEPARTMENT, DESIGNATION & ONBOARDING ATTRIBUTES
+    const department = app.onboarding?.department || app.offer?.department || app.vacancy?.department || 'Admissions';
+    const designation = app.onboarding?.designation || app.offer?.designation || app.vacancy?.designation || app.vacancy?.title || 'Specialist';
+    const joiningDate = app.onboarding?.joiningDate || app.offer?.joiningDate || new Date();
+    const workLocation = app.onboarding?.workLocation || app.offer?.workLocation || app.vacancy?.location || 'Head Office';
+    const workMode = app.onboarding?.workMode || app.offer?.workMode || app.vacancy?.workMode || 'ONSITE';
+    const employmentType = app.onboarding?.employmentType || app.offer?.employmentType || (app.vacancy as any)?.employmentType || 'FULL_TIME';
+
+    // 6. CRYPTOGRAPHIC 32-BYTE ACTIVATION TOKEN (SHA-256 HASH)
     const rawActivationToken = crypto.randomBytes(32).toString('hex');
     const activationTokenHash = crypto.createHash('sha256').update(rawActivationToken).digest('hex');
     const activationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    let sendActivationEmail = false;
 
-    if (linkedUser) {
-      const needsActivation = !linkedUser.password || linkedUser.status === 'PENDING_ACTIVATION';
-      linkedUser = await this.prisma.user.update({
-        where: { id: linkedUser.id },
-        data: {
-          employeeId,
-          department: onboarding.department,
-          designation: onboarding.designation,
-          joiningDate: onboarding.joiningDate,
-          role: linkedUser.role === Role.STUDENT ? targetRole : linkedUser.role,
-          isActive: !needsActivation,
-          isApproved: true,
-          status: needsActivation ? 'PENDING_ACTIVATION' : linkedUser.status || 'ACTIVE',
-          kycStatus: 'APPROVED',
-          ...(needsActivation
-            ? {
-                password: null,
-                mustChangePassword: false,
-                temporaryPasswordExpiresAt: null,
-                activationTokenHash,
-                activationExpiresAt,
-              }
-            : {}),
-        },
-      });
+    const validAdminId = await this.getValidUserIdOrNull(userId);
+    const actor = validAdminId
+      ? await this.prisma.user.findUnique({ where: { id: validAdminId }, select: { fullName: true } })
+      : null;
+    const actorName = actor?.fullName || 'HR Administrator';
 
-      if (needsActivation) {
-        sendActivationEmail = true;
-        await this.prisma.accountActivationToken.create({
+    // 7. ATOMIC DATABASE TRANSACTION
+    const { finalUser, updatedOnboarding } = await this.prisma.$transaction(async (tx) => {
+      let userRecord: any;
+      const shouldProvisionActivation =
+        !existingUser?.activatedAt || existingUser?.status === 'PENDING_ACTIVATION' || !existingUser?.password;
+
+      if (existingUser) {
+        userRecord = await tx.user.update({
+          where: { id: existingUser.id },
           data: {
-            userId: linkedUser.id,
+            fullName: candidateFullName || existingUser.fullName,
+            email: officialEmail,
+            mobile: officialMobile || existingUser.mobile,
+            employeeId,
+            department,
+            designation,
+            joiningDate,
+            role: targetRole, // Always save the assigned role selected by the administrator
+            isApproved: true,
+            kycStatus: 'APPROVED',
+            ...(shouldProvisionActivation
+              ? {
+                  status: 'PENDING_ACTIVATION',
+                  isActive: false,
+                  emailVerified: false,
+                  password: null, // ZERO temporary passwords!
+                  mustChangePassword: false,
+                  temporaryPasswordExpiresAt: null,
+                  activationTokenHash,
+                  activationExpiresAt,
+                }
+              : {}),
+          },
+        });
+
+        if (shouldProvisionActivation) {
+          await tx.accountActivationToken.updateMany({
+            where: { userId: existingUser.id, isUsed: false },
+            data: { isUsed: true, usedAt: new Date() },
+          });
+          await tx.accountActivationToken.create({
+            data: {
+              userId: existingUser.id,
+              tokenHash: activationTokenHash,
+              expiresAt: activationExpiresAt,
+              isUsed: false,
+            },
+          });
+        }
+      } else {
+        userRecord = await tx.user.create({
+          data: {
+            fullName: candidateFullName,
+            firstName: app.firstName,
+            lastName: app.lastName || null,
+            email: officialEmail,
+            mobile: officialMobile,
+            employeeId,
+            department,
+            designation,
+            joiningDate,
+            role: targetRole,
+            password: null, // ZERO temporary passwords!
+            mustChangePassword: false,
+            temporaryPasswordExpiresAt: null,
+            activationTokenHash,
+            activationExpiresAt,
+            isActive: false,
+            isApproved: true,
+            isVerified: false,
+            emailVerified: false,
+            status: 'PENDING_ACTIVATION',
+            kycStatus: 'APPROVED',
+            sessionVersion: 1,
+          },
+        });
+
+        await tx.accountActivationToken.create({
+          data: {
+            userId: userRecord.id,
             tokenHash: activationTokenHash,
             expiresAt: activationExpiresAt,
             isUsed: false,
           },
         });
       }
-    } else {
-      linkedUser = await this.prisma.user.create({
-        data: {
-          fullName: candidateFullName,
-          firstName: app.firstName,
-          lastName: app.lastName || null,
-          email: officialEmail,
-          mobile: officialMobile,
-          employeeId,
-          department: onboarding.department,
-          designation: onboarding.designation,
-          joiningDate: onboarding.joiningDate,
-          role: targetRole,
-          password: null,
-          mustChangePassword: false,
-          temporaryPasswordExpiresAt: null,
-          activationTokenHash,
-          activationExpiresAt,
-          isActive: false,
-          isApproved: true,
-          isVerified: false,
-          emailVerified: false,
-          status: 'PENDING_ACTIVATION',
-          kycStatus: 'APPROVED',
-          sessionVersion: 1,
-        },
-      });
 
-      sendActivationEmail = true;
-      await this.prisma.accountActivationToken.create({
-        data: {
-          userId: linkedUser.id,
-          tokenHash: activationTokenHash,
-          expiresAt: activationExpiresAt,
-          isUsed: false,
-        },
-      });
-    }
-
-    // Determine appropriate portal URL
-    const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(linkedUser.role);
-    const portalUrl = isProtected
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
-    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
-    const activationUrl = `${activationBaseUrl}/activate?token=${rawActivationToken}`;
-
-    // Dispatch branded activation email via centralized SMTP service
-    if (this.emailChannel && sendActivationEmail) {
-      try {
-        await this.emailChannel.sendEmployeeActivationEmail({
-          officialEmail,
-          employeeName: candidateFullName,
-          employeeId,
-          designation: onboarding.designation,
-          departmentName: onboarding.department,
-          activationUrl,
-          expiresInHours: 24,
-          portalUrl,
-        });
-      } catch (mailErr: any) {
-        this.logger.warn(`Failed sending employee activation email: ${mailErr?.message}`);
-      }
-    }
-
-    await this.prisma.jobApplication.update({
-      where: { id: app.id },
-      data: { userId: linkedUser.id },
-    });
-
-    if (app.offer?.id) {
-      await this.prisma.employeeClearance.updateMany({
-        where: { offerId: app.offer.id },
-        data: { userId: linkedUser.id },
-      });
-    }
-
-    const updatedOnboarding = await this.prisma.recruitmentOnboarding.update({
-      where: { id: onboarding.id },
-      data: {
-        status: 'COMPLETED',
-        userId: linkedUser.id,
-        completedAt: new Date(),
-        completedById: await this.getValidUserIdOrNull(userId),
-        notes: dto.notes ? `${onboarding.notes || ''}\n${dto.notes}`.trim() : onboarding.notes,
-      },
-      include: {
-        user: { select: { id: true, fullName: true, email: true, employeeId: true } },
-      },
-    });
-
-    await this.updateApplicationStatus(
-      app.id,
-      {
+      // Link application to user & set status to JOINED
+      const currentHistory = Array.isArray(app.statusHistory) ? (app.statusHistory as any[]) : [];
+      const historyEntry = {
         status: 'JOINED',
-        note: `Onboarding completed. Candidate linked to Staff User ${linkedUser.fullName} (${employeeId}). Status: ACTIVE / JOINED.`,
-      },
-      userId,
-    );
+        timestamp: new Date().toISOString(),
+        actorId: validAdminId || userId,
+        actorName,
+        note: dto.notes || `Onboarding completed. Linked to Staff ID: ${employeeId} (${targetRole})`,
+      };
 
+      await tx.jobApplication.update({
+        where: { id: app.id },
+        data: {
+          userId: userRecord.id,
+          status: 'JOINED',
+          statusHistory: [...currentHistory, historyEntry],
+        },
+      });
+
+      // Upsert recruitment onboarding record
+      const completedNotes = dto.notes
+        ? `${app.onboarding?.notes || ''}\n${dto.notes}`.trim()
+        : (app.onboarding?.notes || 'Staff credentials issued and onboarding verified.');
+
+      const onb = await tx.recruitmentOnboarding.upsert({
+        where: { applicationId: app.id },
+        create: {
+          applicationId: app.id,
+          userId: userRecord.id,
+          employeeId,
+          department,
+          designation,
+          joiningDate,
+          workLocation,
+          workMode,
+          employmentType,
+          officialEmail,
+          officialMobile,
+          status: 'COMPLETED',
+          notes: completedNotes,
+          completedAt: new Date(),
+          completedById: validAdminId,
+        },
+        update: {
+          userId: userRecord.id,
+          employeeId,
+          department,
+          designation,
+          joiningDate,
+          officialEmail,
+          officialMobile,
+          status: 'COMPLETED',
+          notes: completedNotes,
+          completedAt: new Date(),
+          completedById: validAdminId,
+        },
+        include: {
+          user: { select: { id: true, fullName: true, email: true, employeeId: true } },
+        },
+      });
+
+      // Update clearance to COMPLETED if offer exists
+      if (app.offer?.id) {
+        await tx.employeeClearance.updateMany({
+          where: { offerId: app.offer.id },
+          data: {
+            userId: userRecord.id,
+            status: 'COMPLETED',
+            finalClearedAt: new Date(),
+            finalClearedById: validAdminId,
+          },
+        });
+      }
+
+      return { finalUser: userRecord, updatedOnboarding: onb };
+    });
+
+    // 8. AUDIT LOGGING
     try {
       await this.auditService.logAction({
         module: 'HR_RECRUITMENT',
         action: 'ONBOARDING_COMPLETED',
-        description: `Completed onboarding for ${candidateFullName}. Employee ID: ${employeeId}`,
+        description: `Completed onboarding for ${candidateFullName}. Employee ID: ${employeeId}, Role: ${targetRole}`,
         entity: 'RecruitmentOnboarding',
-        entityId: onboarding.id,
+        entityId: updatedOnboarding.id,
         userId,
       });
 
       await this.auditService.logAction({
         module: 'HR_RECRUITMENT',
         action: 'STAFF_RECORD_LINKED',
-        description: `Linked recruitment application ${app.applicationId} to Staff record ${linkedUser.id} (${employeeId})`,
+        description: `Linked recruitment application ${app.applicationId} to Staff record ${finalUser.id} (${employeeId})`,
         entity: 'User',
-        entityId: linkedUser.id,
+        entityId: finalUser.id,
         userId,
       });
-    } catch (err: any) {
-      this.logger.warn(`Audit failed: ${err.message}`);
+    } catch (auditErr: any) {
+      this.logger.warn(`Audit failed: ${auditErr?.message}`);
     }
 
+    // 9. DISPATCH BRANDED ACTIVATION EMAIL (DO NOT ROLL BACK DB IF EMAIL FAILS)
+    let emailSent = false;
+    let emailError: string | null = null;
+    const isProtectedRole = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(finalUser.role);
+    const portalUrl = isProtectedRole
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationUrl = `${activationBaseUrl}/activate?token=${rawActivationToken}`;
+
+    const channel = this.getEmailChannel();
+    if (channel && finalUser.status === 'PENDING_ACTIVATION') {
+      try {
+        await channel.sendEmployeeActivationEmail({
+          officialEmail,
+          employeeName: candidateFullName,
+          employeeId,
+          designation,
+          departmentName: department,
+          activationUrl,
+          expiresInHours: 24,
+          portalUrl,
+        });
+        emailSent = true;
+      } catch (mailErr: any) {
+        emailError = mailErr?.message || 'SMTP transport failed';
+        this.logger.warn(`Failed sending employee activation email: ${emailError}`);
+      }
+    }
+
+    // 10. DISPATCH RECRUITMENT COMPLETION NOTIFICATIONS
     if (this.notificationsService) {
-      await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_ONBOARDING_COMPLETED', {
-        candidateUserId: linkedUser.id,
-        candidateName: candidateFullName,
-        candidateEmail: officialEmail,
-        candidateMobile: officialMobile,
-        applicationId: app.applicationId,
-        vacancyId: app.vacancyId,
-        vacancyTitle: app.vacancy?.title || 'Open Role',
-        employeeId,
-        designation: onboarding.designation,
-        department: onboarding.department,
-      });
+      try {
+        await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_ONBOARDING_COMPLETED', {
+          candidateUserId: finalUser.id,
+          candidateName: candidateFullName,
+          candidateEmail: officialEmail,
+          candidateMobile: officialMobile,
+          applicationId: app.applicationId,
+          vacancyId: app.vacancyId,
+          vacancyTitle: app.vacancy?.title || 'Open Role',
+          employeeId,
+          designation,
+          department,
+        });
 
-      await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_CANDIDATE_JOINED', {
-        candidateUserId: linkedUser.id,
-        candidateName: candidateFullName,
-        candidateEmail: officialEmail,
-        candidateMobile: officialMobile,
-        applicationId: app.applicationId,
-        vacancyTitle: app.vacancy?.title || 'Open Role',
-        employeeId,
-        designation: onboarding.designation,
-        department: onboarding.department,
-      });
+        await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_CANDIDATE_JOINED', {
+          candidateUserId: finalUser.id,
+          candidateName: candidateFullName,
+          candidateEmail: officialEmail,
+          candidateMobile: officialMobile,
+          applicationId: app.applicationId,
+          vacancyTitle: app.vacancy?.title || 'Open Role',
+          employeeId,
+          designation,
+          department,
+        });
 
-      await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_HR_ONBOARDING_COMPLETED', {
-        candidateName: candidateFullName,
-        applicationId: app.applicationId,
-        vacancyTitle: app.vacancy?.title || 'Open Role',
-        employeeId,
-        recruiterId: app.recruiterId || undefined,
-        notifyHr: true,
-      });
+        await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_HR_ONBOARDING_COMPLETED', {
+          candidateName: candidateFullName,
+          applicationId: app.applicationId,
+          vacancyTitle: app.vacancy?.title || 'Open Role',
+          employeeId,
+          recruiterId: app.recruiterId || undefined,
+          notifyHr: true,
+        });
+      } catch (notifErr: any) {
+        this.logger.warn(`Notifications failed: ${notifErr?.message}`);
+      }
     }
 
     return {
       success: true,
       onboarding: updatedOnboarding,
-      user: linkedUser,
+      user: finalUser,
       status: 'JOINED',
+      emailSent,
+      emailError,
     };
   }
 }
