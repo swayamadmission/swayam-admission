@@ -633,9 +633,15 @@ export const hrApi = {
   },
 
   completeOnboarding: async (applicationId: string, payload: CompleteOnboardingPayload) => {
-    return api.post<{ success: boolean; onboarding: RecruitmentOnboarding; user: any }>(
+    return api.post<{ success: boolean; onboarding: RecruitmentOnboarding; user: any; emailStatus?: string; message?: string }>(
       `/hr/applications/${applicationId}/onboarding/complete`,
       payload
+    );
+  },
+
+  resendActivationEmail: async (applicationId: string) => {
+    return api.post<{ success: boolean; message: string }>(
+      `/hr/applications/${applicationId}/resend-activation`
     );
   },
 };

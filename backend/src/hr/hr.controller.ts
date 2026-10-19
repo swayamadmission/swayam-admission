@@ -286,4 +286,9 @@ export class HrController {
   ) {
     return this.hrService.completeOnboarding(id, dto, req.user.id);
   }
+
+  @Post('applications/:id/resend-activation')
+  resendActivationEmail(@Param('id') id: string, @Request() req: any) {
+    return this.hrService.resendActivationEmail(id, req.user.id);
+  }
 }

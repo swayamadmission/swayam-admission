@@ -531,6 +531,51 @@ export default function ApplicationDetailDrawer({
     },
   });
 
+  const resendActivationMutation = useMutation({
+    mutationFn: () => hrApi.resendActivationEmail(applicationId!),
+    onSuccess: (res: any) => {
+      const email = res.data?.email || onboarding?.officialEmail || app?.email;
+      toast.success(res.data?.message || `Activation email resent successfully to ${email}!`);
+      setCompleteOnboardingError(null);
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || "Failed to resend activation email";
+      toast.error(msg);
+      setCompleteOnboardingError(msg);
+    },
+  });
+
+  const [isReconciling, setIsReconciling] = useState(false);
+
+  const handleReconcileStatus = async () => {
+    if (!applicationId) return;
+    setIsReconciling(true);
+    try {
+      const res = await hrApi.getApplication(applicationId);
+      const appData = res.data;
+      if (appData?.status === "JOINED" || appData?.onboarding?.status === "COMPLETED") {
+        toast.success("Server verified: Candidate is already linked and status is JOINED!");
+        queryClient.invalidateQueries({ queryKey: ["admin_applications"] });
+        queryClient.invalidateQueries({ queryKey: ["admin_application_detail", applicationId] });
+        queryClient.invalidateQueries({ queryKey: ["admin_application_onboarding", applicationId] });
+        queryClient.invalidateQueries({ queryKey: ["admin_application_clearance", applicationId] });
+        queryClient.invalidateQueries({ queryKey: ["admin_clearances"] });
+        queryClient.invalidateQueries({ queryKey: ["admin_employees"] });
+        queryClient.invalidateQueries({ queryKey: ["employees"] });
+        refetch();
+        refetchOnboarding();
+        setIsCompleteOnboardingModalOpen(false);
+        setCompleteOnboardingError(null);
+      } else {
+        toast.info("Server status checked: Candidate has not yet joined. You may safely retry.");
+      }
+    } catch (checkErr: any) {
+      toast.error("Could not reach server to verify status: " + (checkErr?.message || "Network error"));
+    } finally {
+      setIsReconciling(false);
+    }
+  };
+
   const completeOnboardingMutation = useMutation({
     mutationFn: (payload: any) => hrApi.completeOnboarding(applicationId!, payload),
     onSuccess: (res: any) => {
@@ -556,7 +601,41 @@ export default function ApplicationDetailDrawer({
       setCompleteOnboardingError(null);
       setActiveTab("workflow");
     },
-    onError: (err: any) => {
+    onError: async (err: any) => {
+      const isTimeout =
+        err?.code === "ECONNABORTED" ||
+        err?.message?.toLowerCase().includes("timeout") ||
+        err?.response?.status === 504;
+
+      if (isTimeout && applicationId) {
+        setCompleteOnboardingError("The request timed out while waiting for server response. Checking server state...");
+        try {
+          const res = await hrApi.getApplication(applicationId);
+          const appData = res.data;
+          if (appData?.status === "JOINED" || appData?.onboarding?.status === "COMPLETED") {
+            toast.success("Server confirmed: Candidate is now JOINED and activation email is queued!");
+            queryClient.invalidateQueries({ queryKey: ["admin_applications"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_application_detail", applicationId] });
+            queryClient.invalidateQueries({ queryKey: ["admin_application_onboarding", applicationId] });
+            queryClient.invalidateQueries({ queryKey: ["admin_application_clearance", applicationId] });
+            queryClient.invalidateQueries({ queryKey: ["admin_clearances"] });
+            queryClient.invalidateQueries({ queryKey: ["admin_employees"] });
+            queryClient.invalidateQueries({ queryKey: ["employees"] });
+            refetch();
+            refetchOnboarding();
+            refetchClearance();
+            setIsCompleteOnboardingModalOpen(false);
+            setCompleteOnboardingError(null);
+            setActiveTab("workflow");
+            return;
+          }
+        } catch {
+          // Ignore verification error and show informative error
+        }
+        setCompleteOnboardingError("The request timed out while communicating with the server. The server might still be completing the operation. You can click 'Check Server Status' below or retry.");
+        return;
+      }
+
       const msg = Array.isArray(err?.response?.data?.message)
         ? err.response.data.message.join(", ")
         : err?.response?.data?.message || err?.message || "Failed to complete onboarding";
@@ -1927,7 +2006,7 @@ export default function ApplicationDetailDrawer({
                     </div>
 
                     {onboarding.status === "COMPLETED" || ["JOINED", "ACTIVE"].includes(app.status) ? (
-                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-3">
                         <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                           <span>Candidate Successfully Joined & Staff Record Linked</span>
@@ -1935,6 +2014,26 @@ export default function ApplicationDetailDrawer({
                         <p className="text-xs text-emerald-700 leading-relaxed">
                           The employee profile is active in Swayam Admission with Staff ID <strong>{onboarding.employeeId}</strong>. Historical applications, recruiter history, and recruitment offer logs are permanently preserved.
                         </p>
+                        <div className="flex items-center gap-2 pt-1 border-t border-emerald-200/60">
+                          <button
+                            type="button"
+                            onClick={() => resendActivationMutation.mutate()}
+                            disabled={resendActivationMutation.isPending}
+                            className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                            {resendActivationMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Resending Activation Email...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Mail className="w-3.5 h-3.5" />
+                                <span>Resend Activation Email</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
@@ -2772,21 +2871,83 @@ export default function ApplicationDetailDrawer({
               </div>
             </div>
 
+            {/* Candidate Already Linked / Completed Status Banner */}
+            {(app.status === "JOINED" || onboarding?.status === "COMPLETED") && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Candidate Already Linked (Status: JOINED)</span>
+                  </div>
+                  <span className="font-mono text-[11px] font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded">
+                    {onboarding?.employeeId || (app as any)?.user?.employeeId || completeOnboardingForm.employeeId}
+                  </span>
+                </div>
+                <p className="text-[11px] text-emerald-700 leading-relaxed">
+                  This candidate has already been linked to the staff directory. You can resend their passwordless activation email anytime below.
+                </p>
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => resendActivationMutation.mutate()}
+                    disabled={resendActivationMutation.isPending}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors disabled:opacity-50"
+                  >
+                    {resendActivationMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Resending Link...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Resend Activation Email</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Inline Error Alert */}
             {completeOnboardingError && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2.5 animate-in fade-in duration-150">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <span className="font-semibold block mb-0.5">Action Blocked</span>
-                  <span>{completeOnboardingError}</span>
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block mb-0.5">Action Status</span>
+                    <span>{completeOnboardingError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCompleteOnboardingError(null)}
+                    className="text-red-400 hover:text-red-700 font-bold ml-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setCompleteOnboardingError(null)}
-                  className="text-red-400 hover:text-red-700 font-bold ml-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2 pt-1 border-t border-red-200/60">
+                  <button
+                    type="button"
+                    onClick={handleReconcileStatus}
+                    disabled={isReconciling}
+                    className="px-2.5 py-1 bg-white hover:bg-red-100/50 text-red-800 border border-red-300 rounded-lg font-semibold text-[11px] inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isReconciling ? "animate-spin" : ""}`} />
+                    <span>{isReconciling ? "Checking Server..." : "Check Server Status"}</span>
+                  </button>
+                  {(app.status === "JOINED" || onboarding?.status === "COMPLETED") && (
+                    <button
+                      type="button"
+                      onClick={() => resendActivationMutation.mutate()}
+                      disabled={resendActivationMutation.isPending}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold text-[11px] inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <Mail className="w-3 h-3" />
+                      <span>{resendActivationMutation.isPending ? "Resending..." : "Resend Activation Email"}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

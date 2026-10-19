@@ -23,7 +23,7 @@ export function clearAuthSession() {
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000, // 15s timeout to prevent infinite pending states
+  timeout: 30000, // 30s timeout allows cold start headroom while background jobs remain non-blocking
   headers: {
     "Content-Type": "application/json",
   },
