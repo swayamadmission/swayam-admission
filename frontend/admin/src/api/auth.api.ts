@@ -3,6 +3,7 @@ import api from "./axios";
 export interface LoginPayload {
   email: string;
   password: string;
+  domain?: 'PUBLIC' | 'ADMIN' | 'ERP';
 }
 
 export interface SignupPayload {

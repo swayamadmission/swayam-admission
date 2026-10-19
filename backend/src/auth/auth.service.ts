@@ -164,7 +164,7 @@ export class AuthService {
   }) {
     if (user.status === 'PENDING_ACTIVATION') {
       throw new UnauthorizedException(
-        'Account is pending activation. Please check your official email for the secure activation link to set your password.',
+        'Account is pending activation. Please check your registered personal email for the secure activation link to set your password.',
       );
     }
     if (user.status === 'LOCKED') {
@@ -1808,6 +1808,11 @@ export class AuthService {
           'Corporate Credentials cannot be used on the Public Domain.',
         );
       }
+      if (dto.domain === 'ERP') {
+        throw new UnauthorizedException(
+          'Non-admin employees must sign in using their assigned Employee ID.',
+        );
+      }
 
       const isPasswordValid = await bcryptLib.compare(
         dto.password,
@@ -1862,7 +1867,7 @@ export class AuthService {
 
     // Path 2: Direct User Login (Employee ID, Email, Mobile, or Personal Email)
     const rawDigits = identifier.replace(/\D/g, '').slice(-10);
-    const user = await this.prisma.user.findFirst({
+    let user = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email: identifierLower },
@@ -1882,6 +1887,30 @@ export class AuthService {
         ],
       },
     });
+
+    if (!user) {
+      // Check RecruitmentOnboarding by employeeId
+      const ob = await this.prisma.recruitmentOnboarding.findFirst({
+        where: {
+          OR: [
+            { employeeId: identifier },
+            { employeeId: identifier.toUpperCase() },
+          ],
+        },
+        include: { user: true },
+      });
+      if (ob?.user) {
+        user = ob.user;
+        if (!user.employeeId) {
+          try {
+            user = await this.prisma.user.update({
+              where: { id: user.id },
+              data: { employeeId: ob.employeeId },
+            });
+          } catch {}
+        }
+      }
+    }
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -1969,20 +1998,21 @@ export class AuthService {
         );
       }
 
-      // Non-Super-Admin protected users must authenticate using their assigned Employee ID or official email
-      if (!isSuperAdminUser) {
-        const empIdMatches =
-          activeUser.employeeId &&
-          (identifier === activeUser.employeeId ||
-            identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
-        const emailMatches =
-          activeUser.email &&
-          identifier.toLowerCase() === activeUser.email.toLowerCase();
-        if (!empIdMatches && !emailMatches) {
-          throw new BadRequestException(
-            'Protected Admin Portal login requires your assigned Employee ID or registered official email address.',
-          );
-        }
+      // Authorized protected administrators may sign in using either their registered administrator email address or their Employee ID
+      const empIdMatches =
+        activeUser.employeeId &&
+        (identifier === activeUser.employeeId ||
+          identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
+      const emailMatches =
+        (activeUser.email &&
+          identifierLower === activeUser.email.toLowerCase()) ||
+        (activeUser.personalEmail &&
+          identifierLower === activeUser.personalEmail.toLowerCase());
+
+      if (!empIdMatches && !emailMatches) {
+        throw new BadRequestException(
+          'Protected Admin Portal login requires your assigned Employee ID or registered administrator email address.',
+        );
       }
     } else if (dto.domain === 'ERP') {
       if (activeUser.role === Role.STUDENT) {
@@ -1991,18 +2021,45 @@ export class AuthService {
         );
       }
 
-      // Normal employees must log in using their assigned Employee ID or official email
-      if (!isSuperAdminUser) {
+      // All normal employees, counselors, recruiters, and other non-admin staff must sign in using their assigned Employee ID and password.
+      // Non-admin employees must not be able to sign in using their email address instead of their Employee ID.
+      if (!isProtectedRole) {
+        const empIdMatches =
+          activeUser.employeeId &&
+          (identifier === activeUser.employeeId ||
+            identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
+        if (!empIdMatches) {
+          throw new UnauthorizedException(
+            'Non-admin employees must sign in using their assigned Employee ID.',
+          );
+        }
+      } else {
         const empIdMatches =
           activeUser.employeeId &&
           (identifier === activeUser.employeeId ||
             identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
         const emailMatches =
-          activeUser.email &&
-          identifier.toLowerCase() === activeUser.email.toLowerCase();
+          (activeUser.email &&
+            identifierLower === activeUser.email.toLowerCase()) ||
+          (activeUser.personalEmail &&
+            identifierLower === activeUser.personalEmail.toLowerCase());
         if (!empIdMatches && !emailMatches) {
           throw new BadRequestException(
-            'Employee ERP Portal login requires your assigned Employee ID or registered official email address.',
+            'Employee ERP Portal login requires your assigned Employee ID or registered administrator email address.',
+          );
+        }
+      }
+    } else {
+      // General API without domain specification:
+      // Non-admin employees must not be able to sign in using their email address instead of their Employee ID.
+      if (!isProtectedRole && activeUser.role !== Role.STUDENT) {
+        const empIdMatches =
+          activeUser.employeeId &&
+          (identifier === activeUser.employeeId ||
+            identifier.toUpperCase() === activeUser.employeeId.toUpperCase());
+        if (!empIdMatches) {
+          throw new UnauthorizedException(
+            'Non-admin employees must sign in using their assigned Employee ID.',
           );
         }
       }
@@ -2561,7 +2618,7 @@ export class AuthService {
     });
 
     // Dispatch password reset confirmation email via Nodemailer
-    const targetEmail = user.email || user.personalEmail;
+    const targetEmail = user.personalEmail || user.email;
     if (targetEmail && this.emailChannel) {
       try {
         await this.emailChannel.send(
@@ -2594,13 +2651,202 @@ export class AuthService {
   }
 
   /**
-   * 12. Forgot Password - Send OTP via Mobile or Email
-   * Generic response prevents account enumeration. Enforces 30s resend cooldown and 5m expiry.
+   * Resolves a user account, authoritative personal email, and employee ID
+   * from an Employee ID or registered personal email address.
+   *
+   * Case A: User enters an Employee ID (e.g. EMP-2026-0001)
+   *   1. Validates Employee ID format (3-50 chars alphanumeric, hyphen, underscore, slash).
+   *   2. Resolves linked employee record via User.employeeId or RecruitmentOnboarding.employeeId.
+   *   3. Retrieves authoritative personal email (User.personalEmail or Onboarding Application.email).
+   *
+   * Case B: User enters registered personal email
+   *   1. Validates email format.
+   *   2. Resolves linked employee record via User.personalEmail/email or Onboarding Application.email.
+   *   3. Retrieves authoritative personal email and linked Employee ID.
    */
+  async resolveUserAndPersonalEmail(
+    rawIdentifier: string,
+    isMobile = false,
+  ): Promise<{
+    user: any;
+    authoritativePersonalEmail: string | null;
+    authoritativeMobile: string | null;
+    employeeId: string | null;
+  } | null> {
+    const trimmed = (rawIdentifier || '').trim();
+    if (!trimmed) return null;
+
+    if (isMobile) {
+      const normMob = this.normalizeMobile(trimmed);
+      const digits10 = normMob.slice(-10);
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { mobile: normMob },
+            { personalMobile: normMob },
+            { mobile: digits10 },
+            { personalMobile: digits10 },
+            { mobile: `+91${digits10}` },
+            { personalMobile: `+91${digits10}` },
+          ],
+        },
+      });
+      if (!user) return null;
+      const targetPhone = user.personalMobile || user.mobile;
+      return {
+        user,
+        authoritativePersonalEmail: user.personalEmail || user.email || null,
+        authoritativeMobile: targetPhone ? this.normalizeMobile(targetPhone) : null,
+        employeeId: user.employeeId || null,
+      };
+    }
+
+    const isEmail = trimmed.includes('@');
+
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmed)) {
+        return null;
+      }
+      const cleanEmail = trimmed.toLowerCase();
+
+      let user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { personalEmail: cleanEmail },
+            { email: cleanEmail },
+          ],
+        },
+      });
+
+      const linkedOnboarding = await this.prisma.recruitmentOnboarding.findFirst({
+        where: {
+          OR: [
+            { application: { email: cleanEmail } },
+            { officialEmail: cleanEmail },
+            ...(user ? [{ userId: user.id }] : []),
+          ],
+        },
+        include: { application: true, user: true },
+      });
+
+      if (!user && linkedOnboarding?.user) {
+        user = linkedOnboarding.user;
+      }
+
+      if (!user) return null;
+
+      let personalEmail =
+        user.personalEmail?.trim() ||
+        linkedOnboarding?.application?.email?.trim() ||
+        null;
+
+      if (!personalEmail && user.email) {
+        personalEmail = user.email.trim();
+      }
+
+      const empId = user.employeeId || linkedOnboarding?.employeeId || null;
+
+      if (
+        (!user.personalEmail && personalEmail) ||
+        (!user.employeeId && empId)
+      ) {
+        try {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              ...(user.personalEmail ? {} : { personalEmail }),
+              ...(user.employeeId ? {} : { employeeId: empId }),
+            },
+          });
+        } catch {
+          // ignore unique constraint conflict if any
+        }
+      }
+
+      return {
+        user,
+        authoritativePersonalEmail: personalEmail ? personalEmail.toLowerCase() : null,
+        authoritativeMobile: user.personalMobile || user.mobile || null,
+        employeeId: empId,
+      };
+    } else {
+      const empIdRegex = /^[A-Za-z0-9\-_/]{3,50}$/;
+      if (!empIdRegex.test(trimmed)) {
+        return null;
+      }
+
+      const empIdQuery = trimmed;
+      const empIdUpper = trimmed.toUpperCase();
+
+      let user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { employeeId: empIdQuery },
+            { employeeId: empIdUpper },
+          ],
+        },
+      });
+
+      const linkedOnboarding = await this.prisma.recruitmentOnboarding.findFirst({
+        where: {
+          OR: [
+            { employeeId: empIdQuery },
+            { employeeId: empIdUpper },
+            ...(user ? [{ userId: user.id }] : []),
+          ],
+        },
+        include: { application: true, user: true },
+      });
+
+      if (!user && linkedOnboarding?.user) {
+        user = linkedOnboarding.user;
+      }
+
+      if (!user) return null;
+
+      let personalEmail =
+        user.personalEmail?.trim() ||
+        linkedOnboarding?.application?.email?.trim() ||
+        null;
+
+      if (!personalEmail && user.email) {
+        personalEmail = user.email.trim();
+      }
+
+      const authoritativeEmpId =
+        user.employeeId || linkedOnboarding?.employeeId || empIdQuery;
+
+      if (
+        (!user.personalEmail && personalEmail) ||
+        (!user.employeeId && authoritativeEmpId)
+      ) {
+        try {
+          user = await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              ...(user.personalEmail ? {} : { personalEmail }),
+              ...(user.employeeId ? {} : { employeeId: authoritativeEmpId }),
+            },
+          });
+        } catch {
+          // ignore
+        }
+      }
+
+      return {
+        user,
+        authoritativePersonalEmail: personalEmail ? personalEmail.toLowerCase() : null,
+        authoritativeMobile: user.personalMobile || user.mobile || null,
+        employeeId: authoritativeEmpId,
+      };
+    }
+  }
+
   /**
-   * 12. Forgot Password - Send OTP via Official Email (or Mobile)
+   * 12. Forgot Password - Send OTP via Registered Personal Email (or Mobile)
    * Anti-enumeration protection, 60s cooldown, 10m validity, protected account check,
-   * Employee ID resolution to official email, and rate limiting by IP/account.
+   * Employee ID / personal email resolution to authoritative personal email, and rate limiting by IP/account.
    */
   async forgotPasswordSendOtp(
     dto: ForgotPasswordSendOtpDto,
@@ -2612,7 +2858,7 @@ export class AuthService {
 
     if (!rawIdentifier) {
       throw new BadRequestException(
-        'Please enter your registered official email address or Employee ID.',
+        'Please enter your Employee ID or registered personal email address.',
       );
     }
 
@@ -2634,43 +2880,20 @@ export class AuthService {
       method,
       message: isMobile
         ? 'If an account is associated with this mobile number, an OTP has been sent.'
-        : 'If an account exists for this identifier, a 6-digit verification code has been sent to the registered official email address.',
+        : 'If an account exists for this identifier, a 6-digit verification code has been sent to the registered personal email address.',
       resendCooldownSeconds,
       expiresInSeconds: expirySeconds,
     };
 
-    // User lookup: supports Employee ID or Email
-    let user: any = null;
-    if (isMobile) {
-      const normMob = this.normalizeMobile(rawIdentifier);
-      user = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { mobile: normMob },
-            { personalMobile: normMob },
-            { mobile: normMob.slice(-10) },
-            { personalMobile: normMob.slice(-10) },
-          ],
-        },
-      });
-    } else {
-      const cleanLower = rawIdentifier.toLowerCase();
-      user = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { employeeId: rawIdentifier },
-            { employeeId: rawIdentifier.toUpperCase() },
-            { email: cleanLower },
-            { personalEmail: cleanLower },
-          ],
-        },
-      });
-    }
+    // User lookup: supports Employee ID or Registered Personal Email
+    const resolved = await this.resolveUserAndPersonalEmail(rawIdentifier, isMobile);
 
-    // Anti-enumeration: if no account found, return generic success message without leaking existence
-    if (!user) {
+    // Anti-enumeration: if no account found or invalid format, return generic success message without leaking existence
+    if (!resolved || !resolved.user) {
       return genericResponse;
     }
+
+    const user = resolved.user;
 
     // Protected Account Policy Gate:
     // Self-service recovery is strictly prohibited for Super Admin, Admin, Director, Auditor,
@@ -2728,15 +2951,15 @@ export class AuthService {
       };
     }
 
-    // Resolve destination identifier (must be registered verified official email)
-    const targetEmail = user.email || user.personalEmail;
-    if (!targetEmail) {
+    // Authoritative destination identifier (MUST be registered verified personal email)
+    const targetEmail = resolved.authoritativePersonalEmail;
+    if (!isMobile && !targetEmail) {
       return genericResponse;
     }
 
     const normalizedTarget = isMobile
-      ? this.normalizeMobile(user.mobile || user.personalMobile)
-      : targetEmail.trim().toLowerCase();
+      ? (resolved.authoritativeMobile || this.normalizeMobile(user.mobile || user.personalMobile))
+      : targetEmail!.trim().toLowerCase();
 
     // 1. Enforce Resend Cooldown (default 60s)
     const latestOtp = await this.prisma.otpVerification.findFirst({
@@ -2813,7 +3036,7 @@ export class AuthService {
     await this.logAuthEvent({
       userId: user.id,
       action: 'AUTH_FORGOT_PASSWORD_OTP_SENT',
-      description: `Forgot password OTP dispatched to ${normalizedTarget}`,
+      description: `Forgot password OTP dispatched to personal email ${normalizedTarget}`,
       ipAddress,
     });
 
@@ -2876,7 +3099,7 @@ export class AuthService {
       maskedDestination: maskedEmail || undefined,
       message: isMobile
         ? 'A 6-digit verification code has been sent to your registered mobile number.'
-        : `A 6-digit verification code has been sent to your registered official email address (${maskedEmail}). Please check your inbox.`,
+        : `A 6-digit verification code has been sent to your registered personal email address (${maskedEmail}). Please check your inbox.`,
       resendCooldownSeconds,
       expiresInSeconds: expirySeconds,
       emailDelivered,
@@ -2896,38 +3119,21 @@ export class AuthService {
     const cleanOtp = (dto.otp || '').trim();
 
     if (!rawIdentifier) {
-      throw new BadRequestException('Email address or Employee ID is required.');
+      throw new BadRequestException('Employee ID or registered personal email is required.');
     }
 
     if (!cleanOtp || cleanOtp.length !== 6) {
       throw new BadRequestException('Please enter a valid 6-digit verification code.');
     }
 
-    // Resolve user to ensure consistent target identifier
-    let normalizedTarget = isMobile
-      ? this.normalizeMobile(rawIdentifier)
-      : rawIdentifier.toLowerCase();
+    // Resolve user to ensure consistent target identifier matching the authoritative personal email/mobile
+    const resolved = await this.resolveUserAndPersonalEmail(rawIdentifier, isMobile);
+    const normalizedTarget = resolved
+      ? (isMobile ? resolved.authoritativeMobile : resolved.authoritativePersonalEmail)
+      : (isMobile ? this.normalizeMobile(rawIdentifier) : rawIdentifier.toLowerCase());
 
-    const matchedUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { employeeId: rawIdentifier },
-          { employeeId: rawIdentifier.toUpperCase() },
-          { email: normalizedTarget },
-          { personalEmail: normalizedTarget },
-          ...(isMobile ? [{ mobile: normalizedTarget }, { personalMobile: normalizedTarget }] : []),
-        ],
-      },
-    });
-
-    if (matchedUser) {
-      if (isMobile) {
-        const rawPhone = matchedUser.mobile || matchedUser.personalMobile;
-        normalizedTarget = rawPhone ? this.normalizeMobile(rawPhone) : normalizedTarget;
-      } else {
-        const rawEmail = matchedUser.email || matchedUser.personalEmail;
-        normalizedTarget = rawEmail ? rawEmail.toLowerCase().trim() : normalizedTarget;
-      }
+    if (!normalizedTarget) {
+      throw new BadRequestException('No active verification code found. Please request a new code.');
     }
 
     const activeOtp = await this.prisma.otpVerification.findFirst({
@@ -2997,7 +3203,7 @@ export class AuthService {
     // Lookup user
     const user = activeOtp.userId
       ? await this.prisma.user.findUnique({ where: { id: activeOtp.userId } })
-      : matchedUser;
+      : resolved?.user;
 
     if (!user) {
       throw new BadRequestException('User account not found.');
@@ -3168,7 +3374,7 @@ export class AuthService {
     });
 
     // Dispatch password reset confirmation email via centralized SMTP service
-    const targetEmail = user.email || user.personalEmail;
+    const targetEmail = user.personalEmail || user.email;
     if (targetEmail && this.emailChannel) {
       try {
         await this.emailChannel.send(

@@ -604,9 +604,9 @@ export class EmployeesService {
       throw new NotFoundException('Employee not found.');
     }
 
-    const targetEmail = employee.email || employee.personalEmail;
+    const targetEmail = employee.personalEmail || employee.email;
     if (!targetEmail) {
-      throw new BadRequestException('Employee does not have a registered official email address.');
+      throw new BadRequestException('Employee does not have a registered personal or official email address.');
     }
 
     // Invalidate existing sessions

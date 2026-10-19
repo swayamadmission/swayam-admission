@@ -2901,7 +2901,9 @@ export class HrService {
           data: {
             fullName: candidateFullName || existingUser.fullName,
             email: officialEmail,
+            personalEmail: existingUser.personalEmail || app.email?.toLowerCase().trim() || null,
             mobile: officialMobile || existingUser.mobile,
+            personalMobile: existingUser.personalMobile || app.mobile || null,
             employeeId,
             department,
             designation,
@@ -2945,7 +2947,9 @@ export class HrService {
             firstName: app.firstName,
             lastName: app.lastName || null,
             email: officialEmail,
+            personalEmail: app.email?.toLowerCase().trim() || null,
             mobile: officialMobile,
+            personalMobile: app.mobile || null,
             employeeId,
             department,
             designation,
@@ -3077,6 +3081,7 @@ export class HrService {
     }
 
     // 9. OUTBOX DELIVERY RECORD & ASYNCHRONOUS NON-BLOCKING DISPATCH
+    const candidatePersonalEmail = (app.email || finalUser.personalEmail || officialEmail).trim().toLowerCase();
     let deliveryRecordId: string | null = null;
     try {
       const delivery = await this.prisma.communicationDelivery.create({
@@ -3085,7 +3090,7 @@ export class HrService {
           recipientType: 'EMPLOYEE',
           recipientId: finalUser.id,
           recipientName: candidateFullName,
-          recipientEmail: officialEmail,
+          recipientEmail: candidatePersonalEmail,
           status: CommunicationDeliveryStatus.QUEUED,
         },
       });
@@ -3115,7 +3120,7 @@ export class HrService {
           }
 
           const mailResult = await channel.sendEmployeeActivationEmail({
-            officialEmail,
+            officialEmail: candidatePersonalEmail,
             employeeName: candidateFullName,
             employeeId,
             designation,
@@ -3239,9 +3244,9 @@ export class HrService {
       );
     }
 
-    const officialEmail = (app.onboarding?.officialEmail || user.email || '').trim().toLowerCase();
-    if (!officialEmail) {
-      throw new BadRequestException('No registered official email address found for this staff member.');
+    const destinationEmail = (user.personalEmail || app.email || app.onboarding?.officialEmail || user.email || '').trim().toLowerCase();
+    if (!destinationEmail) {
+      throw new BadRequestException('No registered personal or official email address found for this staff member.');
     }
 
     // Rate-limiting check: at least 60 seconds between resends
@@ -3296,7 +3301,7 @@ export class HrService {
           recipientType: 'EMPLOYEE',
           recipientId: user.id,
           recipientName: candidateFullName,
-          recipientEmail: officialEmail,
+          recipientEmail: destinationEmail,
           status: CommunicationDeliveryStatus.QUEUED,
         },
       });
@@ -3319,7 +3324,7 @@ export class HrService {
             }
 
             const mailResult = await channel.sendEmployeeActivationEmail({
-              officialEmail,
+              officialEmail: destinationEmail,
               employeeName: candidateFullName,
               employeeId,
               designation: app.onboarding?.designation || user.designation || 'Staff',
@@ -3351,7 +3356,7 @@ export class HrService {
     await this.auditService.logAction({
       module: 'HR_RECRUITMENT',
       action: 'ACTIVATION_EMAIL_RESENT',
-      description: `Resent account activation email to ${officialEmail} for Staff ID: ${employeeId}`,
+      description: `Resent account activation email to ${destinationEmail} for Staff ID: ${employeeId}`,
       entity: 'User',
       entityId: user.id,
       userId: actorId,
@@ -3359,7 +3364,7 @@ export class HrService {
 
     return {
       success: true,
-      message: `A fresh activation invitation has been queued in the background for ${officialEmail}.`,
+      message: `A fresh activation invitation has been queued in the background for ${destinationEmail}.`,
     };
   }
 }

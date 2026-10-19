@@ -318,39 +318,46 @@ export default function LoginPage({
   const isForgotPassValid =
     forgotHasMinLength && forgotHasUpper && forgotHasLower && forgotHasNumber && forgotHasSpecial && forgotPasswordsMatch;
 
-  // Step 1: Send Recovery OTP to Registered Official Email
+  // Step 1: Send Recovery OTP to Registered Personal Email
   const handleForgotSendOtp = async (isResend = false) => {
-    const cleanEmail = forgotEmail.trim().toLowerCase();
-    if (!cleanEmail) {
-      setForgotError("Please enter your registered official email address.");
+    const cleanInput = forgotEmail.trim();
+    if (!cleanInput) {
+      setForgotError("Please enter your Employee ID or registered personal email address.");
       return;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      setForgotError("Please enter a valid official email address format.");
-      return;
+    if (cleanInput.includes("@")) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanInput)) {
+        setForgotError("Please enter a valid email address format.");
+        return;
+      }
+    } else {
+      if (cleanInput.length < 3) {
+        setForgotError("Please enter a valid Employee ID.");
+        return;
+      }
     }
 
     setForgotLoading(true);
     setForgotError(null);
     try {
       const res = await authApi.forgotPasswordSendOtp({
-        identifier: cleanEmail,
+        identifier: cleanInput,
         method: "EMAIL",
       });
 
       if (res.isProtected) {
         setForgotStep("protected_notice");
-        setForgotMaskedDestination(res.maskedDestination || cleanEmail);
+        setForgotMaskedDestination(res.maskedDestination || cleanInput);
         return;
       }
 
-      setForgotMaskedDestination(res.maskedDestination || cleanEmail);
+      setForgotMaskedDestination(res.maskedDestination || cleanInput);
       setForgotCooldown(60);
       if (!isResend) {
         setForgotStep("otp");
       }
-      toast.success(res.message || "A 6-digit verification code has been dispatched to your official email.");
+      toast.success(res.message || "A 6-digit verification code has been dispatched to your registered personal email.");
     } catch (err: any) {
       const msg = err.response?.data?.message || "Failed to dispatch verification code. Please try again.";
       setForgotError(msg);
@@ -372,7 +379,7 @@ export default function LoginPage({
     setForgotError(null);
     try {
       const res = await authApi.forgotPasswordVerifyOtp({
-        identifier: forgotEmail.trim().toLowerCase(),
+        identifier: forgotEmail.trim(),
         otp: cleanOtp,
         method: "EMAIL",
       });
@@ -433,20 +440,24 @@ export default function LoginPage({
     if (authLoading) return;
     setLocalError(null);
     clearError();
-    if (!loginForm.identifier.trim() || !loginForm.password.trim()) {
+    const cleanIdentifier = loginForm.identifier.trim();
+    if (!cleanIdentifier || !loginForm.password.trim()) {
       setLocalError(
         loginMode === "admin"
-          ? "Please enter your Admin Email or Employee ID and password."
-          : "Please enter your Employee ID or registered email and password."
+          ? "Please enter your Employee ID (or Admin Email) and password."
+          : "Please enter your Employee ID and password."
       );
       return;
     }
 
+    const targetDomain = loginMode === "admin" ? "ADMIN" : "ERP";
+
     try {
       // Direct call to check mustChangePassword response
       const res = await authApi.login({
-        email: loginForm.identifier.trim(),
+        email: cleanIdentifier,
         password: loginForm.password,
+        domain: targetDomain,
       });
 
       if (res.data?.mustChangePassword) {
@@ -472,8 +483,9 @@ export default function LoginPage({
 
       // Normal login proceeds to onLogin
       await onLogin({
-        email: loginForm.identifier.trim(),
+        email: cleanIdentifier,
         password: loginForm.password,
+        domain: targetDomain,
       });
     } catch (err: any) {
       const serverMsg = err.response?.data?.message || err.message || "Invalid credentials.";
@@ -723,30 +735,27 @@ export default function LoginPage({
                   </div>
                 )}
                 <div>
-                  <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
-                    {loginMode === "admin"
-                      ? "Admin Email or Employee ID"
-                      : "Employee ID or Official Email"}
+                  <Label className="text-[#4A7B5B] text-sm mb-1.5 block font-semibold">
+                    Employee ID
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
                     <Input
-                      placeholder={
-                        loginMode === "admin"
-                          ? "admin@swayamadmission.com or SWY-EMP-2026-0001"
-                          : "SWY-EMP-2026-XXXX or name@swayamadmission.com"
-                      }
-                      className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl"
+                      placeholder=""
+                      className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl text-sm"
                       value={loginForm.identifier}
                       onChange={(e) =>
                         setLoginForm((f) => ({ ...f, identifier: e.target.value }))
                       }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleRealLogin();
+                      }}
                     />
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1">
                     {loginMode === "admin"
-                      ? "Super Admin can authenticate with email or Employee ID. Other administrators require Employee ID."
-                      : "Employees can authenticate with their permanent Employee ID or registered official email address."}
+                      ? "Authorized administrators may sign in using their registered administrator email or assigned Employee ID."
+                      : "Normal employees must sign in using their assigned Employee ID."}
                   </p>
                 </div>
 
@@ -1343,22 +1352,22 @@ export default function LoginPage({
                       Account Recovery
                     </h2>
                     <p className="text-[#64748B] text-xs">
-                      Enter your registered official email address to receive a secure six-digit identity verification code.
+                      Enter your Employee ID or registered personal email address to receive a secure six-digit identity verification code.
                     </p>
                   </div>
 
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="registered-official-email" className="text-[#4A7B5B] text-sm mb-1.5 block font-semibold">
-                        Registered Official Email Address <span className="text-rose-500">*</span>
+                      <Label htmlFor="recovery-identifier" className="text-[#4A7B5B] text-sm mb-1.5 block font-semibold">
+                        Employee ID or Registered Personal Email <span className="text-rose-500">*</span>
                       </Label>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
                         <Input
-                          id="registered-official-email"
-                          type="email"
+                          id="recovery-identifier"
+                          type="text"
                           required
-                          placeholder="name@swayamadmission.com"
+                          placeholder=""
                           className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl text-sm"
                           value={forgotEmail}
                           onChange={(e) => setForgotEmail(e.target.value)}
@@ -1368,7 +1377,7 @@ export default function LoginPage({
                         />
                       </div>
                       <p className="text-[11px] text-gray-400 mt-1">
-                        Must match the registered recovery email on file with Swayam HR & IAM.
+                        Recovery verification codes are delivered strictly to your registered personal email address.
                       </p>
                     </div>
 
