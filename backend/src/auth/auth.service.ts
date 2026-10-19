@@ -2597,30 +2597,151 @@ export class AuthService {
    * 12. Forgot Password - Send OTP via Mobile or Email
    * Generic response prevents account enumeration. Enforces 30s resend cooldown and 5m expiry.
    */
+  /**
+   * 12. Forgot Password - Send OTP via Official Email (or Mobile)
+   * Anti-enumeration protection, 60s cooldown, 10m validity, protected account check,
+   * Employee ID resolution to official email, and rate limiting by IP/account.
+   */
   async forgotPasswordSendOtp(
     dto: ForgotPasswordSendOtpDto,
     ipAddress?: string,
   ) {
-    const method = dto.method;
+    const method = dto.method || 'EMAIL';
     const isMobile = method === 'MOBILE';
-    const identifier = isMobile
-      ? this.normalizeMobile(dto.identifier)
-      : this.normalizeEmail(dto.identifier);
+    const rawIdentifier = (dto.identifier || dto.email || '').trim();
+
+    if (!rawIdentifier) {
+      throw new BadRequestException(
+        'Please enter your registered official email address or Employee ID.',
+      );
+    }
+
+    // Load dynamic policies from OtpConfiguration if present
+    const otpConfig = await this.prisma.otpConfiguration
+      .findUnique({
+        where: { channel: isMobile ? 'WHATSAPP' : 'EMAIL' },
+      })
+      .catch(() => null);
+
+    const expirySeconds = otpConfig?.expirySeconds || 600; // 10 minutes default
+    const resendCooldownSeconds = otpConfig?.resendCooldownSec || 60; // 60s default
+    const maxAttempts = otpConfig?.maxAttempts || 5;
+    const rateLimitCount = otpConfig?.rateLimitCount || 10;
 
     const genericResponse = {
       success: true,
+      isProtected: false,
       method,
       message: isMobile
         ? 'If an account is associated with this mobile number, an OTP has been sent.'
-        : 'If an account is associated with this email address, an OTP has been sent.',
-      resendCooldownSeconds: 30,
-      expiresInSeconds: 300,
+        : 'If an account exists for this identifier, a 6-digit verification code has been sent to the registered official email address.',
+      resendCooldownSeconds,
+      expiresInSeconds: expirySeconds,
     };
 
-    // Cooldown check (30s)
+    // User lookup: supports Employee ID or Email
+    let user: any = null;
+    if (isMobile) {
+      const normMob = this.normalizeMobile(rawIdentifier);
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { mobile: normMob },
+            { personalMobile: normMob },
+            { mobile: normMob.slice(-10) },
+            { personalMobile: normMob.slice(-10) },
+          ],
+        },
+      });
+    } else {
+      const cleanLower = rawIdentifier.toLowerCase();
+      user = await this.prisma.user.findFirst({
+        where: {
+          OR: [
+            { employeeId: rawIdentifier },
+            { employeeId: rawIdentifier.toUpperCase() },
+            { email: cleanLower },
+            { personalEmail: cleanLower },
+          ],
+        },
+      });
+    }
+
+    // Anti-enumeration: if no account found, return generic success message without leaking existence
+    if (!user) {
+      return genericResponse;
+    }
+
+    // Protected Account Policy Gate:
+    // Self-service recovery is strictly prohibited for Super Admin, Admin, Director, Auditor,
+    // Registrar, HR Manager, and positions with selfServicePasswordReset = false.
+    const protectedRoles = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'DIRECTOR',
+      'AUDITOR',
+      'REGISTRAR',
+      'HR_MANAGER',
+    ];
+    const isProtectedRole = protectedRoles.includes(user.role);
+
+    const positionAssignment = await this.prisma.positionAssignment
+      .findFirst({
+        where: { userId: user.id, status: 'ACTIVE' },
+        include: { position: true },
+      })
+      .catch(() => null);
+
+    const isProtectedPosition =
+      positionAssignment?.position?.selfServicePasswordReset === false;
+    const isProtectedAccount =
+      isProtectedRole ||
+      user.selfServicePasswordReset === false ||
+      isProtectedPosition;
+
+    if (isProtectedAccount) {
+      await this.logAuthEvent({
+        userId: user.id,
+        action: 'AUTH_FORGOT_PASSWORD_BLOCKED_PROTECTED',
+        description: `Self-service recovery blocked for protected account ${user.employeeId || user.email} (${user.role}). Administrator recovery required.`,
+        ipAddress,
+      });
+
+      return {
+        success: false,
+        isProtected: true,
+        requiresAdminRecovery: true,
+        message:
+          'Self-service password recovery is disabled for administrative and protected organizational accounts. Please contact an authorized IAM Administrator to initiate recovery.',
+      };
+    }
+
+    // Inactive or suspended accounts
+    if (
+      ['SUSPENDED', 'DEACTIVATED', 'DISABLED', 'RESIGNED'].includes(user.status)
+    ) {
+      return {
+        success: false,
+        isProtected: false,
+        message:
+          'This account is currently inactive or suspended. Please contact HR Administration for assistance.',
+      };
+    }
+
+    // Resolve destination identifier (must be registered verified official email)
+    const targetEmail = user.email || user.personalEmail;
+    if (!targetEmail) {
+      return genericResponse;
+    }
+
+    const normalizedTarget = isMobile
+      ? this.normalizeMobile(user.mobile || user.personalMobile)
+      : targetEmail.trim().toLowerCase();
+
+    // 1. Enforce Resend Cooldown (default 60s)
     const latestOtp = await this.prisma.otpVerification.findFirst({
       where: {
-        identifier,
+        identifier: normalizedTarget,
         type: `FORGOT_PASSWORD_${method}`,
         isUsed: false,
       },
@@ -2636,58 +2757,54 @@ export class AuthService {
         (latestOtp.resendAfter.getTime() - Date.now()) / 1000,
       );
       throw new BadRequestException(
-        `Please wait ${remainingSeconds} seconds before requesting a new OTP.`,
+        `Please wait ${remainingSeconds} seconds before requesting a new verification code.`,
       );
     }
 
-    // Check if user exists (anti-enumeration: don't reveal to frontend, only send OTP if exists)
-    const user = await this.prisma.user.findFirst({
-      where: isMobile
-        ? {
-            OR: [
-              { mobile: identifier },
-              { personalMobile: identifier },
-              { mobile: identifier.slice(-10) },
-              { personalMobile: identifier.slice(-10) },
-            ],
-          }
-        : {
-            OR: [{ email: identifier }, { personalEmail: identifier }],
-          },
+    // 2. Enforce Rate Limiting (default max 10 per hour by account / IP)
+    const oneHourAgo = new Date(Date.now() - 3600 * 1000);
+    const recentCount = await this.prisma.otpVerification.count({
+      where: {
+        OR: [
+          { identifier: normalizedTarget },
+          ...(ipAddress ? [{ ipAddress }] : []),
+        ],
+        type: `FORGOT_PASSWORD_${method}`,
+        createdAt: { gte: oneHourAgo },
+      },
     });
 
-    if (!user) {
-      throw new NotFoundException(
-        isMobile
-          ? 'This mobile number is not registered with us. Please check your number or create a new account.'
-          : 'This email address is not registered with us. Please check your email or create a new account.',
+    if (recentCount >= rateLimitCount) {
+      throw new BadRequestException(
+        'Too many password recovery attempts. Please try again after 1 hour or contact support.',
       );
     }
 
-    // Invalidate previous pending OTPs
+    // 3. Invalidate previous pending OTPs
     await this.prisma.otpVerification.updateMany({
       where: {
-        identifier,
+        identifier: normalizedTarget,
         type: `FORGOT_PASSWORD_${method}`,
         isUsed: false,
       },
       data: { isUsed: true },
     });
 
+    // 4. Generate 6-digit secure OTP and store secure SHA-256 hash
     const rawOtp = crypto.randomInt(100000, 999999).toString();
     const otpHash = this.hashOtp(rawOtp);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
-    const resendAfter = new Date(Date.now() + 30 * 1000); // 30s cooldown
+    const expiresAt = new Date(Date.now() + expirySeconds * 1000);
+    const resendAfter = new Date(Date.now() + resendCooldownSeconds * 1000);
 
     await this.prisma.otpVerification.create({
       data: {
         type: `FORGOT_PASSWORD_${method}`,
-        identifier,
+        identifier: normalizedTarget,
         otpHash,
         expiresAt,
         resendAfter,
         attempts: 0,
-        maxAttempts: 5,
+        maxAttempts,
         userId: user.id,
         ipAddress,
       },
@@ -2696,70 +2813,126 @@ export class AuthService {
     await this.logAuthEvent({
       userId: user.id,
       action: 'AUTH_FORGOT_PASSWORD_OTP_SENT',
-      description: `Forgot password OTP sent via ${method} for ${identifier}`,
+      description: `Forgot password OTP dispatched to ${normalizedTarget}`,
       ipAddress,
     });
 
-    // Dispatch branded Password Reset OTP Email via Nodemailer
+    // 5. Dispatch branded email via centralized SMTP service
+    let emailDelivered = false;
+    let deliveryError: string | undefined;
+
     if (!isMobile && this.emailChannel) {
       try {
-        await this.emailChannel.send(
+        const mailRes = await this.emailChannel.send(
           {
             id: user.id,
-            name: user.fullName || 'User',
-            email: identifier,
-            type: user.role || 'USER',
+            name: user.fullName || 'Employee',
+            email: normalizedTarget,
+            type: user.role || 'EMPLOYEE',
           },
           {
-            title: 'Swayam Admission — Password Reset Code',
-            subject: `Your Password Reset Code (${rawOtp}) — Swayam Admission`,
-            message: `Dear ${user.fullName || 'User'},\n\nYour 6-digit password reset code is: ${rawOtp}.\nValid for 5 minutes. If you did not make this request, please ignore this email.`,
+            title: 'Swayam Admission — Password Recovery Code',
+            subject: `Your Password Recovery Code (${rawOtp}) — Swayam Admission`,
+            message: `Dear ${user.fullName || 'Employee'},\n\nYour 6-digit password recovery code is: ${rawOtp}.\nValid for ${Math.round(expirySeconds / 60)} minutes. If you did not make this request, please contact IT administration immediately.`,
             emailHtml: buildForgotPasswordOtpEmailHtml({
               otp: rawOtp,
-              greetingName: user.fullName || 'User',
-              expiryMinutes: 5,
+              greetingName: user.fullName || 'Employee',
+              expiryMinutes: Math.round(expirySeconds / 60),
             }),
           },
         );
+        emailDelivered = mailRes.success;
+        if (!mailRes.success) {
+          deliveryError = mailRes.errorMessage || mailRes.failureReason;
+          this.logger.warn(
+            `Failed sending recovery OTP to ${normalizedTarget}: ${deliveryError}`,
+          );
+        }
       } catch (mailErr: any) {
+        deliveryError = mailErr?.message;
         this.logger.warn(
-          `Failed to dispatch password reset email to ${identifier}: ${mailErr?.message}`,
+          `Failed to dispatch password recovery email to ${normalizedTarget}: ${mailErr?.message}`,
         );
       }
     }
 
+    // 6. Calculate masked email for user feedback
+    let maskedEmail = '';
+    if (!isMobile) {
+      const [uPart, dPart] = normalizedTarget.split('@');
+      const maskedU =
+        uPart.length > 2
+          ? `${uPart[0]}***${uPart[uPart.length - 1]}`
+          : `${uPart[0]}***`;
+      maskedEmail = `${maskedU}@${dPart}`;
+    }
+
     return {
       success: true,
+      isProtected: false,
       method,
+      identifier: normalizedTarget,
+      maskedEmail: maskedEmail || undefined,
+      maskedDestination: maskedEmail || undefined,
       message: isMobile
         ? 'A 6-digit verification code has been sent to your registered mobile number.'
-        : `A 6-digit verification code has been sent to your registered email (${identifier}). Please check your inbox or spam folder.`,
-      resendCooldownSeconds: 30,
-      expiresInSeconds: 300,
+        : `A 6-digit verification code has been sent to your registered official email address (${maskedEmail}). Please check your inbox.`,
+      resendCooldownSeconds,
+      expiresInSeconds: expirySeconds,
+      emailDelivered,
     };
   }
 
   /**
-   * 13. Forgot Password - Verify OTP and Issue Reset Token
+   * 13. Forgot Password - Verify OTP and Issue Single-Use Reset Token
    */
   async forgotPasswordVerifyOtp(
     dto: ForgotPasswordVerifyOtpDto,
     ipAddress?: string,
   ) {
-    const method = dto.method;
+    const method = dto.method || 'EMAIL';
     const isMobile = method === 'MOBILE';
-    const identifier = isMobile
-      ? this.normalizeMobile(dto.identifier)
-      : this.normalizeEmail(dto.identifier);
+    const rawIdentifier = (dto.identifier || dto.email || '').trim();
     const cleanOtp = (dto.otp || '').trim();
 
+    if (!rawIdentifier) {
+      throw new BadRequestException('Email address or Employee ID is required.');
+    }
+
     if (!cleanOtp || cleanOtp.length !== 6) {
-      throw new BadRequestException('Please enter a valid 6-digit OTP.');
+      throw new BadRequestException('Please enter a valid 6-digit verification code.');
+    }
+
+    // Resolve user to ensure consistent target identifier
+    let normalizedTarget = isMobile
+      ? this.normalizeMobile(rawIdentifier)
+      : rawIdentifier.toLowerCase();
+
+    const matchedUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { employeeId: rawIdentifier },
+          { employeeId: rawIdentifier.toUpperCase() },
+          { email: normalizedTarget },
+          { personalEmail: normalizedTarget },
+          ...(isMobile ? [{ mobile: normalizedTarget }, { personalMobile: normalizedTarget }] : []),
+        ],
+      },
+    });
+
+    if (matchedUser) {
+      if (isMobile) {
+        const rawPhone = matchedUser.mobile || matchedUser.personalMobile;
+        normalizedTarget = rawPhone ? this.normalizeMobile(rawPhone) : normalizedTarget;
+      } else {
+        const rawEmail = matchedUser.email || matchedUser.personalEmail;
+        normalizedTarget = rawEmail ? rawEmail.toLowerCase().trim() : normalizedTarget;
+      }
     }
 
     const activeOtp = await this.prisma.otpVerification.findFirst({
       where: {
-        identifier,
+        identifier: normalizedTarget,
         type: `FORGOT_PASSWORD_${method}`,
         isUsed: false,
       },
@@ -2768,7 +2941,7 @@ export class AuthService {
 
     if (!activeOtp) {
       throw new BadRequestException(
-        'No active OTP found. Please request an OTP.',
+        'No active verification code found. Please request a new code.',
       );
     }
 
@@ -2778,7 +2951,7 @@ export class AuthService {
         data: { isUsed: true },
       });
       throw new BadRequestException(
-        'OTP has expired. Please request a new OTP.',
+        'Verification code has expired (valid 10 minutes). Please request a new code.',
       );
     }
 
@@ -2788,7 +2961,7 @@ export class AuthService {
         data: { isUsed: true },
       });
       throw new BadRequestException(
-        'Maximum verification attempts exceeded. Please request a new OTP.',
+        'Maximum verification attempts exceeded (5). Please request a new verification code.',
       );
     }
 
@@ -2807,11 +2980,11 @@ export class AuthService {
           data: { isUsed: true },
         });
         throw new BadRequestException(
-          'Maximum verification attempts exceeded. Please request a new OTP.',
+          'Maximum verification attempts exceeded. Please request a new verification code.',
         );
       }
       throw new BadRequestException(
-        `Incorrect OTP. Please check and re-enter. (${remaining} attempts remaining)`,
+        `Incorrect verification code. Please check and re-enter. (${remaining} attempts remaining)`,
       );
     }
 
@@ -2824,23 +2997,28 @@ export class AuthService {
     // Lookup user
     const user = activeOtp.userId
       ? await this.prisma.user.findUnique({ where: { id: activeOtp.userId } })
-      : await this.prisma.user.findFirst({
-          where: isMobile
-            ? {
-                OR: [
-                  { mobile: identifier },
-                  { personalMobile: identifier },
-                  { mobile: identifier.slice(-10) },
-                  { personalMobile: identifier.slice(-10) },
-                ],
-              }
-            : {
-                OR: [{ email: identifier }, { personalEmail: identifier }],
-              },
-        });
+      : matchedUser;
 
     if (!user) {
       throw new BadRequestException('User account not found.');
+    }
+
+    // Enforce protected account security policy check
+    const protectedRoles = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'DIRECTOR',
+      'AUDITOR',
+      'REGISTRAR',
+      'HR_MANAGER',
+    ];
+    if (
+      protectedRoles.includes(user.role) ||
+      user.selfServicePasswordReset === false
+    ) {
+      throw new ForbiddenException(
+        'Self-service password recovery is disabled for protected accounts. Contact an authorized IAM Administrator.',
+      );
     }
 
     // Invalidate previous unused reset tokens for this user
@@ -2872,20 +3050,20 @@ export class AuthService {
     await this.logAuthEvent({
       userId: user.id,
       action: 'AUTH_FORGOT_PASSWORD_OTP_VERIFIED',
-      description: `Forgot password OTP verified via ${method} for user ${user.id}`,
+      description: `Forgot password OTP verified for user ${user.id} (${user.employeeId || user.email})`,
       ipAddress,
     });
 
     return {
       success: true,
       resetToken: rawResetToken,
-      message: 'OTP verified successfully. Please enter your new password.',
+      message: 'Verification code verified successfully. Please enter your new password.',
     };
   }
 
   /**
-   * 14. Reset Password with Single-Use Token (from OTP flow)
-   * Enforces matching passwords and revokes old sessions.
+   * 14. Reset Password with Single-Use Token (from OTP recovery flow)
+   * Enforces password complexity, atomic transaction, session revocation, and confirmation email.
    */
   async resetPasswordWithToken(
     dto: ResetPasswordWithTokenDto,
@@ -2894,11 +3072,25 @@ export class AuthService {
     if (!dto.resetToken || !dto.resetToken.trim()) {
       throw new BadRequestException('Reset token is required.');
     }
-    if (!dto.newPassword || dto.newPassword.length < 6) {
+
+    if (!dto.newPassword || dto.newPassword.length < 8) {
       throw new BadRequestException(
-        'New password must be at least 6 characters.',
+        'New password must be at least 8 characters long.',
       );
     }
+
+    // Password policy checks
+    const hasUpper = /[A-Z]/.test(dto.newPassword);
+    const hasLower = /[a-z]/.test(dto.newPassword);
+    const hasNumber = /[0-9]/.test(dto.newPassword);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(dto.newPassword);
+
+    if (!hasUpper || !hasLower || !hasNumber || !hasSpecial) {
+      throw new BadRequestException(
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character.',
+      );
+    }
+
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException(
         'New Password and Confirm Password do not match.',
@@ -2921,43 +3113,61 @@ export class AuthService {
       resetRecord.expiresAt < new Date()
     ) {
       throw new BadRequestException(
-        'Invalid or expired reset token. Please request a new OTP.',
+        'Invalid or expired reset token. Please request a new verification code.',
+      );
+    }
+
+    // Atomically consume reset token to guarantee single-use under concurrency
+    const tokenConsume = await this.prisma.passwordResetToken.updateMany({
+      where: {
+        id: resetRecord.id,
+        isUsed: false,
+      },
+      data: { isUsed: true },
+    });
+
+    if (tokenConsume.count === 0) {
+      throw new BadRequestException(
+        'Invalid or expired reset token. Please request a new verification code.',
       );
     }
 
     const user = resetRecord.user;
-    const hashedPassword = await bcryptLib.hash(dto.newPassword, 10);
+    const hashedPassword = await bcryptLib.hash(dto.newPassword, 12);
     const newSessionVersion = (user.sessionVersion || 1) + 1;
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({
+    await this.prisma.$transaction([
+      // 1. Update user password and increment session version
+      this.prisma.user.update({
         where: { id: user.id },
         data: {
           password: hashedPassword,
           mustChangePassword: false,
           sessionVersion: newSessionVersion,
+          temporaryPasswordExpiresAt: null,
         },
-      });
+      }),
 
-      await tx.passwordResetToken.update({
-        where: { id: resetRecord.id },
-        data: { isUsed: true },
-      });
+      // 2. Invalidate all active device sessions
+      this.prisma.userDeviceSession.deleteMany({
+        where: { userId: user.id },
+      }),
 
-      await tx.refreshToken.updateMany({
+      // 3. Invalidate all active refresh tokens
+      this.prisma.refreshToken.updateMany({
         where: { userId: user.id, isRevoked: false },
         data: { isRevoked: true },
-      });
-    });
+      }),
+    ]);
 
     await this.logAuthEvent({
       userId: user.id,
       action: 'AUTH_PASSWORD_RESET_COMPLETED',
-      description: `Password reset completed successfully for user ${user.id}`,
+      description: `Password reset completed successfully for user ${user.id} (${user.employeeId || user.email})`,
       ipAddress,
     });
 
-    // Dispatch password reset confirmation email via Nodemailer
+    // Dispatch password reset confirmation email via centralized SMTP service
     const targetEmail = user.email || user.personalEmail;
     if (targetEmail && this.emailChannel) {
       try {
@@ -2984,10 +3194,22 @@ export class AuthService {
       }
     }
 
+    const isProtectedRole = [
+      'SUPER_ADMIN',
+      'ADMIN',
+      'DIRECTOR',
+      'REGISTRAR',
+      'HR_MANAGER',
+    ].includes(user.role);
+    const portalUrl = isProtectedRole
+      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+
     return {
       success: true,
       message:
         'Password reset successfully. You can now log in with your new password.',
+      portalUrl,
     };
   }
 
@@ -3712,21 +3934,15 @@ export class AuthService {
       return {
         valid: false,
         reason: 'EXPIRED',
-        message: 'This activation link has expired (links are valid for 24 hours). Please contact your administrator to request a new link.',
+        message: 'This link has expired (links are valid for 24 hours). Please contact your administrator to request a new link.',
       };
     }
 
-    if (targetUser.status === 'ACTIVE' && targetUser.isActive && targetUser.emailVerified) {
-      return {
-        valid: false,
-        reason: 'ALREADY_ACTIVATED',
-        message: 'This account has already been activated. Please proceed to the login portal.',
-        portalUrl,
-      };
-    }
+    const isReset = targetUser.status === 'ACTIVE' && targetUser.emailVerified;
 
     return {
       valid: true,
+      isReset,
       user: {
         fullName: targetUser.fullName,
         email: targetUser.email,
@@ -3734,7 +3950,79 @@ export class AuthService {
         role: targetUser.role,
       },
       portalUrl,
+      message: isReset
+        ? 'Password reset link verified. Please enter your new password below.'
+        : 'Account activation link verified. Set your password below.',
     };
+  }
+
+  /**
+   * Verify a password reset token (supports PasswordResetToken and AccountActivationToken)
+   */
+  async verifyResetToken(rawToken: string) {
+    if (!rawToken || typeof rawToken !== 'string') {
+      throw new BadRequestException('Reset token is required.');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(rawToken.trim()).digest('hex');
+
+    // 1. Check PasswordResetToken table first
+    const resetRecord = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            employeeId: true,
+            role: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (resetRecord) {
+      const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(resetRecord.user.role);
+      const portalUrl = isProtected
+        ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
+        : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+
+      if (resetRecord.isUsed) {
+        return {
+          valid: false,
+          reason: 'ALREADY_USED',
+          message: 'This password reset link has already been used. Please log in or request a new code.',
+          portalUrl,
+        };
+      }
+
+      if (resetRecord.expiresAt < new Date()) {
+        return {
+          valid: false,
+          reason: 'EXPIRED',
+          message: 'This password reset link has expired. Please request a new verification code.',
+          portalUrl,
+        };
+      }
+
+      return {
+        valid: true,
+        isReset: true,
+        user: {
+          fullName: resetRecord.user.fullName,
+          email: resetRecord.user.email,
+          employeeId: resetRecord.user.employeeId,
+          role: resetRecord.user.role,
+        },
+        portalUrl,
+        message: 'Password reset token verified. Please enter your new password.',
+      };
+    }
+
+    // 2. Delegate to AccountActivationToken verification
+    return this.verifyActivationToken(rawToken);
   }
 
   /**
@@ -3767,47 +4055,48 @@ export class AuthService {
 
     const tokenHash = crypto.createHash('sha256').update(dto.token.trim()).digest('hex');
 
-    // Run atomic check and consumption in a transaction
-    const result = await this.prisma.$transaction(async (tx) => {
-      // 1. Check token in AccountActivationToken table
-      const tokenRecord = await tx.accountActivationToken.findUnique({
-        where: { tokenHash },
-        include: { user: true },
-      });
+    // Hash the new password securely outside transaction
+    const hashedPassword = await bcryptLib.hash(dto.password, 12);
 
-      let user: any = null;
-      let recordId: string | null = null;
-
-      if (tokenRecord) {
-        if (tokenRecord.isUsed) {
-          throw new BadRequestException('This activation link has already been used. Please log in.');
-        }
-        if (tokenRecord.expiresAt < new Date()) {
-          throw new BadRequestException('This activation link has expired (links are valid for 24 hours). Please contact your administrator.');
-        }
-        user = tokenRecord.user;
-        recordId = tokenRecord.id;
-      } else {
-        // Fallback to User table
-        user = await tx.user.findFirst({
-          where: { activationTokenHash: tokenHash },
+    // Run atomic check and consumption in a transaction with robust timeout for Neon
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        // 1. Check token in AccountActivationToken table
+        const tokenRecord = await tx.accountActivationToken.findUnique({
+          where: { tokenHash },
+          include: { user: true },
         });
 
-        if (!user) {
-          throw new BadRequestException('Invalid or expired activation link.');
+        let user: any = null;
+        let recordId: string | null = null;
+
+        if (tokenRecord) {
+          if (tokenRecord.isUsed) {
+            throw new BadRequestException('This activation link has already been used. Please log in.');
+          }
+          if (tokenRecord.expiresAt < new Date()) {
+            throw new BadRequestException('This activation link has expired (links are valid for 24 hours). Please contact your administrator.');
+          }
+          user = tokenRecord.user;
+          recordId = tokenRecord.id;
+        } else {
+          // Fallback to User table
+          user = await tx.user.findFirst({
+            where: { activationTokenHash: tokenHash },
+          });
+
+          if (!user) {
+            throw new BadRequestException('Invalid or expired activation link.');
+          }
+
+          if (user.activationExpiresAt && user.activationExpiresAt < new Date()) {
+            throw new BadRequestException('This activation link has expired. Please contact your administrator.');
+          }
         }
 
-        if (user.activationExpiresAt && user.activationExpiresAt < new Date()) {
-          throw new BadRequestException('This activation link has expired. Please contact your administrator.');
+        if (['SUSPENDED', 'DEACTIVATED', 'DISABLED', 'RESIGNED'].includes(user.status)) {
+          throw new BadRequestException(`This account cannot be activated due to account status (${user.status}). Please contact HR.`);
         }
-      }
-
-      if (['SUSPENDED', 'DEACTIVATED', 'DISABLED', 'RESIGNED'].includes(user.status)) {
-        throw new BadRequestException(`This account cannot be activated due to account status (${user.status}). Please contact HR.`);
-      }
-
-      // Hash the new password securely
-      const hashedPassword = await bcryptLib.hash(dto.password, 12);
 
       // Invalidate token
       if (recordId) {
@@ -3823,6 +4112,15 @@ export class AuthService {
         data: { isUsed: true, usedAt: new Date() },
       });
 
+      // Invalidate all active sessions and refresh tokens
+      await tx.userDeviceSession.deleteMany({
+        where: { userId: user.id },
+      });
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, isRevoked: false },
+        data: { isRevoked: true },
+      });
+
       // Update user account to ACTIVE
       const updatedUser = await tx.user.update({
         where: { id: user.id },
@@ -3836,13 +4134,13 @@ export class AuthService {
           temporaryPasswordExpiresAt: null,
           activationTokenHash: null,
           activationExpiresAt: null,
-          activatedAt: new Date(),
+          activatedAt: user.activatedAt || new Date(),
           sessionVersion: { increment: 1 },
         },
       });
 
       return updatedUser;
-    });
+    }, { timeout: 15000, maxWait: 10000 });
 
     const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(result.role);
     const portalUrl = isProtected

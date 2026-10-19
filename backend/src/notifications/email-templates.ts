@@ -136,7 +136,7 @@ export function buildForgotPasswordOtpEmailHtml(params: OtpEmailTemplateParams):
   const {
     otp,
     greetingName = 'User',
-    expiryMinutes = 5,
+    expiryMinutes = 10,
   } = params;
 
   return `
@@ -529,4 +529,125 @@ export function buildEmployeeActivationSuccessEmailHtml(params: EmployeeActivati
 </html>
   `.trim();
 }
+
+export interface EmployeePasswordResetEmailTemplateParams {
+  employeeName: string;
+  employeeId: string;
+  officialEmail: string;
+  resetUrl: string;
+  expiryHours?: number;
+  portalUrl?: string;
+  portalName?: string;
+  roleName?: string;
+  departmentName?: string;
+  supportEmail?: string;
+}
+
+/**
+ * Dedicated secure password recovery email template for administrator-dispatched recovery
+ * Single-use, expiring link with zero temporary password.
+ */
+export function buildEmployeeAdminPasswordResetEmailHtml(params: EmployeePasswordResetEmailTemplateParams): string {
+  const {
+    employeeName,
+    employeeId,
+    officialEmail,
+    resetUrl,
+    portalUrl = 'https://admin.swayamadmission.com',
+    portalName = 'Swayam Staff & Administration Portal',
+    roleName,
+    departmentName,
+    supportEmail = 'swayamadmissions@gmail.com',
+  } = params;
+  const expiryHours = params.expiryHours || 24;
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Recovery Request — Swayam Admission</title>
+</head>
+<body style="${BASE_STYLES}">
+  <div style="${CONTAINER_STYLES}">
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #4338CA 100%); padding: 36px 24px; text-align: center; color: #FFFFFF;">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">SWAYAM ADMISSION</h1>
+      <p style="margin: 6px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.85; font-weight: 600;">Authorized Password Recovery</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 36px 28px;">
+      <h2 style="margin-top: 0; color: #0F172A; font-size: 21px; font-weight: 700;">Password Recovery Request</h2>
+      <p style="color: #334155; font-size: 15px; margin-bottom: 22px;">
+        Dear <strong>${employeeName}</strong>,
+      </p>
+      <p style="color: #475569; font-size: 14px; line-height: 1.6; margin-bottom: 22px;">
+        An authorized administrator has issued a secure password recovery request for your official Swayam Admission account. Use the single-use button below to set your new permanent password:
+      </p>
+
+      <!-- Account Details Card -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 20px; margin: 24px 0;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; width: 140px; font-weight: 500;">Employee ID:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 700; font-family: monospace; font-size: 15px;">${employeeId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Official Email:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${officialEmail}</td>
+          </tr>
+          ${roleName ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Role:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${roleName}</td>
+          </tr>` : ''}
+          ${departmentName ? `
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Department:</td>
+            <td style="padding: 6px 0; color: #0F172A; font-weight: 600;">${departmentName}</td>
+          </tr>` : ''}
+          <tr>
+            <td style="padding: 6px 0; color: #64748B; font-weight: 500;">Authorized Portal:</td>
+            <td style="padding: 6px 0; color: #4338CA; font-weight: 600;"><a href="${portalUrl}" style="color: #4338CA; text-decoration: none;">${portalName}</a></td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Action Button -->
+      <div style="text-align: center; margin: 32px 0 24px;">
+        <a href="${resetUrl}" style="background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%); color: #FFFFFF; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-size: 16px; font-weight: 700; display: inline-block; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);">
+          Set New Password
+        </a>
+      </div>
+
+      <!-- Security Notice -->
+      <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 4px; margin: 24px 0;">
+        <p style="margin: 0; font-size: 13px; color: #1E40AF;">
+          ⏳ <strong>Single-Use Link Security:</strong> This password recovery link is valid for <strong>${expiryHours} hours</strong> and can only be used once. For your protection, no temporary password has been generated.
+        </p>
+        <p style="margin: 6px 0 0; font-size: 13px; color: #DC2626;">
+          🔒 <strong>Didn't request this?</strong> If you did not request a password recovery, please notify IT Security immediately at <a href="mailto:${supportEmail}" style="color: #DC2626; font-weight: 600;">${supportEmail}</a>.
+        </p>
+      </div>
+
+      <!-- Plain Text Link Fallback -->
+      <p style="color: #64748B; font-size: 12px; margin-top: 24px; word-break: break-all;">
+        If the button above does not work, copy and paste this link into your browser:<br>
+        <a href="${resetUrl}" style="color: #4F46E5;">${resetUrl}</a>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="${FOOTER_STYLES}">
+      <p style="margin: 0 0 6px;">© ${new Date().getFullYear()} Swayam Admission. All rights reserved.</p>
+      <p style="margin: 0;">Confidential security communication — intended for account owner only.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
 

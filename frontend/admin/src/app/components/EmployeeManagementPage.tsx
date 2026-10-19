@@ -474,9 +474,8 @@ export default function EmployeeManagementPage() {
                           {(emp.status === "PENDING_ACTIVATION" || !emp.activatedAt) && (
                             <button
                               onClick={() => {
-                                if (confirm(`Resend secure account activation email to ${emp.fullName} (${emp.email})?`)) {
-                                  resendActivationMutation.mutate(emp.id);
-                                }
+                                toast.loading(`Dispatching activation email to ${emp.email}...`, { id: `resend-${emp.id}` });
+                                resendActivationMutation.mutate(emp.id);
                               }}
                               disabled={resendActivationMutation.isPending}
                               className="p-1.5 rounded-lg text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition"
@@ -874,9 +873,8 @@ export default function EmployeeManagementPage() {
                           {(!detailRes.user.activatedAt || detailRes.user.status === "PENDING_ACTIVATION") && (
                             <button
                               onClick={() => {
-                                if (confirm(`Resend secure account activation link to ${detailRes.user.email}?`)) {
-                                  resendActivationMutation.mutate(detailRes.user.id);
-                                }
+                                toast.loading(`Dispatching activation link to ${detailRes.user.email}...`, { id: `resend-${detailRes.user.id}` });
+                                resendActivationMutation.mutate(detailRes.user.id);
                               }}
                               disabled={resendActivationMutation.isPending}
                               className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 transition"
@@ -888,9 +886,8 @@ export default function EmployeeManagementPage() {
 
                           <button
                             onClick={() => {
-                              if (confirm("Send secure password reset / activation link to this employee's official email?")) {
-                                resetPasswordMutation.mutate(detailRes.user.id);
-                              }
+                              toast.loading(`Issuing single-use password reset link to ${detailRes.user.email}...`, { id: `reset-${detailRes.user.id}` });
+                              resetPasswordMutation.mutate(detailRes.user.id);
                             }}
                             disabled={resetPasswordMutation.isPending}
                             className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-gray-200 hover:border-gray-300 text-gray-700 bg-white transition hover:bg-gray-50"
@@ -901,9 +898,8 @@ export default function EmployeeManagementPage() {
 
                           <button
                             onClick={() => {
-                              if (confirm("Revoke all active device sessions for this employee?")) {
-                                revokeSessionsMutation.mutate(detailRes.user.id);
-                              }
+                              toast.loading(`Revoking all active sessions for ${detailRes.user.email}...`, { id: `revoke-${detailRes.user.id}` });
+                              revokeSessionsMutation.mutate(detailRes.user.id);
                             }}
                             disabled={revokeSessionsMutation.isPending}
                             className="flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-xl border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition"

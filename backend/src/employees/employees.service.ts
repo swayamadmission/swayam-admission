@@ -656,18 +656,18 @@ export class EmployeesService {
     const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
 
     const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
-    const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
+    const resetUrl = `${activationBaseUrl}/activate?token=${rawToken}&type=reset`;
 
     let emailDelivered = false;
     let deliveryError: string | undefined;
 
     if (this.emailChannel) {
       try {
-        const mailRes = await this.emailChannel.sendEmployeeActivationEmail({
+        const mailRes = await this.emailChannel.sendEmployeePasswordResetEmail({
           employeeName: employee.fullName,
           employeeId: employee.employeeId || 'STAFF',
           officialEmail: targetEmail,
-          activationUrl,
+          resetUrl,
           expiryHours: 24,
           portalUrl,
           portalName,

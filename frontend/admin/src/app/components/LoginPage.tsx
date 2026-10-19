@@ -8,6 +8,7 @@ import {
   User,
   MapPin,
   Shield,
+  ShieldAlert,
   ArrowRight,
   ChevronLeft,
   CheckCircle2,
@@ -72,6 +73,21 @@ export default function LoginPage({
   const [firstLoginConfirmPassword, setFirstLoginConfirmPassword] = useState("");
   const [firstLoginSubmitting, setFirstLoginSubmitting] = useState(false);
   const [firstLoginSuccess, setFirstLoginSuccess] = useState(false);
+
+  // Production-Ready Forgot Password Recovery States
+  const [forgotStep, setForgotStep] = useState<"request" | "otp" | "password" | "protected_notice">("request");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotMaskedDestination, setForgotMaskedDestination] = useState("");
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [forgotResetToken, setForgotResetToken] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotShowNewPassword, setForgotShowNewPassword] = useState(false);
+  const [forgotShowConfirmPassword, setForgotShowConfirmPassword] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   // Dynamic Allowed Roles
   const [allowedRoles, setAllowedRoles] = useState<
@@ -280,6 +296,136 @@ export default function LoginPage({
       setLocalError(err.response?.data?.message || "Verification or password change failed.");
     } finally {
       setFirstLoginSubmitting(false);
+    }
+  };
+
+  // Cooldown timer for Forgot Password OTP resend
+  useEffect(() => {
+    let timer: any;
+    if (forgotCooldown > 0) {
+      timer = setTimeout(() => setForgotCooldown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [forgotCooldown]);
+
+  // Password Complexity Validation Helpers for Forgot Password
+  const forgotHasMinLength = forgotNewPassword.length >= 8;
+  const forgotHasUpper = /[A-Z]/.test(forgotNewPassword);
+  const forgotHasLower = /[a-z]/.test(forgotNewPassword);
+  const forgotHasNumber = /[0-9]/.test(forgotNewPassword);
+  const forgotHasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(forgotNewPassword);
+  const forgotPasswordsMatch = forgotNewPassword.length > 0 && forgotNewPassword === forgotConfirmPassword;
+  const isForgotPassValid =
+    forgotHasMinLength && forgotHasUpper && forgotHasLower && forgotHasNumber && forgotHasSpecial && forgotPasswordsMatch;
+
+  // Step 1: Send Recovery OTP to Registered Official Email
+  const handleForgotSendOtp = async (isResend = false) => {
+    const cleanEmail = forgotEmail.trim().toLowerCase();
+    if (!cleanEmail) {
+      setForgotError("Please enter your registered official email address.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      setForgotError("Please enter a valid official email address format.");
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await authApi.forgotPasswordSendOtp({
+        identifier: cleanEmail,
+        method: "EMAIL",
+      });
+
+      if (res.isProtected) {
+        setForgotStep("protected_notice");
+        setForgotMaskedDestination(res.maskedDestination || cleanEmail);
+        return;
+      }
+
+      setForgotMaskedDestination(res.maskedDestination || cleanEmail);
+      setForgotCooldown(60);
+      if (!isResend) {
+        setForgotStep("otp");
+      }
+      toast.success(res.message || "A 6-digit verification code has been dispatched to your official email.");
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to dispatch verification code. Please try again.";
+      setForgotError(msg);
+      toast.error(msg);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // Step 2: Verify 6-digit OTP & Receive Single-Use Reset Token
+  const handleForgotVerifyOtp = async () => {
+    const cleanOtp = forgotOtp.trim();
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setForgotError("Please enter the complete 6-digit verification code.");
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await authApi.forgotPasswordVerifyOtp({
+        identifier: forgotEmail.trim().toLowerCase(),
+        otp: cleanOtp,
+        method: "EMAIL",
+      });
+
+      setForgotResetToken(res.resetToken);
+      setForgotStep("password");
+      toast.success("Identity verified successfully! Please set your new password.");
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Invalid or expired verification code.";
+      setForgotError(msg);
+      toast.error(msg);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  // Step 3: Set New Password with Token
+  const handleForgotResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+
+    if (!isForgotPassValid) {
+      setForgotError("Please ensure your new password satisfies all security requirements.");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await authApi.resetPasswordWithToken({
+        resetToken: forgotResetToken,
+        newPassword: forgotNewPassword,
+        confirmPassword: forgotConfirmPassword,
+      });
+
+      setForgotSuccess(true);
+      toast.success(res.message || "Password reset successfully! Redirecting to login...");
+      setTimeout(() => {
+        setScreen("login");
+        setForgotStep("request");
+        setForgotEmail("");
+        setForgotOtp("");
+        setForgotResetToken("");
+        setForgotNewPassword("");
+        setForgotConfirmPassword("");
+        setForgotSuccess(false);
+        setForgotError(null);
+      }, 2500);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to update password. Please request a new recovery code.";
+      setForgotError(msg);
+      toast.error(msg);
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -1093,49 +1239,365 @@ export default function LoginPage({
             </div>
           )}
 
-          {/* === FORGOT PASSWORD (POLICY GATED) === */}
+          {/* === PRODUCTION-READY EMPLOYEE FORGOT PASSWORD & RECOVERY FLOW === */}
           {screen === "forgot" && (
             <div>
               <button
-                onClick={() => setScreen("login")}
-                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-6 hover:text-[#4A7B5B]"
+                type="button"
+                onClick={() => {
+                  setScreen("login");
+                  setForgotStep("request");
+                  setForgotError(null);
+                }}
+                className="flex items-center gap-1.5 text-[#64748B] text-sm mb-5 hover:text-[#4A7B5B] transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" /> Back to login
               </button>
-              <div className="mb-6">
-                <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
-                  Password Recovery
-                </h2>
-                <p className="text-[#64748B] text-xs">
-                  Self-service recovery is available for Counselor personal logins. Organizational Position Accounts require IAM Administrator reset.
-                </p>
-              </div>
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs mb-4">
-                <strong>Enterprise Security Policy:</strong> Company email position accounts (e.g. senior.*@swayamadmission.com) have self-service reset disabled by policy. Please contact your IAM Admin.
-              </div>
+              {/* Inline Error Banner */}
+              {forgotError && (
+                <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                  <span>{forgotError}</span>
+                </div>
+              )}
 
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-[#4A7B5B] text-sm mb-1.5 block">
-                    Personal Email Address
-                  </Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
-                    <Input
-                      placeholder="counselor.personal@gmail.com"
-                      className="pl-10 h-11 border-[#E2E8F0] rounded-xl"
-                    />
+              {/* STATE: Success Notification */}
+              {forgotSuccess ? (
+                <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-center space-y-3 animate-in zoom-in-95 duration-200">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto text-[#4A7B5B]">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold text-gray-900">Password Reset Complete!</h3>
+                    <p className="text-xs text-emerald-800 leading-relaxed">
+                      Your credentials have been securely updated and all previous sessions revoked. Returning you to the login screen...
+                    </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setScreen("otp")}
-                  className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:opacity-90"
-                  style={{ background: "#4A7B5B" }}
-                >
-                  Send Recovery Link <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
+              ) : forgotStep === "protected_notice" ? (
+                /* STATE: Protected Account Notice (Super Admin / IAM Admin / Protected Roles) */
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shadow-xs">
+                    <ShieldAlert className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
+                      PROTECTED SYSTEM ROLE
+                    </span>
+                    <h2 className="text-[#4A7B5B] text-xl font-bold mt-1.5 mb-1">
+                      Administrator-Controlled Recovery Required
+                    </h2>
+                    <p className="text-[#64748B] text-xs leading-relaxed">
+                      Self-service password recovery is strictly disabled for Super Admin, IAM Administrator, and organizational position accounts under Swayam corporate security policy.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-950 space-y-2">
+                    <div className="font-semibold flex items-center gap-1.5 text-amber-900">
+                      <Shield className="w-4 h-4 text-amber-700" />
+                      <span>Authorized Recovery Protocol</span>
+                    </div>
+                    <p className="leading-relaxed text-[11px] text-amber-900">
+                      To initiate a secure password reset for this account, please contact an authorized IAM Administrator. The administrator can dispatch a cryptographically verified, single-use recovery link to your registered official address.
+                    </p>
+                    {forgotMaskedDestination && (
+                      <div className="pt-2 border-t border-amber-200/80 flex justify-between text-[11px]">
+                        <span className="text-amber-800">Target Account:</span>
+                        <span className="font-mono font-semibold text-amber-950">{forgotMaskedDestination}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScreen("login");
+                        setForgotStep("request");
+                        setForgotError(null);
+                      }}
+                      className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 shadow-xs"
+                      style={{ background: "#4A7B5B" }}
+                    >
+                      Return to Secure Login <ArrowRight className="w-4 h-4" />
+                    </button>
+                    <p className="text-[11px] text-center text-gray-400">
+                      Need urgent assistance? Official IAM Helpdesk:{" "}
+                      <a href="mailto:swayamadmissions@gmail.com" className="text-[#4A7B5B] underline font-medium">
+                        swayamadmissions@gmail.com
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              ) : forgotStep === "request" ? (
+                /* STEP 1: Request Recovery via Registered Official Email */
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#4A7B5B] flex items-center justify-center shadow-xs">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
+                      Account Recovery
+                    </h2>
+                    <p className="text-[#64748B] text-xs">
+                      Enter your registered official email address to receive a secure six-digit identity verification code.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="registered-official-email" className="text-[#4A7B5B] text-sm mb-1.5 block font-semibold">
+                        Registered Official Email Address <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
+                        <Input
+                          id="registered-official-email"
+                          type="email"
+                          required
+                          placeholder="name@swayamadmission.com"
+                          className="pl-10 h-11 border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl text-sm"
+                          value={forgotEmail}
+                          onChange={(e) => setForgotEmail(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleForgotSendOtp(false);
+                          }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-1">
+                        Must match the registered recovery email on file with Swayam HR & IAM.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleForgotSendOtp(false)}
+                      disabled={forgotLoading}
+                      className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition shadow-xs disabled:opacity-60"
+                      style={{ background: "#4A7B5B" }}
+                    >
+                      {forgotLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Dispatching Security Code...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Send Verification Code</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : forgotStep === "otp" ? (
+                /* STEP 2: Verify 6-digit OTP */
+                <div className="space-y-5 animate-in fade-in duration-200">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#4A7B5B] flex items-center justify-center shadow-xs">
+                    <Mail className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
+                      Verify Your Identity
+                    </h2>
+                    <p className="text-[#64748B] text-xs leading-relaxed">
+                      We dispatched a 6-digit security code to{" "}
+                      <strong className="text-gray-800 font-mono">{forgotMaskedDestination}</strong>.
+                      The code expires strictly in 10 minutes.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between text-[11px] text-gray-600">
+                    <span>Single-use OTP code</span>
+                    <span className="font-semibold text-amber-700">Max 5 attempts</span>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-[#4A7B5B] text-sm mb-1.5 block font-semibold">
+                        Enter 6-Digit Code <span className="text-rose-500">*</span>
+                      </Label>
+                      <Input
+                        type="text"
+                        maxLength={6}
+                        autoFocus
+                        placeholder="••••••"
+                        value={forgotOtp}
+                        onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, ""))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && forgotOtp.trim().length === 6) {
+                            handleForgotVerifyOtp();
+                          }
+                        }}
+                        className="h-12 text-center font-mono text-xl tracking-[0.4em] border-[#E2E8F0] focus:border-[#4A7B5B] rounded-xl"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleForgotVerifyOtp}
+                      disabled={forgotLoading || forgotOtp.trim().length !== 6}
+                      className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition shadow-xs disabled:opacity-50"
+                      style={{ background: "#4A7B5B" }}
+                    >
+                      {forgotLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Verifying Identity...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Verify Code & Proceed</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForgotStep("request");
+                          setForgotOtp("");
+                          setForgotError(null);
+                        }}
+                        className="text-gray-500 hover:text-gray-800 underline transition"
+                      >
+                        Change Email Address
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleForgotSendOtp(true)}
+                        disabled={forgotLoading || forgotCooldown > 0}
+                        className="font-semibold text-[#4A7B5B] hover:underline disabled:opacity-50 disabled:no-underline transition"
+                      >
+                        {forgotCooldown > 0 ? `Resend Code (${forgotCooldown}s)` : "Resend Code"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* STEP 3: Set New Password & Confirm */
+                <form onSubmit={handleForgotResetPassword} className="space-y-5 animate-in fade-in duration-200">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 text-[#4A7B5B] flex items-center justify-center shadow-xs">
+                    <Lock className="w-6 h-6" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-[#4A7B5B] text-xl font-bold mb-1">
+                      Set New Password
+                    </h2>
+                    <p className="text-[#64748B] text-xs">
+                      Establish your confidential password. All prior sessions will be revoked across all devices.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    <div>
+                      <Label className="text-[#4A7B5B] text-xs font-semibold mb-1 block">
+                        New Password <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type={forgotShowNewPassword ? "text" : "password"}
+                          required
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          placeholder="Enter new password"
+                          className="h-10 text-sm border-gray-200 rounded-xl pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          onClick={() => setForgotShowNewPassword(!forgotShowNewPassword)}
+                        >
+                          {forgotShowNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-[#4A7B5B] text-xs font-semibold mb-1 block">
+                        Confirm New Password <span className="text-rose-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          type={forgotShowConfirmPassword ? "text" : "password"}
+                          required
+                          value={forgotConfirmPassword}
+                          onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          className="h-10 text-sm border-gray-200 rounded-xl pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          onClick={() => setForgotShowConfirmPassword(!forgotShowConfirmPassword)}
+                        >
+                          {forgotShowConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Password Security Checklist */}
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-1.5 text-[11px]">
+                      <div className="font-semibold text-gray-700 uppercase tracking-wider text-[10px]">
+                        Password Requirements
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className={`flex items-center gap-1 ${forgotHasMinLength ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotHasMinLength ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>At least 8 chars</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${forgotHasUpper ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotHasUpper ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>1 Uppercase (A-Z)</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${forgotHasLower ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotHasLower ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>1 Lowercase (a-z)</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${forgotHasNumber ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotHasNumber ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>1 Numeric digit</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${forgotHasSpecial ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotHasSpecial ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>1 Special symbol</span>
+                        </div>
+                        <div className={`flex items-center gap-1 ${forgotPasswordsMatch ? "text-emerald-700 font-medium" : "text-gray-400"}`}>
+                          <CheckCircle2 className={`w-3.5 h-3.5 ${forgotPasswordsMatch ? "text-emerald-600" : "text-gray-300"}`} />
+                          <span>Passwords match</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={forgotLoading || !isForgotPassValid}
+                      className="w-full h-11 rounded-xl text-white font-medium flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.99] transition shadow-xs disabled:opacity-50"
+                      style={{ background: "#4A7B5B" }}
+                    >
+                      {forgotLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Updating Password...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Update Password & Sign In</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
 

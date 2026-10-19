@@ -57,7 +57,9 @@ export interface SignupResponse {
 }
 
 export interface ActivationVerifyResponse {
-  success: boolean;
+  success?: boolean;
+  valid?: boolean;
+  isReset?: boolean;
   message: string;
   user: {
     fullName: string;
@@ -67,8 +69,9 @@ export interface ActivationVerifyResponse {
     department?: string | null;
     designation?: string | null;
   };
-  loginPortalUrl: string;
-  portalName: string;
+  loginPortalUrl?: string;
+  portalUrl?: string;
+  portalName?: string;
 }
 
 export interface ActivateAccountResponse {
@@ -81,6 +84,57 @@ export interface ActivateAccountResponse {
     email: string | null;
     role: string;
   };
+}
+
+export interface ForgotPasswordSendOtpPayload {
+  identifier: string; // Registered Official Email Address or permanent Employee ID
+  method?: 'EMAIL' | 'SMS';
+}
+
+export interface ForgotPasswordSendOtpResponse {
+  success: boolean;
+  message: string;
+  maskedDestination?: string;
+  isProtected?: boolean;
+}
+
+export interface ForgotPasswordVerifyOtpPayload {
+  identifier: string;
+  otp: string;
+  method?: 'EMAIL' | 'SMS';
+}
+
+export interface ForgotPasswordVerifyOtpResponse {
+  success: boolean;
+  message: string;
+  resetToken: string;
+  expiresInSeconds?: number;
+}
+
+export interface ResetPasswordWithTokenPayload {
+  resetToken: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
+export interface ResetPasswordWithTokenResponse {
+  success: boolean;
+  message: string;
+  portalUrl?: string;
+}
+
+export interface VerifyResetTokenResponse {
+  valid: boolean;
+  isReset?: boolean;
+  reason?: string;
+  message?: string;
+  user?: {
+    fullName: string;
+    email: string;
+    employeeId: string;
+    role: string;
+  };
+  portalUrl?: string;
 }
 
 export const authApi = {
@@ -98,6 +152,18 @@ export const authApi = {
 
   forgotPassword: (email: string) =>
     api.post<{ message: string }>("/auth/forgot-password", { email }),
+
+  forgotPasswordSendOtp: (data: ForgotPasswordSendOtpPayload) =>
+    api.post<ForgotPasswordSendOtpResponse>("/auth/forgot-password/send-otp", data).then((res) => res.data),
+
+  forgotPasswordVerifyOtp: (data: ForgotPasswordVerifyOtpPayload) =>
+    api.post<ForgotPasswordVerifyOtpResponse>("/auth/forgot-password/verify-otp", data).then((res) => res.data),
+
+  resetPasswordWithToken: (data: ResetPasswordWithTokenPayload) =>
+    api.post<ResetPasswordWithTokenResponse>("/auth/reset-password", data).then((res) => res.data),
+
+  verifyResetToken: (token: string) =>
+    api.get<VerifyResetTokenResponse>("/auth/reset-password/verify", { params: { token } }).then((res) => res.data),
 
   getMe: () =>
     api.get<AuthUser>("/users/me"),
@@ -123,3 +189,4 @@ export const authApi = {
       data,
     ),
 };
+

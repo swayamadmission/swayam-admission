@@ -16,23 +16,34 @@ export class ForgotPasswordDto {
 }
 
 export class ForgotPasswordSendOtpDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsIn(['MOBILE', 'EMAIL'], { message: 'Method must be either MOBILE or EMAIL' })
-  method: 'MOBILE' | 'EMAIL';
+  method?: 'MOBILE' | 'EMAIL';
 
-  @IsNotEmpty({ message: 'Mobile number or email address is required' })
-  identifier: string;
+  @IsOptional()
+  @IsString()
+  identifier?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid official email address' })
+  email?: string;
 }
 
 export class ForgotPasswordVerifyOtpDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsIn(['MOBILE', 'EMAIL'], { message: 'Method must be either MOBILE or EMAIL' })
-  method: 'MOBILE' | 'EMAIL';
+  method?: 'MOBILE' | 'EMAIL';
 
-  @IsNotEmpty()
-  identifier: string;
+  @IsOptional()
+  @IsString()
+  identifier?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid official email address' })
+  email?: string;
 
   @IsNotEmpty({ message: '6-digit OTP is required' })
+  @IsString()
   otp: string;
 }
 
@@ -41,7 +52,7 @@ export class ResetPasswordDto {
   token: string;
 
   @IsNotEmpty({ message: 'New password is required' })
-  @MinLength(6, { message: 'Password must be at least 6 characters' })
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
   newPassword: string;
 
   @IsOptional()
@@ -53,11 +64,11 @@ export class ResetPasswordWithTokenDto {
   resetToken: string;
 
   @IsNotEmpty({ message: 'New password is required' })
-  @MinLength(6, { message: 'Password must be at least 6 characters' })
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
   newPassword: string;
 
   @IsNotEmpty({ message: 'Confirm password is required' })
-  @MinLength(6, { message: 'Confirm password must be at least 6 characters' })
+  @MinLength(8, { message: 'Confirm password must be at least 8 characters' })
   confirmPassword: string;
 }
 

@@ -20,11 +20,12 @@ function AppContent() {
   const { user, isAuthenticated, isLoading, login, logout, error, clearError } = useAdminAuth();
   const [currentPage, setCurrentPage] = useState("dashboard");
 
-  // Check if user is navigating to account activation
+  // Check if user is navigating to account activation or password reset
   const isActivationRoute =
     typeof window !== "undefined" &&
     (window.location.pathname.startsWith("/activate") ||
-      (window.location.search.includes("token=") && !window.location.search.includes("type=reset")));
+      window.location.pathname.startsWith("/reset-password") ||
+      window.location.search.includes("token="));
 
   if (isActivationRoute) {
     return <AccountActivationPage />;

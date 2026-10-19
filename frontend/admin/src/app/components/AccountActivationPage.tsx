@@ -39,6 +39,12 @@ export default function AccountActivationPage() {
   const [activated, setActivated] = useState(false);
   const [activatedPortalUrl, setActivatedPortalUrl] = useState<string>("");
 
+  const isUrlReset =
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).get("type") === "reset" ||
+      window.location.pathname.includes("reset-password"));
+  const isReset = Boolean(isUrlReset || tokenData?.isReset);
+
   useEffect(() => {
     // Extract token from query param or URL path
     let extractedToken = "";
@@ -50,12 +56,16 @@ export default function AccountActivationPage() {
         const parts = window.location.pathname.split("/activate/");
         extractedToken = parts[1]?.split("?")[0] || "";
       }
+      if (!extractedToken && window.location.pathname.includes("/reset-password/")) {
+        const parts = window.location.pathname.split("/reset-password/");
+        extractedToken = parts[1]?.split("?")[0] || "";
+      }
     }
 
     if (!extractedToken) {
       setLoading(false);
       setVerifyError(
-        "No activation token was provided in the URL. Please verify your activation link or check the invitation email sent to your official address."
+        "No security token was provided in the URL. Please verify your link or check the invitation/reset email sent to your registered address."
       );
       return;
     }
@@ -64,15 +74,15 @@ export default function AccountActivationPage() {
 
     // Verify token with backend
     authApi
-      .verifyActivationToken(extractedToken)
-      .then((res) => {
+      .verifyResetToken(extractedToken)
+      .then((res: any) => {
         setTokenData(res);
         setVerifyError(null);
       })
       .catch((err: any) => {
         const msg =
           err?.response?.data?.message ||
-          "This activation link is invalid, has expired (valid 24h), or has already been used.";
+          "This security link is invalid, has expired (valid 24h), or has already been used.";
         setVerifyError(msg);
       })
       .finally(() => {
@@ -108,12 +118,12 @@ export default function AccountActivationPage() {
       });
 
       setActivated(true);
-      setActivatedPortalUrl(res.loginPortalUrl || tokenData?.loginPortalUrl || "/");
-      toast.success("Account successfully activated! You may now sign in.");
+      setActivatedPortalUrl(res.loginPortalUrl || tokenData?.loginPortalUrl || tokenData?.portalUrl || "/");
+      toast.success(isReset ? "Password reset successfully! You may now sign in." : "Account successfully activated! You may now sign in.");
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
-        "Failed to activate account. The activation link may have expired or already been consumed.";
+        "Failed to update password. The link may have expired or already been consumed.";
       setSubmitError(msg);
       toast.error(msg);
     } finally {
@@ -160,7 +170,9 @@ export default function AccountActivationPage() {
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold text-gray-900">Activation Link Invalid</h2>
+            <h2 className="text-xl font-bold text-gray-900">
+              {isReset ? "Password Reset Link Invalid" : "Activation Link Invalid"}
+            </h2>
             <p className="text-xs text-gray-600 leading-relaxed">{verifyError}</p>
           </div>
 
@@ -219,11 +231,15 @@ export default function AccountActivationPage() {
 
           <div className="space-y-2">
             <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-              ACCOUNT ACTIVE & VERIFIED
+              {isReset ? "PASSWORD UPDATED" : "ACCOUNT ACTIVE & VERIFIED"}
             </span>
-            <h2 className="text-2xl font-bold text-gray-900">Welcome to Swayam Admission!</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {isReset ? "Password Reset Successfully!" : "Welcome to Swayam Admission!"}
+            </h2>
             <p className="text-xs text-gray-600">
-              Your official employee account has been successfully activated. Your email has been verified and your private password is set.
+              {isReset
+                ? "Your official employee password has been securely updated. All active sessions have been safely refreshed."
+                : "Your official employee account has been successfully activated. Your email has been verified and your private password is set."}
             </p>
           </div>
 
@@ -280,11 +296,15 @@ export default function AccountActivationPage() {
           </div>
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#4A7B5B]/10 text-[#4A7B5B]">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Secure Employee Account Activation</span>
+            <span>{isReset ? "Secure Password Reset" : "Secure Employee Account Activation"}</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Activate Your Account</h1>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isReset ? "Reset Your Account Password" : "Activate Your Account"}
+          </h1>
           <p className="text-xs text-gray-500">
-            Create your permanent confidential password to finalize setup and access your assigned portal.
+            {isReset
+              ? "Choose a strong confidential password to restore access to your assigned portal."
+              : "Create your permanent confidential password to finalize setup and access your assigned portal."}
           </p>
         </div>
 
@@ -426,11 +446,11 @@ export default function AccountActivationPage() {
             {submitting ? (
               <>
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Activating Account...</span>
+                <span>{isReset ? "Updating Password..." : "Activating Account..."}</span>
               </>
             ) : (
               <>
-                <span>Activate Account & Complete Setup</span>
+                <span>{isReset ? "Update Password & Sign In" : "Activate Account & Complete Setup"}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

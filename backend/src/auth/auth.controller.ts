@@ -251,6 +251,13 @@ export class AuthController {
     return this.authService.resetPassword(body.token, body.newPassword, req.ip);
   }
 
+  @Get('reset-password/verify')
+  @ApiOperation({ summary: 'Verify password reset token' })
+  @ApiResponse({ status: 200, description: 'Reset token verification result' })
+  verifyResetToken(@Query('token') token: string) {
+    return this.authService.verifyResetToken(token);
+  }
+
   @Post('first-login/send-otp')
   @HttpCode(HttpStatus.OK)
   @UseGuards(OptionalJwtAuthGuard)

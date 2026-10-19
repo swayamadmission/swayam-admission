@@ -15,8 +15,10 @@ import {
   buildWelcomeEmailHtml,
   buildEmployeeActivationEmailHtml,
   buildEmployeeActivationSuccessEmailHtml,
+  buildEmployeeAdminPasswordResetEmailHtml,
   EmployeeActivationEmailTemplateParams,
   EmployeeActivationSuccessTemplateParams,
+  EmployeePasswordResetEmailTemplateParams,
 } from './email-templates';
 
 export interface ChannelSendResult {
@@ -370,6 +372,39 @@ Login Portal: ${params.portalUrl || 'https://admin.swayamadmission.com'}`;
       {
         title: 'Account Activated Successfully — Swayam Admission',
         subject: 'Account Activated Successfully — Swayam Admission',
+        message: text,
+        emailHtml: html,
+        emailText: text,
+      },
+    );
+  }
+
+  /**
+   * Helper: Send secure single-use employee password reset link (admin-initiated)
+   * Never includes any plaintext temporary password.
+   */
+  async sendEmployeePasswordResetEmail(
+    params: EmployeePasswordResetEmailTemplateParams,
+  ): Promise<ChannelSendResult> {
+    const html = buildEmployeeAdminPasswordResetEmailHtml(params);
+    const text = `Dear ${params.employeeName},
+An authorized administrator has issued a secure password recovery request for your official Swayam Admission account (Employee ID: ${params.employeeId}).
+Please click the link below to configure your permanent password:
+${params.resetUrl}
+
+This single-use link is valid for ${params.expiryHours || 24} hours. For security reasons, no temporary password has been generated.
+Portal: ${params.portalUrl || 'https://admin.swayamadmission.com'}`;
+
+    return this.send(
+      {
+        id: params.employeeId,
+        name: params.employeeName,
+        email: params.officialEmail,
+        type: 'EMPLOYEE',
+      },
+      {
+        title: 'Password Recovery Request — Swayam Admission',
+        subject: `Password Recovery Request for Employee ID: ${params.employeeId} — Swayam Admission`,
         message: text,
         emailHtml: html,
         emailText: text,
