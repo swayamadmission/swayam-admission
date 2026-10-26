@@ -196,10 +196,10 @@ export class TemplateEngineService {
     counselorMobile: '+91 98765 43210',
     academicSession: '2026-2027',
     status: 'ADMISSION_APPROVED',
-    loginUrl: 'https://swayamadmission.in/login',
-    actionUrl: 'https://swayamadmission.in/dashboard',
+    loginUrl: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://swayam-admission.vercel.app/login',
+    actionUrl: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://swayam-admission.vercel.app/dashboard',
     rejectionReason: 'Document verification incomplete',
-    supportEmail: 'admissions@swayamadmission.in',
+    supportEmail: process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
     currentYear: '2026',
     requestId: 'DR-123456',
     deletionDate: '14/11/2026',
@@ -536,14 +536,7 @@ export class TemplateEngineService {
    * Seed default system communication templates if not present.
    */
   async seedDefaultTemplates() {
-    try {
-      const templateCount = await this.prisma.communicationTemplate.count();
-      if (templateCount >= 20) {
-        return;
-      }
-    } catch {
-      // safe fallback if db is initializing
-    }
+
 
     const defaults: CreateTemplateDto[] = [
       {

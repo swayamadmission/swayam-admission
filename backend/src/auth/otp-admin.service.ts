@@ -2,7 +2,8 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { ModuleRef } from '@nestjs/core';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateOtpConfigDto } from './dto/otp-config.dto';
-import { EmailChannel, WhatsAppChannel } from '../notifications/notification-channels.service';
+import { EmailChannel, WhatsAppChannel, SmsChannel } from '../notifications/notification-channels.service';
+import { DurableOutboxService } from '../notifications/durable-outbox.service';
 
 @Injectable()
 export class OtpAdminService {
@@ -33,10 +34,41 @@ export class OtpAdminService {
     return new WhatsAppChannel(this.prisma);
   }
 
-  async getConfig(channel: 'WHATSAPP' | 'EMAIL' | string) {
+  private getSmsChannel(): SmsChannel {
+    try {
+      const channel = this.moduleRef.get(SmsChannel, { strict: false });
+      if (channel) return channel;
+    } catch {
+      // safe fallback
+    }
+    return new SmsChannel(this.prisma);
+  }
+
+  private getDurableOutbox(): DurableOutboxService | null {
+    try {
+      return this.moduleRef.get(DurableOutboxService, { strict: false });
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveAuditUserId(userId?: string | null): Promise<string | null> {
+    if (!userId) return null;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true },
+      });
+      return user?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getConfig(channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | (string & {})) {
     const normalizedChannel = channel?.toUpperCase();
-    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL') {
-      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP or EMAIL');
+    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL' && normalizedChannel !== 'SMS') {
+      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP, EMAIL, or SMS');
     }
 
     let config = await this.prisma.otpConfiguration.findUnique({
@@ -48,7 +80,12 @@ export class OtpAdminService {
         data: {
           channel: normalizedChannel,
           enabled: false,
-          provider: normalizedChannel === 'WHATSAPP' ? 'Meta Cloud API' : 'SMTP',
+          provider:
+            normalizedChannel === 'WHATSAPP'
+              ? 'Meta Cloud API'
+              : normalizedChannel === 'SMS'
+              ? 'Fast2SMS'
+              : 'SMTP',
           expirySeconds: 300,
           maxAttempts: 5,
           resendCooldownSec: 30,
@@ -65,10 +102,21 @@ export class OtpAdminService {
 
     // Ensure fallback mappings so frontend receives consistent field names
     maskedConfig.providerUrl = config.providerUrl || config.apiHost || '';
+    maskedConfig.apiHost =
+      config.apiHost ||
+      config.providerUrl ||
+      (normalizedChannel === 'EMAIL'
+        ? 'smtp.gmail.com'
+        : normalizedChannel === 'SMS'
+        ? 'https://www.fast2sms.com/dev/bulkV2'
+        : '');
+    maskedConfig.apiPort = config.apiPort || (normalizedChannel === 'EMAIL' ? 587 : 443);
+    maskedConfig.apiUser = config.apiUser || (normalizedChannel === 'EMAIL' ? config.fromEmail : config.senderId) || '';
+    maskedConfig.fromEmail =
+      config.fromEmail || (normalizedChannel === 'EMAIL' ? config.senderId || 'swayamadmissions@gmail.com' : '');
+    maskedConfig.fromName = config.fromName || 'Swayam Admission';
     maskedConfig.senderId =
-      config.senderId ||
-      (normalizedChannel === 'EMAIL' ? config.fromEmail : config.phoneNumberId) ||
-      '';
+      config.senderId || (normalizedChannel === 'EMAIL' ? config.fromEmail : config.phoneNumberId) || '';
     maskedConfig.templateId = config.templateId || config.templateName || '';
 
     return maskedConfig;
@@ -76,13 +124,13 @@ export class OtpAdminService {
 
   async updateConfig(
     adminUserId: string,
-    channel: 'WHATSAPP' | 'EMAIL' | string,
+    channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | (string & {}),
     dto: UpdateOtpConfigDto,
     ipAddress?: string,
   ) {
     const normalizedChannel = channel?.toUpperCase();
-    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL') {
-      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP or EMAIL');
+    if (normalizedChannel !== 'WHATSAPP' && normalizedChannel !== 'EMAIL' && normalizedChannel !== 'SMS') {
+      throw new BadRequestException('Invalid OTP channel: must be WHATSAPP, EMAIL, or SMS');
     }
 
     // Ensure existing configuration record exists
@@ -168,10 +216,12 @@ export class OtpAdminService {
     if (dto.templateLanguage !== undefined) dataToUpdate.templateLanguage = dto.templateLanguage;
 
     // 7. SECURE CREDENTIALS HANDLING:
-    // Never overwrite existing secrets if input is masked ('********') or blank/empty
+    // Never overwrite existing secrets if input is masked ('********' or contains '•') or blank/empty
     if (
       dto.apiKey !== undefined &&
       dto.apiKey !== '********' &&
+      !dto.apiKey.includes('•') &&
+      !dto.apiKey.includes('*') &&
       dto.apiKey.trim().length > 0
     ) {
       dataToUpdate.apiKey = dto.apiKey.trim();
@@ -180,6 +230,8 @@ export class OtpAdminService {
     if (
       dto.apiPassword !== undefined &&
       dto.apiPassword !== '********' &&
+      !dto.apiPassword.includes('•') &&
+      !dto.apiPassword.includes('*') &&
       dto.apiPassword.trim().length > 0
     ) {
       dataToUpdate.apiPassword = dto.apiPassword.trim();
@@ -264,10 +316,11 @@ export class OtpAdminService {
     const isSuccess = Boolean(res?.success);
 
     // Audit log
+    const auditUserId = await this.resolveAuditUserId(adminUserId);
     try {
       await this.prisma.auditLog.create({
         data: {
-          userId: adminUserId || null,
+          userId: auditUserId,
           action: 'WHATSAPP_OTP_TESTED',
           description: `Tested WhatsApp OTP delivery to ${cleanMobile}`,
           module: 'AUTH_OTP',
@@ -306,8 +359,10 @@ export class OtpAdminService {
       throw new BadRequestException('Email OTP is currently disabled. Please enable it and save settings first.');
     }
 
-    if (!config.provider && !config.providerUrl && !config.apiHost && !config.apiKey) {
-      throw new BadRequestException('Email provider is not configured. Please enter provider details and save.');
+    const hasEnvSmtp = Boolean(process.env.SMTP_USER && (process.env.SMTP_PASSWORD || process.env.SMTP_PASS));
+    const hasDbSmtp = Boolean(config.apiHost || config.providerUrl || config.apiUser || config.apiKey);
+    if (!hasEnvSmtp && !hasDbSmtp) {
+      throw new BadRequestException('Email provider is not configured. Please enter SMTP settings or configure SMTP_USER in environment.');
     }
 
     const emailChannel = this.getEmailChannel();
@@ -335,10 +390,11 @@ export class OtpAdminService {
     const isSuccess = Boolean(res?.success);
 
     // Audit log
+    const auditUserId = await this.resolveAuditUserId(adminUserId);
     try {
       await this.prisma.auditLog.create({
         data: {
-          userId: adminUserId || null,
+          userId: auditUserId,
           action: 'EMAIL_OTP_TESTED',
           description: `Tested Email OTP delivery to ${cleanEmail}`,
           module: 'AUTH_OTP',
@@ -359,14 +415,110 @@ export class OtpAdminService {
     return { success: true, message: 'Email OTP test sent successfully.' };
   }
 
+  async testSmsConfig(adminUserId: string, testMobile: string) {
+    if (!testMobile || typeof testMobile !== 'string') {
+      throw new BadRequestException('Recipient mobile number is required.');
+    }
+
+    const cleanMobile = testMobile.trim().replace(/[^\d+]/g, '');
+    if (cleanMobile.length < 10) {
+      throw new BadRequestException('A valid recipient mobile number (10+ digits) is required.');
+    }
+
+    const smsChannel = this.getSmsChannel();
+    const health = await smsChannel.getHealth();
+
+    if (health.status === 'UNCONFIGURED') {
+      throw new BadRequestException(
+        'SMS provider is not configured. Please configure Fast2SMS settings or environment variables.',
+      );
+    }
+
+    const testPayload = {
+      title: 'SMS OTP Test',
+      message: 'This is a test of the Swayam Admission SMS OTP delivery system.',
+      smsBody: 'Your test OTP code is 123456 (Valid for 5 minutes).',
+    };
+
+    let res: any;
+    try {
+      res = await smsChannel.send(
+        { id: adminUserId || 'admin-test', name: 'Admin', mobile: cleanMobile, type: 'ADMIN' },
+        testPayload,
+      );
+    } catch (err: any) {
+      res = {
+        success: false,
+        errorMessage: err.message || 'SMS dispatch failed',
+      };
+    }
+
+    const isSuccess = Boolean(res?.success);
+
+    // Audit log
+    const auditUserId = await this.resolveAuditUserId(adminUserId);
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: auditUserId,
+          action: 'SMS_OTP_TESTED',
+          description: `Tested SMS OTP delivery to ${cleanMobile.slice(0, 3)}****${cleanMobile.slice(-4)}`,
+          module: 'AUTH_OTP',
+          severity: 'INFO',
+          status: isSuccess ? 'SUCCESS' : 'FAILED',
+          changes: { success: isSuccess, error: res?.errorMessage || res?.failureReason },
+        },
+      });
+    } catch (auditErr: any) {
+      this.logger.warn(`Failed to audit SMS OTP test: ${auditErr?.message}`);
+    }
+
+    if (!isSuccess) {
+      const errorMsg =
+        res?.errorMessage ||
+        res?.failureReason ||
+        'Failed to send SMS OTP. Please verify provider settings.';
+      return { success: false, message: errorMsg };
+    }
+
+    return { success: true, message: 'SMS OTP test sent successfully.' };
+  }
+
   async getDashboardStats() {
     const whatsapp = await this.getConfig('WHATSAPP');
     const email = await this.getConfig('EMAIL');
+    let sms: any = null;
+    try {
+      sms = await this.getConfig('SMS');
+    } catch {
+      // safe fallback
+    }
+
+    const emailChannel = this.getEmailChannel();
+    const whatsappChannel = this.getWhatsAppChannel();
+    const smsChannel = this.getSmsChannel();
+
+    const [emailHealth, whatsappHealth, smsHealth] = await Promise.all([
+      emailChannel.getHealth(),
+      whatsappChannel.getHealth(),
+      smsChannel.getHealth(),
+    ]);
+
+    let outboxMetrics: any = null;
+    const outbox = this.getDurableOutbox();
+    if (outbox) {
+      try {
+        outboxMetrics = await outbox.getOutboxMetrics();
+      } catch (e: any) {
+        this.logger.warn(`Failed to fetch outbox metrics: ${e?.message}`);
+      }
+    }
 
     return {
       whatsapp: {
         enabled: whatsapp.enabled,
         provider: whatsapp.provider || 'Meta Cloud API',
+        health: whatsappHealth,
         expirySeconds: whatsapp.expirySeconds,
         maxAttempts: whatsapp.maxAttempts,
         resendCooldownSec: whatsapp.resendCooldownSec,
@@ -376,12 +528,89 @@ export class OtpAdminService {
       email: {
         enabled: email.enabled,
         provider: email.provider || 'SMTP',
+        health: emailHealth,
         expirySeconds: email.expirySeconds,
         maxAttempts: email.maxAttempts,
         resendCooldownSec: email.resendCooldownSec,
         rateLimitWindowSec: email.rateLimitWindowSec,
         lastUpdated: email.updatedAt,
       },
+      sms: sms
+        ? {
+            enabled: sms.enabled,
+            provider: sms.provider || 'Fast2SMS',
+            health: smsHealth,
+            expirySeconds: sms.expirySeconds,
+            maxAttempts: sms.maxAttempts,
+            resendCooldownSec: sms.resendCooldownSec,
+            rateLimitWindowSec: sms.rateLimitWindowSec,
+            lastUpdated: sms.updatedAt,
+          }
+        : undefined,
+      outbox: outboxMetrics,
+    };
+  }
+
+  async getDeliveryStats() {
+    let outboxMetrics: any = null;
+    const outbox = this.getDurableOutbox();
+    if (outbox) {
+      try {
+        outboxMetrics = await outbox.getOutboxMetrics();
+      } catch (e: any) {
+        this.logger.warn(`Failed to fetch outbox metrics: ${e?.message}`);
+      }
+    }
+
+    const recentDeliveries = await this.prisma.communicationDelivery.findMany({
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        channel: true,
+        recipientType: true,
+        recipientName: true,
+        recipientEmail: true,
+        recipientMobile: true,
+        status: true,
+        providerMessageId: true,
+        errorMessage: true,
+        failureReason: true,
+        retryCount: true,
+        queuedAt: true,
+        sentAt: true,
+        deliveredAt: true,
+        failedAt: true,
+        createdAt: true,
+      },
+    });
+
+    const maskEmail = (email?: string | null) => {
+      if (!email) return null;
+      const parts = email.split('@');
+      if (parts.length !== 2) return '***';
+      const name = parts[0];
+      const domain = parts[1];
+      if (name.length <= 2) return `*@${domain}`;
+      return `${name[0]}***${name[name.length - 1]}@${domain}`;
+    };
+
+    const maskPhone = (phone?: string | null) => {
+      if (!phone) return null;
+      const clean = phone.trim();
+      if (clean.length <= 4) return '****';
+      return `${clean.slice(0, 3)}****${clean.slice(-4)}`;
+    };
+
+    const sanitizedDeliveries = recentDeliveries.map((d) => ({
+      ...d,
+      recipientEmail: maskEmail(d.recipientEmail),
+      recipientMobile: maskPhone(d.recipientMobile),
+    }));
+
+    return {
+      outboxMetrics,
+      recentDeliveries: sanitizedDeliveries,
     };
   }
 }

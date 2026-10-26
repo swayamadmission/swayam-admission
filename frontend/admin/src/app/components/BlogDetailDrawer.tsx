@@ -47,7 +47,7 @@ export default function BlogDetailDrawer({ blogId, onClose, onEdit }: BlogDetail
             "@type": "BlogPosting",
             headline: blog.seoTitle || blog.title,
             description: blog.seoDescription || blog.excerpt,
-            url: `https://swayamadmission.org/blog/${blog.slug}`,
+            url: `https://swayam-admission.vercel.app/blog/${blog.slug}`,
             datePublished: blog.publishedAt || blog.createdAt,
             author: { "@type": "Person", name: blog.author?.fullName || "Editorial Team" },
           },
@@ -293,7 +293,7 @@ export default function BlogDetailDrawer({ blogId, onClose, onEdit }: BlogDetail
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
                   <div className="text-gray-400 font-medium mb-1">Canonical URL</div>
-                  <div className="text-blue-600 truncate">{blog.canonicalUrl || `https://swayamadmission.org/blog/${blog.slug}`}</div>
+                  <div className="text-blue-600 truncate">{blog.canonicalUrl || `https://swayam-admission.vercel.app/blog/${blog.slug}`}</div>
                 </div>
               </div>
             )}

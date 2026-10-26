@@ -40,8 +40,8 @@ export class SettingsService implements OnModuleInit {
             id: 'default_system_setting',
             platformName: 'Swayam Admission',
             tagline: 'Swayam Admission jo dein Desh ki Shiksha.',
-            websiteUrl: 'https://swayamadmission.in',
-            supportEmail: 'support@swayamadmission.in',
+            websiteUrl: process.env.FRONTEND_URL || 'https://swayam-admission.vercel.app',
+            supportEmail: process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
             supportPhone: '+91 1800 000 0000',
             whatsappPhone: '+91 9876543210',
           },
@@ -286,11 +286,11 @@ export class SettingsService implements OnModuleInit {
       primaryAudience:
         system?.primaryAudience ||
         'Students seeking admission guidance across India.',
-      websiteUrl: system?.websiteUrl || 'https://www.swayamadmission.com/',
-      generalEmail: system?.generalEmail || 'swayamadmissions@gmail.com',
+      websiteUrl: system?.websiteUrl || process.env.FRONTEND_URL || 'https://swayam-admission.vercel.app',
+      generalEmail: system?.generalEmail || process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
       admissionEmail:
         system?.admissionEmail || 'getadmission@swayamadmission.com',
-      supportEmail: system?.supportEmail || 'support@swayamadmision.com',
+      supportEmail: system?.supportEmail || process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
       supportPhone: system?.supportPhone || '6284308664',
       contactNumber1: system?.supportPhone || '6284308664',
       contactNumber2: system?.contactNumber2 || '6399102731',
@@ -418,11 +418,11 @@ export class SettingsService implements OnModuleInit {
       generalEmail: system?.generalEmail || 'swayamadmissions@gmail.com',
       admissionEmail:
         system?.admissionEmail || 'getadmission@swayamadmission.com',
-      supportEmail: system?.supportEmail || 'support@swayamadmision.com',
+      supportEmail: system?.supportEmail || process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
       contactNumber1: system?.supportPhone || '6284308664',
       contactNumber2: system?.contactNumber2 || '6399102731',
       whatsappNumber: system?.whatsappPhone || '6284308664',
-      websiteUrl: system?.websiteUrl || 'https://www.swayamadmission.com/',
+      websiteUrl: system?.websiteUrl || process.env.FRONTEND_URL || 'https://swayam-admission.vercel.app',
       instagramUrl:
         system?.instagramUrl || 'https://www.instagram.com/swayamadmission',
       facebookUrl:

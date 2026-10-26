@@ -2,11 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
   UnauthorizedException,
+  forwardRef,
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,7 +48,12 @@ const bcryptLib = bcrypt as unknown as {
 import { JwtService } from '@nestjs/jwt';
 import { IdGeneratorService } from '../common/id-generator.service';
 import { ConsentService } from '../legal/consent.service';
-import { EmailChannel } from '../notifications/notification-channels.service';
+import {
+  EmailChannel,
+  SmsChannel,
+  WhatsAppChannel,
+} from '../notifications/notification-channels.service';
+import { DurableOutboxService } from '../notifications/durable-outbox.service';
 import {
   buildOtpEmailHtml,
   buildForgotPasswordOtpEmailHtml,
@@ -65,11 +72,31 @@ export class AuthService {
     private idGenerator: IdGeneratorService,
     private consentService: ConsentService,
     @Optional() private readonly emailChannel?: EmailChannel,
+    @Optional()
+    @Inject(forwardRef(() => DurableOutboxService))
+    private readonly durableOutbox?: DurableOutboxService,
   ) {}
+
+  private getDurableOutbox(): DurableOutboxService | null {
+    if (this.durableOutbox) return this.durableOutbox;
+    return null;
+  }
 
   private getEmailChannel(): EmailChannel {
     if (this.emailChannel) return this.emailChannel;
     return new EmailChannel(this.prisma);
+  }
+
+  private shouldExposeDevSecret(): boolean {
+    if (
+      process.env.NODE_ENV === 'production' ||
+      process.env.RENDER ||
+      process.env.RENDER_SERVICE_ID ||
+      process.env.VERCEL
+    ) {
+      return false;
+    }
+    return process.env.ENABLE_DEV_OTP === 'true';
   }
 
   /**
@@ -357,7 +384,7 @@ export class AuthService {
       message: `OTP sent successfully to ${normalizedMobile.slice(0, 3)} ******${normalizedMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
-      devOtp: rawOtp,
+      ...(this.shouldExposeDevSecret() ? { devOtp: rawOtp } : {}),
     };
   }
 
@@ -958,29 +985,49 @@ export class AuthService {
     });
 
     // Dispatch branded Welcome Email for new students registering via Google
-    if (isNewUser && user.email && this.emailChannel) {
-      try {
-        await this.emailChannel.send(
-          {
-            id: user.id,
-            name: user.fullName,
-            email: user.email,
-            type: 'STUDENT',
-          },
-          {
-            title: 'Welcome to Swayam Admission',
-            subject: 'Welcome to Swayam Admission — Your Journey Begins!',
-            message: `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been created successfully via Google Sign-In.\n\nBest regards,\nSwayam Admission Team`,
-            emailHtml: buildWelcomeEmailHtml({
-              greetingName: user.fullName,
+    if (isNewUser && user.email) {
+      const outbox = this.getDurableOutbox();
+      const welcomeSubject = 'Welcome to Swayam Admission — Your Journey Begins!';
+      const welcomeMessage = `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been created successfully via Google Sign-In.\n\nBest regards,\nSwayam Admission Team`;
+      const welcomeHtml = buildWelcomeEmailHtml({
+        greetingName: user.fullName,
+        email: user.email,
+      });
+
+      if (outbox) {
+        await outbox.enqueueEmail({
+          recipientEmail: user.email,
+          recipientName: user.fullName,
+          recipientId: user.id,
+          recipientType: 'STUDENT',
+          title: 'Welcome to Swayam Admission',
+          subject: welcomeSubject,
+          message: welcomeMessage,
+          html: welcomeHtml,
+          text: welcomeMessage,
+          metadata: { purpose: 'GOOGLE_SIGNIN_WELCOME' },
+        });
+      } else if (this.emailChannel) {
+        try {
+          await this.emailChannel.send(
+            {
+              id: user.id,
+              name: user.fullName,
               email: user.email,
-            }),
-          },
-        );
-      } catch (mailErr: any) {
-        this.logger.warn(
-          `Failed to dispatch welcome email: ${mailErr?.message}`,
-        );
+              type: 'STUDENT',
+            },
+            {
+              title: 'Welcome to Swayam Admission',
+              subject: welcomeSubject,
+              message: welcomeMessage,
+              emailHtml: welcomeHtml,
+            },
+          );
+        } catch (mailErr: any) {
+          this.logger.warn(
+            `Failed to dispatch welcome email: ${mailErr?.message}`,
+          );
+        }
       }
     }
 
@@ -1131,7 +1178,7 @@ export class AuthService {
       message: `OTP sent successfully to ${normalizedMobile.slice(0, 3)} ******${normalizedMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
-      devOtp: rawOtp,
+      ...(this.shouldExposeDevSecret() ? { devOtp: rawOtp } : {}),
     };
   }
 
@@ -1326,8 +1373,27 @@ export class AuthService {
       ipAddress,
     });
 
-    // Dispatch branded OTP Email via Nodemailer
-    if (this.emailChannel) {
+    // Dispatch branded OTP Email via Durable Outbox (with fallback to direct channel)
+    const outbox = this.getDurableOutbox();
+    const emailSubject = `Your Verification Code for Swayam Admission (${rawOtp})`;
+    const emailMessage = `Your one-time verification code for Swayam Admission registration is: ${rawOtp}. Valid for 5 minutes.`;
+    const emailHtml = buildOtpEmailHtml({
+      otp: rawOtp,
+      title: 'Welcome to Swayam Admission',
+      greetingName: 'Student',
+      purpose: 'creating your Swayam Admission student account',
+      expiryMinutes: 5,
+    });
+
+    if (outbox) {
+      await outbox.enqueueEmail({
+        recipientEmail: email,
+        recipientName: 'Student',
+        subject: emailSubject,
+        bodyText: emailMessage,
+        bodyHtml: emailHtml,
+      });
+    } else if (this.emailChannel) {
       try {
         await this.emailChannel.send(
           {
@@ -1338,15 +1404,9 @@ export class AuthService {
           },
           {
             title: 'Swayam Admission — Registration Verification Code',
-            subject: `Your Verification Code for Swayam Admission (${rawOtp})`,
-            message: `Your one-time verification code for Swayam Admission registration is: ${rawOtp}. Valid for 5 minutes.`,
-            emailHtml: buildOtpEmailHtml({
-              otp: rawOtp,
-              title: 'Welcome to Swayam Admission',
-              greetingName: 'Student',
-              purpose: 'creating your Swayam Admission student account',
-              expiryMinutes: 5,
-            }),
+            subject: emailSubject,
+            message: emailMessage,
+            emailHtml,
           },
         );
       } catch (mailErr: any) {
@@ -1635,7 +1695,8 @@ export class AuthService {
           isActive: true,
           status: 'ACTIVE',
           phoneVerified: true,
-          emailVerified: !!email,
+          emailVerified: false,
+          emailVerifiedAt: null,
           state: dto.state.trim(),
           city: dto.district.trim(),
           studentId,
@@ -1707,30 +1768,50 @@ export class AuthService {
       ipAddress,
     });
 
-    // Dispatch branded Welcome Email via Nodemailer
-    if (user.email && this.emailChannel) {
-      try {
-        await this.emailChannel.send(
-          {
-            id: user.id,
-            name: user.fullName,
-            email: user.email,
-            type: 'STUDENT',
-          },
-          {
-            title: 'Welcome to Swayam Admission',
-            subject: 'Welcome to Swayam Admission — Your Journey Begins!',
-            message: `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been registered successfully.\n\nBest regards,\nSwayam Admission Team`,
-            emailHtml: buildWelcomeEmailHtml({
-              greetingName: user.fullName,
+    // Dispatch branded Welcome Email via Durable Outbox (with fallback to direct channel)
+    if (user.email) {
+      const outbox = this.getDurableOutbox();
+      const welcomeSubject = 'Welcome to Swayam Admission — Your Journey Begins!';
+      const welcomeMessage = `Dear ${user.fullName},\n\nWelcome to Swayam Admission! Your student account has been registered successfully.\n\nBest regards,\nSwayam Admission Team`;
+      const welcomeHtml = buildWelcomeEmailHtml({
+        greetingName: user.fullName,
+        email: user.email,
+      });
+
+      if (outbox) {
+        await outbox.enqueueEmail({
+          recipientEmail: user.email,
+          recipientName: user.fullName,
+          recipientId: user.id,
+          recipientType: 'STUDENT',
+          title: 'Welcome to Swayam Admission',
+          subject: welcomeSubject,
+          message: welcomeMessage,
+          html: welcomeHtml,
+          text: welcomeMessage,
+          metadata: { purpose: 'STUDENT_REGISTRATION_WELCOME' },
+        });
+      } else if (this.emailChannel) {
+        try {
+          await this.emailChannel.send(
+            {
+              id: user.id,
+              name: user.fullName,
               email: user.email,
-            }),
-          },
-        );
-      } catch (mailErr: any) {
-        this.logger.warn(
-          `Failed to dispatch welcome email to ${user.email}: ${mailErr?.message}`,
-        );
+              type: 'STUDENT',
+            },
+            {
+              title: 'Welcome to Swayam Admission',
+              subject: welcomeSubject,
+              message: welcomeMessage,
+              emailHtml: welcomeHtml,
+            },
+          );
+        } catch (mailErr: any) {
+          this.logger.warn(
+            `Failed to dispatch welcome email to ${user.email}: ${mailErr?.message}`,
+          );
+        }
       }
     }
 
@@ -2112,6 +2193,19 @@ export class AuthService {
       targetUser = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!targetUser) throw new NotFoundException('User not found');
       targetEmail = rawEmail ? this.normalizeEmail(rawEmail) : targetUser.email;
+
+      // Uniqueness check: prevent cross-account collision or takeover
+      const conflict = await this.prisma.user.findFirst({
+        where: {
+          id: { not: userId },
+          OR: [{ email: targetEmail }, { personalEmail: targetEmail }],
+        },
+      });
+      if (conflict) {
+        throw new ConflictException(
+          'This email address is already registered to another account.',
+        );
+      }
     } else if (rawEmail) {
       targetEmail = this.normalizeEmail(rawEmail);
       targetUser = await this.prisma.user.findFirst({
@@ -2184,8 +2278,32 @@ export class AuthService {
       ipAddress,
     });
 
-    // Dispatch branded Email verification code via Nodemailer
-    if (this.emailChannel) {
+    // Dispatch branded Email verification code via Durable Outbox (with fallback to direct channel)
+    const verificationSubject = `Your Verification Code for Swayam Admission (${rawCode})`;
+    const verificationText = `Your verification code is: ${rawCode}. Valid for 15 minutes.`;
+    const verificationHtml = buildOtpEmailHtml({
+      otp: rawCode,
+      title: 'Email Address Verification',
+      greetingName: targetUser?.fullName || 'Student',
+      purpose: 'verifying your email address on Swayam Admission',
+      expiryMinutes: 15,
+    });
+
+    const outbox = this.getDurableOutbox();
+    if (outbox) {
+      await outbox.enqueueEmail({
+        recipientEmail: targetEmail,
+        recipientName: targetUser?.fullName || 'Student',
+        recipientId: targetUser?.id || targetEmail,
+        recipientType: targetUser?.role || 'STUDENT',
+        title: 'Swayam Admission — Verify Your Email Address',
+        subject: verificationSubject,
+        message: verificationText,
+        html: verificationHtml,
+        text: verificationText,
+        metadata: { purpose: 'EMAIL_VERIFICATION' },
+      });
+    } else if (this.emailChannel) {
       try {
         await this.emailChannel.send(
           {
@@ -2196,15 +2314,9 @@ export class AuthService {
           },
           {
             title: 'Swayam Admission — Verify Your Email Address',
-            subject: `Your Verification Code for Swayam Admission (${rawCode})`,
-            message: `Your verification code is: ${rawCode}. Valid for 15 minutes.`,
-            emailHtml: buildOtpEmailHtml({
-              otp: rawCode,
-              title: 'Email Address Verification',
-              greetingName: targetUser?.fullName || 'Student',
-              purpose: 'verifying your email address on Swayam Admission',
-              expiryMinutes: 15,
-            }),
+            subject: verificationSubject,
+            message: verificationText,
+            emailHtml: verificationHtml,
           },
         );
       } catch (mailErr: any) {
@@ -2219,7 +2331,7 @@ export class AuthService {
       message: `Verification code sent to ${targetEmail}. Valid for 15 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 900,
-      devCode: rawCode,
+      ...(this.shouldExposeDevSecret() ? { devCode: rawCode } : {}),
     };
   }
 
@@ -2316,6 +2428,19 @@ export class AuthService {
         });
 
     if (userToUpdate) {
+      // Uniqueness check: ensure targetEmail is not claimed by another account
+      const collision = await this.prisma.user.findFirst({
+        where: {
+          id: { not: userToUpdate.id },
+          OR: [{ email: targetEmail }, { personalEmail: targetEmail }],
+        },
+      });
+      if (collision) {
+        throw new ConflictException(
+          'This email address is already registered to another account.',
+        );
+      }
+
       await this.prisma.user.update({
         where: { id: userToUpdate.id },
         data: {
@@ -2552,6 +2677,77 @@ export class AuthService {
       ipAddress,
     });
 
+    // Send single-use reset link email via centralized SMTP service
+    const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(user.role as Role);
+    const resetBaseUrl = isProtectedRole
+      ? (process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app')
+      : (process.env.FRONTEND_URL || process.env.FRONTEND_USER_URL || 'https://swayam-admission.vercel.app');
+    const resetUrl = `${resetBaseUrl}/reset-password?token=${rawToken}`;
+
+    const resetHtml = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h2 style="color: #1e3a8a; margin-top: 0; margin-bottom: 16px;">Reset Your Password</h2>
+        <p style="color: #374151; font-size: 15px;">Hello <strong>${user.fullName}</strong>,</p>
+        <p style="color: #374151; font-size: 15px;">We received a request to reset the password for your Swayam Admission account.</p>
+        <div style="margin: 28px 0; text-align: center;">
+          <a href="${resetUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">
+            Reset Password
+          </a>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">This link will expire in <strong>1 hour</strong> and can only be used once.</p>
+        <p style="color: #6b7280; font-size: 14px;">If the button above does not work, copy and paste this URL into your browser:</p>
+        <p style="word-break: break-all; font-size: 12px; color: #3b82f6;">${resetUrl}</p>
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">If you did not request a password reset, you can safely ignore this email. Your account remains secure.</p>
+      </div>
+    `.trim();
+    const resetText = `Hello ${user.fullName},\n\nA password reset request was received for your Swayam Admission account.\n\nClick the link below to set a new password:\n${resetUrl}\n\nThis link is single-use and will expire in 1 hour.\n\nIf you did not make this request, you can safely ignore this email.`;
+
+    const outbox = this.getDurableOutbox();
+    if (outbox) {
+      await outbox.enqueueEmail({
+        recipientEmail: email,
+        recipientName: user.fullName,
+        recipientId: user.id,
+        recipientType: user.role,
+        title: 'Reset Your Swayam Admission Password',
+        subject: 'Reset Your Swayam Admission Password',
+        message: resetText,
+        html: resetHtml,
+        text: resetText,
+        metadata: {
+          purpose: 'PASSWORD_RESET',
+          resetUrl,
+        },
+      });
+    } else {
+      const channel = this.getEmailChannel();
+      if (channel) {
+        setImmediate(() => {
+          void (async () => {
+            try {
+              await channel.send(
+                {
+                  id: user.id,
+                  name: user.fullName,
+                  email,
+                  type: user.role,
+                },
+                {
+                  title: 'Reset Your Swayam Admission Password',
+                  subject: 'Reset Your Swayam Admission Password',
+                  message: resetText,
+                  emailHtml: resetHtml,
+                },
+              );
+            } catch (mailErr: any) {
+              this.logger.warn(`Failed sending password reset email to ${email}: ${mailErr?.message}`);
+            }
+          })();
+        });
+      }
+    }
+
     return genericResponse;
   }
 
@@ -2617,30 +2813,50 @@ export class AuthService {
       ipAddress,
     });
 
-    // Dispatch password reset confirmation email via Nodemailer
+    // Dispatch password reset confirmation email via Durable Outbox (with fallback to direct channel)
     const targetEmail = user.personalEmail || user.email;
-    if (targetEmail && this.emailChannel) {
-      try {
-        await this.emailChannel.send(
-          {
-            id: user.id,
-            name: user.fullName || 'User',
-            email: targetEmail,
-            type: user.role || 'USER',
-          },
-          {
-            title: 'Swayam Admission — Password Changed',
-            subject: 'Security Alert: Your Swayam Admission Password Was Changed',
-            message: `Dear ${user.fullName || 'User'},\n\nYour password for Swayam Admission has been reset successfully. If you did not make this change, please contact support immediately.`,
-            emailHtml: buildPasswordResetSuccessEmailHtml({
-              greetingName: user.fullName || 'User',
-            }),
-          },
-        );
-      } catch (mailErr: any) {
-        this.logger.warn(
-          `Failed to dispatch password reset confirmation to ${targetEmail}: ${mailErr?.message}`,
-        );
+    if (targetEmail) {
+      const resetSubject = 'Security Alert: Your Swayam Admission Password Was Changed';
+      const resetMsg = `Dear ${user.fullName || 'User'},\n\nYour password for Swayam Admission has been reset successfully. If you did not make this change, please contact support immediately.`;
+      const resetHtml = buildPasswordResetSuccessEmailHtml({
+        greetingName: user.fullName || 'User',
+      });
+
+      const outbox = this.getDurableOutbox();
+      if (outbox) {
+        await outbox.enqueueEmail({
+          recipientEmail: targetEmail,
+          recipientName: user.fullName || 'User',
+          recipientId: user.id,
+          recipientType: user.role || 'USER',
+          title: 'Swayam Admission — Password Changed',
+          subject: resetSubject,
+          message: resetMsg,
+          html: resetHtml,
+          text: resetMsg,
+          metadata: { purpose: 'PASSWORD_RESET_CONFIRMATION' },
+        });
+      } else if (this.emailChannel) {
+        try {
+          await this.emailChannel.send(
+            {
+              id: user.id,
+              name: user.fullName || 'User',
+              email: targetEmail,
+              type: user.role || 'USER',
+            },
+            {
+              title: 'Swayam Admission — Password Changed',
+              subject: resetSubject,
+              message: resetMsg,
+              emailHtml: resetHtml,
+            },
+          );
+        } catch (mailErr: any) {
+          this.logger.warn(
+            `Failed to dispatch password reset confirmation to ${targetEmail}: ${mailErr?.message}`,
+          );
+        }
       }
     }
 
@@ -2852,14 +3068,51 @@ export class AuthService {
     dto: ForgotPasswordSendOtpDto,
     ipAddress?: string,
   ) {
-    const method = dto.method || 'EMAIL';
-    const isMobile = method === 'MOBILE';
+    const rawMethod = (dto.method || (dto as any).channel || 'EMAIL').toUpperCase();
+    const isMobile = rawMethod === 'MOBILE' || rawMethod === 'WHATSAPP' || rawMethod === 'SMS';
+    const method = isMobile ? 'MOBILE' : 'EMAIL';
     const rawIdentifier = (dto.identifier || dto.email || '').trim();
 
     if (!rawIdentifier) {
       throw new BadRequestException(
         'Please enter your Employee ID or registered personal email address.',
       );
+    }
+
+    // Check if mobile delivery provider is genuinely configured before proceeding
+    if (isMobile) {
+      const waConfig = await this.prisma.otpConfiguration
+        .findUnique({ where: { channel: 'WHATSAPP' } })
+        .catch(() => null);
+      const smsConfig = await this.prisma.otpConfiguration
+        .findUnique({ where: { channel: 'SMS' } })
+        .catch(() => null);
+
+      const isWaConfigured =
+        waConfig?.enabled === true &&
+        !!(waConfig?.apiKey || process.env.WHATSAPP_ACCESS_TOKEN) &&
+        !!(waConfig?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID);
+
+      const isSmsConfigured =
+        smsConfig?.enabled === true &&
+        !!(smsConfig?.apiKey || process.env.SMS_API_KEY || process.env.FAST2SMS_API_KEY);
+
+      const requestedChannel = ((dto as any).channel || '').toUpperCase();
+      if (requestedChannel === 'WHATSAPP' && !isWaConfigured) {
+        throw new BadRequestException(
+          'WhatsApp password recovery is currently unavailable because Meta WhatsApp Cloud API is not configured. Please use your registered personal email address for password recovery.',
+        );
+      }
+      if (requestedChannel === 'SMS' && !isSmsConfigured) {
+        throw new BadRequestException(
+          'SMS password recovery is currently unavailable because SMS provider is not configured. Please use your registered personal email address for password recovery.',
+        );
+      }
+      if (!isWaConfigured && !isSmsConfigured) {
+        throw new BadRequestException(
+          'Mobile password recovery is currently unavailable because no SMS or WhatsApp provider is configured. Please use your registered personal email address for password recovery.',
+        );
+      }
     }
 
     // Load dynamic policies from OtpConfiguration if present
@@ -3040,54 +3293,113 @@ export class AuthService {
       ipAddress,
     });
 
-    // 5. Dispatch branded email via centralized SMTP service
+    // 5. Dispatch OTP via durable outbox (email) or real configured provider (mobile)
     let emailDelivered = false;
     let deliveryError: string | undefined;
 
-    if (!isMobile && this.emailChannel) {
-      try {
-        const mailRes = await this.emailChannel.send(
-          {
-            id: user.id,
-            name: user.fullName || 'Employee',
-            email: normalizedTarget,
-            type: user.role || 'EMPLOYEE',
+    if (!isMobile) {
+      const otpEmailHtml = buildForgotPasswordOtpEmailHtml({
+        otp: rawOtp,
+        greetingName: user.fullName || 'Employee',
+        expiryMinutes: Math.round(expirySeconds / 60),
+      });
+      const otpEmailText = `Dear ${user.fullName || 'Employee'},\n\nYour 6-digit password recovery code is: ${rawOtp}.\nValid for ${Math.round(expirySeconds / 60)} minutes. If you did not make this request, please contact IT administration immediately.`;
+
+      const outbox = this.getDurableOutbox();
+      if (outbox) {
+        await outbox.enqueueEmail({
+          recipientEmail: normalizedTarget,
+          recipientName: user.fullName || 'Employee',
+          recipientId: user.id,
+          recipientType: user.role || 'EMPLOYEE',
+          title: 'Swayam Admission — Password Recovery Code',
+          subject: `Your Password Recovery Code (${rawOtp}) — Swayam Admission`,
+          message: otpEmailText,
+          html: otpEmailHtml,
+          text: otpEmailText,
+          metadata: {
+            purpose: 'PASSWORD_RECOVERY_OTP',
           },
+        });
+        emailDelivered = true;
+      } else if (this.emailChannel) {
+        try {
+          const mailRes = await this.emailChannel.send(
+            {
+              id: user.id,
+              name: user.fullName || 'Employee',
+              email: normalizedTarget,
+              type: user.role || 'EMPLOYEE',
+            },
+            {
+              title: 'Swayam Admission — Password Recovery Code',
+              subject: `Your Password Recovery Code (${rawOtp}) — Swayam Admission`,
+              message: otpEmailText,
+              emailHtml: otpEmailHtml,
+            },
+          );
+          emailDelivered = mailRes.success;
+          if (!mailRes.success) {
+            deliveryError = mailRes.errorMessage || mailRes.failureReason;
+          }
+        } catch (mailErr: any) {
+          deliveryError = mailErr?.message;
+        }
+      }
+    } else {
+      // Real Mobile delivery via WhatsApp / SMS
+      const waChannel = new WhatsAppChannel(this.prisma);
+      const smsChannel = new SmsChannel(this.prisma);
+      const waHealth = await waChannel.getHealth();
+      const smsHealth = await smsChannel.getHealth();
+
+      let mobileResult: { success: boolean; errorMessage?: string } = {
+        success: false,
+        errorMessage: 'No active mobile provider',
+      };
+      if (waHealth.status === 'CONFIGURED') {
+        const res = await waChannel.send(
+          { id: user.id, name: user.fullName || 'Employee', mobile: normalizedTarget, type: 'STUDENT' },
           {
-            title: 'Swayam Admission — Password Recovery Code',
-            subject: `Your Password Recovery Code (${rawOtp}) — Swayam Admission`,
-            message: `Dear ${user.fullName || 'Employee'},\n\nYour 6-digit password recovery code is: ${rawOtp}.\nValid for ${Math.round(expirySeconds / 60)} minutes. If you did not make this request, please contact IT administration immediately.`,
-            emailHtml: buildForgotPasswordOtpEmailHtml({
-              otp: rawOtp,
-              greetingName: user.fullName || 'Employee',
-              expiryMinutes: Math.round(expirySeconds / 60),
-            }),
+            title: 'Password Recovery Code',
+            subject: 'Password Recovery Code',
+            message: `Your Swayam Admission password recovery code is: ${rawOtp}. Valid for ${Math.round(expirySeconds / 60)} minutes.`,
+            whatsAppTemplateName: 'auth_otp_verification',
+            whatsAppBody: `Your Swayam Admission password recovery code is: ${rawOtp}. Valid for ${Math.round(expirySeconds / 60)} minutes.`,
           },
         );
-        emailDelivered = mailRes.success;
-        if (!mailRes.success) {
-          deliveryError = mailRes.errorMessage || mailRes.failureReason;
-          this.logger.warn(
-            `Failed sending recovery OTP to ${normalizedTarget}: ${deliveryError}`,
-          );
-        }
-      } catch (mailErr: any) {
-        deliveryError = mailErr?.message;
-        this.logger.warn(
-          `Failed to dispatch password recovery email to ${normalizedTarget}: ${mailErr?.message}`,
+        mobileResult = { success: res.success, errorMessage: res.errorMessage || res.failureReason };
+      } else if (smsHealth.status === 'CONFIGURED') {
+        const res = await smsChannel.send(
+          { id: user.id, name: user.fullName || 'Employee', mobile: normalizedTarget, type: 'STUDENT' },
+          {
+            title: 'Password Recovery Code',
+            subject: 'Password Recovery Code',
+            message: `Your Swayam Admission password recovery code is ${rawOtp}. Valid for ${Math.round(expirySeconds / 60)} minutes.`,
+            smsBody: `Your Swayam Admission password recovery code is ${rawOtp}. Valid for ${Math.round(expirySeconds / 60)} minutes.`,
+          },
+        );
+        mobileResult = { success: res.success, errorMessage: res.errorMessage || res.failureReason };
+      }
+
+      if (!mobileResult.success) {
+        throw new BadRequestException(
+          `Unable to deliver verification code to mobile: ${mobileResult.errorMessage || 'Provider unreachable'}. Please use your registered personal email address for password recovery.`,
         );
       }
     }
 
-    // 6. Calculate masked email for user feedback
-    let maskedEmail = '';
+    // 6. Calculate masked destination for user feedback
+    let maskedDestination = '';
     if (!isMobile) {
       const [uPart, dPart] = normalizedTarget.split('@');
       const maskedU =
         uPart.length > 2
           ? `${uPart[0]}***${uPart[uPart.length - 1]}`
           : `${uPart[0]}***`;
-      maskedEmail = `${maskedU}@${dPart}`;
+      maskedDestination = `${maskedU}@${dPart}`;
+    } else {
+      maskedDestination = `${normalizedTarget.slice(0, 3)} ******${normalizedTarget.slice(-4)}`;
     }
 
     return {
@@ -3095,11 +3407,11 @@ export class AuthService {
       isProtected: false,
       method,
       identifier: normalizedTarget,
-      maskedEmail: maskedEmail || undefined,
-      maskedDestination: maskedEmail || undefined,
+      maskedEmail: !isMobile ? maskedDestination : undefined,
+      maskedDestination,
       message: isMobile
-        ? 'A 6-digit verification code has been sent to your registered mobile number.'
-        : `A 6-digit verification code has been sent to your registered personal email address (${maskedEmail}). Please check your inbox.`,
+        ? `A 6-digit verification code has been sent to your registered mobile number (${maskedDestination}).`
+        : `A 6-digit verification code has been sent to your registered personal email address (${maskedDestination}). Please check your inbox.`,
       resendCooldownSeconds,
       expiresInSeconds: expirySeconds,
       emailDelivered,
@@ -3407,9 +3719,9 @@ export class AuthService {
       'REGISTRAR',
       'HR_MANAGER',
     ].includes(user.role);
-    const portalUrl = isProtectedRole
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtectedRole ? adminUrl : erpUrl;
 
     return {
       success: true,
@@ -3529,7 +3841,7 @@ export class AuthService {
       message: `OTP sent to ${targetMobile.slice(0, 3)} ******${targetMobile.slice(-4)}. Valid for 5 minutes.`,
       resendCooldownSeconds: 30,
       expiresInSeconds: 300,
-      devOtp: rawCode,
+      ...(this.shouldExposeDevSecret() ? { devOtp: rawCode } : {}),
     };
   }
 
@@ -4123,9 +4435,9 @@ export class AuthService {
     }
 
     const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(targetUser.role);
-    const portalUrl = isProtected
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtected ? adminUrl : erpUrl;
 
     if (isUsed) {
       return {
@@ -4191,9 +4503,9 @@ export class AuthService {
 
     if (resetRecord) {
       const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(resetRecord.user.role);
-      const portalUrl = isProtected
-        ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-        : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+      const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+      const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+      const portalUrl = isProtected ? adminUrl : erpUrl;
 
       if (resetRecord.isUsed) {
         return {
@@ -4349,9 +4661,9 @@ export class AuthService {
     }, { timeout: 15000, maxWait: 10000 });
 
     const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(result.role);
-    const portalUrl = isProtected
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtected ? adminUrl : erpUrl;
 
     // Audit log
     await this.logAuthEvent({

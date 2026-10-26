@@ -323,10 +323,12 @@ export function buildWelcomeEmailHtml(params: WelcomeEmailTemplateParams): strin
 }
 
 export interface EmployeeActivationEmailTemplateParams {
-  employeeName: string;
+  employeeName?: string;
+  recipientName?: string;
   employeeId: string;
   officialEmail: string;
   activationUrl: string;
+  recipientUserId?: string;
   expiryHours?: number;
   expiresInHours?: number;
   portalUrl?: string;
@@ -342,12 +344,12 @@ export interface EmployeeActivationEmailTemplateParams {
  * NO temporary password is included. Recipient sets their own password via the single-use activation link.
  */
 export function buildEmployeeActivationEmailHtml(params: EmployeeActivationEmailTemplateParams): string {
+  const employeeName = params.employeeName || params.recipientName || 'Staff Member';
   const {
-    employeeName,
     employeeId,
     officialEmail,
     activationUrl,
-    portalUrl = 'https://admin.swayamadmission.com',
+    portalUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app',
     portalName = 'Swayam Staff & Administration Portal',
     roleName,
     designation,
@@ -535,6 +537,7 @@ export interface EmployeePasswordResetEmailTemplateParams {
   employeeId: string;
   officialEmail: string;
   resetUrl: string;
+  reason?: string;
   expiryHours?: number;
   portalUrl?: string;
   portalName?: string;
@@ -553,7 +556,7 @@ export function buildEmployeeAdminPasswordResetEmailHtml(params: EmployeePasswor
     employeeId,
     officialEmail,
     resetUrl,
-    portalUrl = 'https://admin.swayamadmission.com',
+    portalUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app',
     portalName = 'Swayam Staff & Administration Portal',
     roleName,
     departmentName,

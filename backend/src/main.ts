@@ -50,13 +50,16 @@ async function bootstrap() {
   });
 
   // Health Check & Root Route Alias Middleware:
-  // Seamlessly route /health to /v1/health for Render health checks and / to /v1
+  // Seamlessly route /health to /v1/health for Render health checks, / to /v1, and deduplicate /v1/v1/
   app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.url.startsWith('/v1/v1/')) {
+      req.url = req.url.replace(/^\/v1\/v1\//, '/v1/');
+    }
     if (req.path === '/health' || req.path === '/health/') {
       req.url = '/v1/health';
     } else if (req.path === '/' || req.path === '') {
       req.url = '/v1';
-    } else if (req.path.startsWith('/users/me/shortlist')) {
+    } else if (req.path.startsWith('/users/me/shortlist') || req.path.startsWith('/admin/otp-settings')) {
       req.url = `/v1${req.url}`;
     }
     next();
@@ -66,7 +69,11 @@ async function bootstrap() {
   // Supports comma-separated origin lists, trailing slashes, and localhost dev
   const configuredOrigins = [
     ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : []),
+    ...(process.env.FRONTEND_USER_URL ? process.env.FRONTEND_USER_URL.split(',') : []),
     ...(process.env.ADMIN_URL ? process.env.ADMIN_URL.split(',') : []),
+    ...(process.env.ADMIN_PORTAL_URL ? process.env.ADMIN_PORTAL_URL.split(',') : []),
+    ...(process.env.ERP_PORTAL_URL ? process.env.ERP_PORTAL_URL.split(',') : []),
+    ...(process.env.PORTAL_URL ? process.env.PORTAL_URL.split(',') : []),
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : []),
   ]
     .map((origin) => origin.trim().replace(/\/+$/, ''))
@@ -79,6 +86,8 @@ async function bootstrap() {
     'http://127.0.0.1:5173',
     'http://127.0.0.1:5174',
     'http://127.0.0.1:3000',
+    'https://swayam-admission-eg2x.vercel.app',
+    'https://swayam-admission.vercel.app',
   ];
 
   const allowedOrigins = Array.from(
@@ -99,10 +108,8 @@ async function bootstrap() {
           /^http:\/\/(localhost|127\.0\.0\.1):(5173|5174|3000)$/.test(normalized) ||
           host === 'localhost' ||
           host === '127.0.0.1' ||
-          host === 'vercel.app' ||
-          host.endsWith('.vercel.app') ||
-          host === 'swayamadmission.in' ||
-          host.endsWith('.swayamadmission.in')
+          host === 'swayam-admission-eg2x.vercel.app' ||
+          host === 'swayam-admission.vercel.app'
         ) {
           return callback(null, true);
         }

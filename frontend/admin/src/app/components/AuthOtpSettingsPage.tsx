@@ -59,18 +59,34 @@ export function AuthOtpSettingsPage() {
       const formData = new FormData(e.currentTarget);
       const data: Partial<OtpConfig> = {
         enabled: formData.get('enabled') === 'on',
-        provider: (formData.get('provider') as string)?.trim() || '',
+        provider: (formData.get('provider') as string)?.trim() || (activeTab === 'WHATSAPP' ? 'Meta Cloud API' : 'SMTP'),
         providerUrl: (formData.get('providerUrl') as string)?.trim() || '',
-        apiKey: (formData.get('apiKey') as string)?.trim() || '',
-        apiPassword: (formData.get('apiPassword') as string)?.trim() || '',
-        senderId: (formData.get('senderId') as string)?.trim() || '',
+        apiHost: (formData.get('apiHost') as string)?.trim() || (activeTab === 'EMAIL' ? 'smtp.gmail.com' : ''),
+        apiPort: formData.get('apiPort') ? Number(formData.get('apiPort')) : (activeTab === 'EMAIL' ? 587 : undefined),
+        apiUser: (formData.get('apiUser') as string)?.trim() || '',
+        senderId: ((formData.get('senderId') as string) || (formData.get('fromEmail') as string) || (formData.get('phoneNumberId') as string))?.trim() || '',
+        fromEmail: (formData.get('fromEmail') as string)?.trim() || '',
+        fromName: (formData.get('fromName') as string)?.trim() || '',
+        phoneNumberId: (formData.get('phoneNumberId') as string)?.trim() || '',
+        accountId: (formData.get('accountId') as string)?.trim() || '',
         templateId: (formData.get('templateId') as string)?.trim() || '',
+        templateLanguage: (formData.get('templateLanguage') as string)?.trim() || '',
         expirySeconds: Number(formData.get('expirySeconds')) || 300,
         maxAttempts: Number(formData.get('maxAttempts')) || 5,
         resendCooldownSec: Number(formData.get('resendCooldownSec')) || 30,
         rateLimitCount: Number(formData.get('rateLimitCount')) || 10,
         rateLimitWindowSec: Number(formData.get('rateLimitWindowSec')) || 3600,
       };
+
+      const rawApiKey = (formData.get('apiKey') as string)?.trim();
+      if (rawApiKey && rawApiKey !== '********' && !rawApiKey.includes('•')) {
+        data.apiKey = rawApiKey;
+      }
+
+      const rawApiPassword = (formData.get('apiPassword') as string)?.trim();
+      if (rawApiPassword && rawApiPassword !== '********' && !rawApiPassword.includes('•')) {
+        data.apiPassword = rawApiPassword;
+      }
 
       await authOtpApi.updateConfig(activeTab, data);
       await queryClient.invalidateQueries({ queryKey: ['otpConfig', activeTab] });
@@ -174,36 +190,83 @@ export function AuthOtpSettingsPage() {
                   <Settings className="w-4 h-4" /> Provider Settings
                 </h3>
                 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Provider Name</label>
-                  <input type="text" name="provider" defaultValue={config?.provider || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder={activeTab === 'WHATSAPP' ? 'Meta Cloud API' : 'SMTP'} />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">API URL (Optional)</label>
-                  <input type="text" name="providerUrl" defaultValue={config?.providerUrl || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://api.provider.com/v1" />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">API Key / Username</label>
-                  <input type="password" name="apiKey" defaultValue={config?.apiKey ? '********' : ''} placeholder={config?.apiKey ? '•••••••• (Leave blank to preserve)' : 'Enter API Key or Username'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">API Password / Secret</label>
-                  <input type="password" name="apiPassword" defaultValue={config?.apiPassword ? '********' : ''} placeholder={config?.apiPassword ? '•••••••• (Leave blank to preserve)' : 'Enter API Secret or Password'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Sender ID / From Address</label>
-                  <input type="text" name="senderId" defaultValue={config?.senderId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder={activeTab === 'WHATSAPP' ? 'Sender Phone ID' : 'noreply@swayamadmission.in'} />
-                </div>
-                
-                {activeTab === 'WHATSAPP' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Template ID</label>
-                    <input type="text" name="templateId" defaultValue={config?.templateId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="otp_verification_code" />
-                  </div>
+                {activeTab === 'EMAIL' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Provider Name</label>
+                      <input type="text" name="provider" defaultValue={config?.provider || 'SMTP'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="SMTP" />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-slate-700 mb-1">SMTP Host</label>
+                        <input type="text" name="apiHost" defaultValue={config?.apiHost || config?.providerUrl || 'smtp.gmail.com'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="smtp.gmail.com" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Port</label>
+                        <input type="number" name="apiPort" defaultValue={config?.apiPort || 587} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="587" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">SMTP Username / Email</label>
+                      <input type="text" name="apiUser" defaultValue={config?.apiUser || config?.fromEmail || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="swayamadmissions@gmail.com" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">SMTP Password / App Password</label>
+                      <input type="password" name="apiPassword" placeholder={config?.apiPassword ? '•••••••• (Leave blank to preserve)' : 'Enter 16-character App Password'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" autoComplete="new-password" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sender Email</label>
+                        <input type="email" name="fromEmail" defaultValue={config?.fromEmail || config?.senderId || 'swayamadmissions@gmail.com'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="swayamadmissions@gmail.com" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Sender Name</label>
+                        <input type="text" name="fromName" defaultValue={config?.fromName || 'Swayam Admission'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Swayam Admission" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Provider Name</label>
+                      <input type="text" name="provider" defaultValue={config?.provider || 'Meta Cloud API'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Meta Cloud API" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">API Endpoint URL</label>
+                      <input type="text" name="providerUrl" defaultValue={config?.providerUrl || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="https://graph.facebook.com/v20.0" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number ID / Sender ID</label>
+                      <input type="text" name="phoneNumberId" defaultValue={config?.phoneNumberId || config?.senderId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Meta Phone Number ID" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Account ID / WABA ID (Optional)</label>
+                      <input type="text" name="accountId" defaultValue={config?.accountId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="WhatsApp Business Account ID" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">API Key / Access Token</label>
+                      <input type="password" name="apiKey" placeholder={config?.apiKey ? '•••••••• (Leave blank to preserve)' : 'Enter Meta Access Token'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" autoComplete="new-password" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Template ID / Name</label>
+                        <input type="text" name="templateId" defaultValue={config?.templateId || ''} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="otp_verification_code" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Language</label>
+                        <input type="text" name="templateLanguage" defaultValue={config?.templateLanguage || 'en_US'} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="en_US" />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 

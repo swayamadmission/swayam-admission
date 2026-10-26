@@ -52,12 +52,21 @@ import { LegalModule } from './legal/legal.module';
 import { HrModule } from './hr/hr.module';
 import { ProfileModule } from './profile/profile.module';
 import { EmployeesModule } from './employees/employees.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 120,
+      },
+    ]),
     AuthModule,
     UsersModule,
     HrModule,
@@ -109,6 +118,12 @@ import { EmployeesModule } from './employees/employees.module';
     EmployeesModule,
   ],
   controllers: [AppController, CommonController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

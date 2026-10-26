@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailChannel } from '../notifications/notification-channels.service';
+import { DurableOutboxService } from '../notifications/durable-outbox.service';
 import { Role } from '@prisma/client';
 import { CreateEmployeeDto, UpdateEmployeeDto, UpdateEmployeeStatusDto } from './dto/employee.dto';
 import * as bcrypt from 'bcrypt';
@@ -27,7 +28,16 @@ export class EmployeesService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     @Optional() private readonly emailChannel?: EmailChannel,
+    @Optional() private readonly durableOutbox?: DurableOutboxService,
   ) {}
+
+  private getDurableOutbox(): DurableOutboxService {
+    if (this.durableOutbox) return this.durableOutbox;
+    return new DurableOutboxService(
+      this.prisma,
+      this.emailChannel || new EmailChannel(this.prisma),
+    );
+  }
 
   /**
    * List Employees with Search, Filtering, and Overview Metrics
@@ -385,25 +395,26 @@ export class EmployeesService {
       metadata: { employeeId, email, role: newEmployee.role, department: newEmployee.department },
     });
 
-    // Send single-use activation email via centralized SMTP service
+    // Dispatch single-use activation email via centralized SMTP service (target personal email)
+    const targetEmail = (newEmployee.personalEmail || email).trim().toLowerCase();
     let emailDelivered = false;
     let deliveryError: string | undefined;
 
-    if (this.emailChannel && dto.sendWelcomeEmail !== false) {
+    if (dto.sendWelcomeEmail !== false && targetEmail) {
       try {
         const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(newEmployee.role);
-        const portalUrl = isProtectedRole
-          ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-          : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+        const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+        const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+        const portalUrl = isProtectedRole ? adminUrl : erpUrl;
         const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
 
-        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
         const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
 
-        const mailResult = await this.emailChannel.sendEmployeeActivationEmail({
+        await this.getDurableOutbox().enqueueEmployeeActivationEmail({
           employeeName: newEmployee.fullName,
           employeeId,
-          officialEmail: email,
+          officialEmail: targetEmail,
           activationUrl,
           expiryHours: 24,
           portalUrl,
@@ -411,14 +422,10 @@ export class EmployeesService {
           roleName: newEmployee.role,
           departmentName: newEmployee.department || undefined,
         });
-
-        emailDelivered = mailResult.success;
-        if (!mailResult.success) {
-          deliveryError = mailResult.errorMessage || mailResult.failureReason;
-        }
+        emailDelivered = true;
       } catch (err: any) {
         deliveryError = err.message;
-        this.logger.warn(`Failed sending activation email to employee ${employeeId}: ${err.message}`);
+        this.logger.warn(`Failed queueing activation email to employee ${employeeId}: ${err.message}`);
       }
     }
 
@@ -650,12 +657,12 @@ export class EmployeesService {
     });
 
     const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(employee.role);
-    const portalUrl = isProtectedRole
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtectedRole ? adminUrl : erpUrl;
     const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
 
-    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
     const resetUrl = `${activationBaseUrl}/activate?token=${rawToken}&type=reset`;
 
     let emailDelivered = false;
@@ -722,9 +729,9 @@ export class EmployeesService {
       );
     }
 
-    const officialEmail = employee.email || employee.personalEmail;
+    const officialEmail = (employee.personalEmail || employee.email || '').trim().toLowerCase();
     if (!officialEmail) {
-      throw new BadRequestException('Employee does not have a registered official email address.');
+      throw new BadRequestException('Employee does not have a registered personal or official email address.');
     }
 
     // Rate limiting: at least 60 seconds between resends
@@ -767,12 +774,12 @@ export class EmployeesService {
     });
 
     const isProtectedRole = ([Role.ADMIN, Role.SUPER_ADMIN, Role.DIRECTOR, Role.AUDITOR] as Role[]).includes(employee.role);
-    const portalUrl = isProtectedRole
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtectedRole ? adminUrl : erpUrl;
     const portalName = isProtectedRole ? 'Staff & Administration Portal' : 'Employee ERP Portal';
 
-    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
     const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
 
     let emailDelivered = false;

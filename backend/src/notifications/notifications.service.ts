@@ -624,7 +624,28 @@ export class NotificationsService {
       }
 
       // 2. Candidate External Multi-Channel Dispatch (Email, WhatsApp)
-      if (template) {
+      if (!template) {
+        this.logger.warn(
+          `Missing CommunicationTemplate for event "${eventCode}". Recording visible delivery failure trace.`,
+        );
+        if (payload.candidateEmail) {
+          await this.prisma.communicationDelivery.create({
+            data: {
+              channel: CommunicationChannel.EMAIL,
+              recipientType: 'CANDIDATE',
+              recipientId: payload.candidateUserId || null,
+              recipientName: payload.candidateName,
+              recipientEmail: payload.candidateEmail,
+              recipientMobile: payload.candidateMobile || null,
+              status: CommunicationDeliveryStatus.FAILED,
+              errorMessage: `No CommunicationTemplate found in system for event "${eventCode}"`,
+              failureReason: 'MISSING_TEMPLATE',
+              isRetryable: false,
+              failedAt: new Date(),
+            },
+          }).catch(() => null);
+        }
+      } else {
         const channels = template.channels;
         const candidateRecipient = {
           id: payload.candidateUserId || payload.applicationId,

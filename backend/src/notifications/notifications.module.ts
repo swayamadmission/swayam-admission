@@ -14,6 +14,7 @@ import {
   WhatsAppChannel,
   NotificationDispatcher,
 } from './notification-channels.service';
+import { DurableOutboxService } from './durable-outbox.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RolesModule } from '../roles/roles.module';
 import { AuditModule } from '../audit/audit.module';
@@ -22,7 +23,7 @@ import { SettingsModule } from '../settings/settings.module';
 @Module({
   imports: [
     PrismaModule,
-    RolesModule,
+    forwardRef(() => RolesModule),
     forwardRef(() => AuditModule),
     forwardRef(() => SettingsModule),
   ],
@@ -37,6 +38,7 @@ import { SettingsModule } from '../settings/settings.module';
     AudienceBuilderService,
     TemplateEngineService,
     CommunicationCampaignService,
+    DurableOutboxService,
     InAppChannel,
     EmailChannel,
     SmsChannel,
@@ -49,8 +51,11 @@ import { SettingsModule } from '../settings/settings.module';
     TemplateEngineService,
     CommunicationCampaignService,
     NotificationDispatcher,
+    DurableOutboxService,
     EmailChannel,
     WhatsAppChannel,
+    SmsChannel,
+    InAppChannel,
   ],
 })
 export class NotificationsModule implements OnModuleInit {
@@ -60,7 +65,7 @@ export class NotificationsModule implements OnModuleInit {
     // Seed default system notification templates
     try {
       await this.templateEngine.seedDefaultTemplates();
-    } catch (e) {
+    } catch {
       // safe fallback if db not connected during initialization
     }
   }

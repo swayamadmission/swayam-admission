@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { RolesService } from './roles.service';
 import { RoleHierarchyService } from './role-hierarchy.service';
 import { GovernanceService } from './governance.service';
@@ -7,7 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, forwardRef(() => AuthModule)],
   controllers: [RolesController],
   providers: [RolesService, RoleHierarchyService, GovernanceService],
   exports: [RolesService, RoleHierarchyService, GovernanceService],

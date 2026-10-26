@@ -17,15 +17,20 @@ export class OtpAdminController {
     return this.otpAdminService.getDashboardStats();
   }
 
+  @Get('delivery-stats')
+  getDeliveryStats() {
+    return this.otpAdminService.getDeliveryStats();
+  }
+
   @Get('config/:channel')
-  getConfig(@Param('channel') channel: 'WHATSAPP' | 'EMAIL') {
+  getConfig(@Param('channel') channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | (string & {})) {
     return this.otpAdminService.getConfig(channel);
   }
 
   @Put('config/:channel')
   updateConfig(
     @Req() req: any,
-    @Param('channel') channel: 'WHATSAPP' | 'EMAIL',
+    @Param('channel') channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | (string & {}),
     @Body() dto: UpdateOtpConfigDto,
   ) {
     const adminUserId = req.user?.id || req.user?.userId;
@@ -43,5 +48,11 @@ export class OtpAdminController {
   testEmail(@Req() req: any, @Body('email') email: string) {
     const adminUserId = req.user?.id || req.user?.userId;
     return this.otpAdminService.testEmailConfig(adminUserId, email);
+  }
+
+  @Post('test/sms')
+  testSms(@Req() req: any, @Body('mobile') mobile: string) {
+    const adminUserId = req.user?.id || req.user?.userId;
+    return this.otpAdminService.testSmsConfig(adminUserId, mobile);
   }
 }

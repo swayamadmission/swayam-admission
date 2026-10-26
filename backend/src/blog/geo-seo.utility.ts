@@ -1,6 +1,6 @@
 export class GeoSeoUtility {
   private static SITE_URL =
-    process.env.PUBLIC_SITE_URL || 'https://swayamadmission.org';
+    process.env.PUBLIC_SITE_URL || process.env.FRONTEND_URL || 'https://swayam-admission.vercel.app';
 
   /**
    * Generates Schema.org JSON-LD structured data for traditional SEO and Generative Engine Optimization (GEO).

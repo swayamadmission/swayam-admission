@@ -12,6 +12,7 @@ import { StorageService } from '../storage/storage.service';
 import { AuditService } from '../audit/audit.service';
 import { EmailChannel } from '../notifications/notification-channels.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DurableOutboxService } from '../notifications/durable-outbox.service';
 import { Role, CommunicationChannel, CommunicationDeliveryStatus } from '@prisma/client';
 import { CreateVacancyDto } from './dto/create-vacancy.dto';
 import {
@@ -71,11 +72,20 @@ export class HrService {
     private readonly auditService: AuditService,
     @Optional() private readonly emailChannel?: EmailChannel,
     @Optional() private readonly notificationsService?: NotificationsService,
+    @Optional() private readonly durableOutbox?: DurableOutboxService,
   ) {}
 
   private getEmailChannel(): EmailChannel {
     if (this.emailChannel) return this.emailChannel;
     return new EmailChannel(this.prisma);
+  }
+
+  private getDurableOutbox(): DurableOutboxService {
+    if (this.durableOutbox) return this.durableOutbox;
+    return new DurableOutboxService(
+      this.prisma,
+      this.emailChannel || new EmailChannel(this.prisma),
+    );
   }
 
   // ---------------------------------------------------------
@@ -2827,34 +2837,29 @@ export class HrService {
           where: { id: existingUser.id },
           data: { activationTokenHash: tokenHash, activationExpiresAt: expiresAt },
         });
-
-        const channel = this.getEmailChannel();
         const isProtected = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(existingUser.role);
-        const portalUrl = isProtected
-          ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-          : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
-        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+        const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+        const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+        const portalUrl = isProtected ? adminUrl : erpUrl;
+        const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
         const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
 
-        // Non-blocking asynchronous email dispatch
-        setImmediate(() => {
-          void (async () => {
-            try {
-              await channel?.sendEmployeeActivationEmail({
-                officialEmail,
-                employeeName: candidateFullName,
-                employeeId: effectiveEmpId,
-                designation: app.onboarding?.designation || 'Staff',
-                departmentName: app.onboarding?.department || 'General',
-                activationUrl,
-                expiresInHours: 24,
-                portalUrl,
-              });
-            } catch (err: any) {
-              this.logger.warn(`Failed sending activation email in idempotent step: ${err.message}`);
-            }
-          })();
-        });
+        const candidatePersonalEmail = (app.email || existingUser.personalEmail || officialEmail).trim().toLowerCase();
+        // Durable persistent activation email dispatch
+        try {
+          await this.getDurableOutbox().enqueueEmployeeActivationEmail({
+            officialEmail: candidatePersonalEmail,
+            employeeName: candidateFullName,
+            employeeId: effectiveEmpId,
+            designation: app.onboarding?.designation || 'Staff',
+            departmentName: app.onboarding?.department || 'General',
+            activationUrl,
+            expiresInHours: 24,
+            portalUrl,
+          });
+        } catch (err: any) {
+          this.logger.warn(`Failed queueing activation email in idempotent step: ${err.message}`);
+        }
       }
 
       return {
@@ -3080,97 +3085,37 @@ export class HrService {
       this.logger.warn(`Audit failed: ${auditErr?.message}`);
     }
 
-    // 9. OUTBOX DELIVERY RECORD & ASYNCHRONOUS NON-BLOCKING DISPATCH
+    // 9. DURABLE OUTBOX DELIVERY FOR ACTIVATION EMAIL
     const candidatePersonalEmail = (app.email || finalUser.personalEmail || officialEmail).trim().toLowerCase();
-    let deliveryRecordId: string | null = null;
-    try {
-      const delivery = await this.prisma.communicationDelivery.create({
-        data: {
-          channel: CommunicationChannel.EMAIL,
-          recipientType: 'EMPLOYEE',
-          recipientId: finalUser.id,
-          recipientName: candidateFullName,
-          recipientEmail: candidatePersonalEmail,
-          status: CommunicationDeliveryStatus.QUEUED,
-        },
-      });
-      deliveryRecordId = delivery.id;
-    } catch (deliveryErr: any) {
-      this.logger.warn(`Failed to create initial delivery record: ${deliveryErr?.message}`);
-    }
-
     const isProtectedRole = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(finalUser.role);
-    const portalUrl = isProtectedRole
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
-    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtectedRole ? adminUrl : erpUrl;
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
     const activationUrl = `${activationBaseUrl}/activate?token=${rawActivationToken}`;
 
-    // Fire asynchronous background delivery without blocking the HTTP response
-    setImmediate(() => {
+    const durableOutbox = this.getDurableOutbox();
+    if (durableOutbox) {
+      await durableOutbox.enqueueEmployeeActivationEmail({
+        recipientUserId: finalUser.id,
+        recipientName: candidateFullName,
+        employeeName: candidateFullName,
+        officialEmail: candidatePersonalEmail,
+        employeeId,
+        designation,
+        departmentName: department,
+        activationUrl,
+        expiresInHours: 24,
+        portalUrl,
+      });
+    }
+
+    // 10. BACKGROUND RECRUITMENT NOTIFICATIONS
+    const notifService = this.notificationsService;
+    if (notifService) {
       void (async () => {
         try {
-        const channel = this.getEmailChannel();
-        if (channel && finalUser.status === 'PENDING_ACTIVATION') {
-          if (deliveryRecordId) {
-            await this.prisma.communicationDelivery.update({
-              where: { id: deliveryRecordId },
-              data: { status: CommunicationDeliveryStatus.SENDING },
-            }).catch(() => null);
-          }
-
-          const mailResult = await channel.sendEmployeeActivationEmail({
-            officialEmail: candidatePersonalEmail,
-            employeeName: candidateFullName,
-            employeeId,
-            designation,
-            departmentName: department,
-            activationUrl,
-            expiresInHours: 24,
-            portalUrl,
-          });
-
-          if (deliveryRecordId) {
-            if (mailResult.success) {
-              await this.prisma.communicationDelivery.update({
-                where: { id: deliveryRecordId },
-                data: {
-                  status: CommunicationDeliveryStatus.SENT,
-                  sentAt: new Date(),
-                  providerMessageId: mailResult.providerMessageId || null,
-                },
-              }).catch(() => null);
-            } else {
-              await this.prisma.communicationDelivery.update({
-                where: { id: deliveryRecordId },
-                data: {
-                  status: CommunicationDeliveryStatus.FAILED,
-                  failedAt: new Date(),
-                  errorMessage: mailResult.errorMessage || null,
-                  failureReason: mailResult.failureReason || null,
-                },
-              }).catch(() => null);
-            }
-          }
-        }
-      } catch (mailErr: any) {
-        this.logger.error(`Background activation email delivery error: ${mailErr?.message}`, mailErr?.stack);
-        if (deliveryRecordId) {
-          await this.prisma.communicationDelivery.update({
-            where: { id: deliveryRecordId },
-            data: {
-              status: CommunicationDeliveryStatus.FAILED,
-              failedAt: new Date(),
-              errorMessage: mailErr?.message || 'SMTP transport failure',
-            },
-          }).catch(() => null);
-        }
-      }
-
-      // 10. BACKGROUND RECRUITMENT NOTIFICATIONS
-      if (this.notificationsService) {
-        try {
-          await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_ONBOARDING_COMPLETED', {
+          await notifService.emitRecruitmentEvent('RECRUITMENT_ONBOARDING_COMPLETED', {
             candidateUserId: finalUser.id,
             candidateName: candidateFullName,
             candidateEmail: officialEmail,
@@ -3183,7 +3128,7 @@ export class HrService {
             department,
           });
 
-          await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_CANDIDATE_JOINED', {
+          await notifService.emitRecruitmentEvent('RECRUITMENT_CANDIDATE_JOINED', {
             candidateUserId: finalUser.id,
             candidateName: candidateFullName,
             candidateEmail: officialEmail,
@@ -3195,7 +3140,7 @@ export class HrService {
             department,
           });
 
-          await this.notificationsService.emitRecruitmentEvent('RECRUITMENT_HR_ONBOARDING_COMPLETED', {
+          await notifService.emitRecruitmentEvent('RECRUITMENT_HR_ONBOARDING_COMPLETED', {
             candidateName: candidateFullName,
             applicationId: app.applicationId,
             vacancyTitle: app.vacancy?.title || 'Open Role',
@@ -3206,9 +3151,8 @@ export class HrService {
         } catch (notifErr: any) {
           this.logger.warn(`Background notifications failed: ${notifErr?.message}`);
         }
-      }
-    })();
-  });
+      })();
+    }
 
     return {
       success: true,
@@ -3284,74 +3228,30 @@ export class HrService {
     });
 
     const isProtectedRole = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'REGISTRAR', 'HR_MANAGER'].includes(user.role);
-    const portalUrl = isProtectedRole
-      ? (process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com')
-      : (process.env.ERP_PORTAL_URL || 'https://erp.swayamadmission.com');
-    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || 'https://admin.swayamadmission.com';
+    const adminUrl = process.env.ADMIN_PORTAL_URL || process.env.ADMIN_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const erpUrl = process.env.ERP_PORTAL_URL || process.env.PORTAL_URL || 'https://swayam-admission-eg2x.vercel.app';
+    const portalUrl = isProtectedRole ? adminUrl : erpUrl;
+    const activationBaseUrl = process.env.ADMIN_PORTAL_URL || process.env.PORTAL_URL || process.env.ADMIN_URL || 'https://swayam-admission-eg2x.vercel.app';
     const activationUrl = `${activationBaseUrl}/activate?token=${rawToken}`;
     const candidateFullName = `${app.firstName} ${app.lastName || ''}`.trim() || user.fullName;
     const employeeId = user.employeeId || app.onboarding?.employeeId || 'STAFF';
 
-    // Queue delivery tracking record
-    let deliveryRecordId: string | null = null;
-    try {
-      const delivery = await this.prisma.communicationDelivery.create({
-        data: {
-          channel: CommunicationChannel.EMAIL,
-          recipientType: 'EMPLOYEE',
-          recipientId: user.id,
-          recipientName: candidateFullName,
-          recipientEmail: destinationEmail,
-          status: CommunicationDeliveryStatus.QUEUED,
-        },
+    // Durable Outbox queueing for Activation Email
+    const durableOutbox = this.getDurableOutbox();
+    if (durableOutbox) {
+      await durableOutbox.enqueueEmployeeActivationEmail({
+        recipientUserId: user.id,
+        recipientName: candidateFullName,
+        employeeName: candidateFullName,
+        officialEmail: destinationEmail,
+        employeeId,
+        designation: app.onboarding?.designation || user.designation || 'Staff',
+        departmentName: app.onboarding?.department || user.department || 'General',
+        activationUrl,
+        expiresInHours: 24,
+        portalUrl,
       });
-      deliveryRecordId = delivery.id;
-    } catch {
-      // ignore
     }
-
-    // Fire non-blocking asynchronous email dispatch
-    setImmediate(() => {
-      void (async () => {
-        try {
-          const channel = this.getEmailChannel();
-          if (channel) {
-            if (deliveryRecordId) {
-              await this.prisma.communicationDelivery.update({
-                where: { id: deliveryRecordId },
-                data: { status: CommunicationDeliveryStatus.SENDING },
-              }).catch(() => null);
-            }
-
-            const mailResult = await channel.sendEmployeeActivationEmail({
-              officialEmail: destinationEmail,
-              employeeName: candidateFullName,
-              employeeId,
-              designation: app.onboarding?.designation || user.designation || 'Staff',
-              departmentName: app.onboarding?.department || user.department || 'General',
-              activationUrl,
-              expiresInHours: 24,
-              portalUrl,
-            });
-
-            if (deliveryRecordId) {
-              await this.prisma.communicationDelivery.update({
-                where: { id: deliveryRecordId },
-                data: {
-                  status: mailResult.success ? CommunicationDeliveryStatus.SENT : CommunicationDeliveryStatus.FAILED,
-                  sentAt: mailResult.success ? new Date() : null,
-                  failedAt: !mailResult.success ? new Date() : null,
-                  providerMessageId: mailResult.providerMessageId || null,
-                  errorMessage: mailResult.errorMessage || null,
-                },
-              }).catch(() => null);
-            }
-          }
-        } catch (err: any) {
-          this.logger.error(`Resend activation email failed: ${err.message}`);
-        }
-      })();
-    });
 
     await this.auditService.logAction({
       module: 'HR_RECRUITMENT',

@@ -686,7 +686,7 @@ export default function FAQFormModal({
                 <label className="block font-bold text-gray-700 mb-1">Canonical URL</label>
                 <input
                   type="url"
-                  placeholder="https://swayamadmission.org/faq/your-slug"
+                  placeholder="https://swayam-admission.vercel.app/faq/your-slug"
                   value={form.canonicalUrl || ""}
                   onChange={(e) => setForm({ ...form, canonicalUrl: e.target.value })}
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs"

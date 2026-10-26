@@ -813,4 +813,87 @@ export class CommunicationCampaignService {
       totalPages: Math.ceil(total / limit),
     };
   }
+
+  /**
+   * Retrieves durable list of suppressed email recipients (hard bounces, complaints).
+   */
+  async getSuppressionList(params: { search?: string; page?: number; limit?: number }) {
+    const page = Math.max(1, Number(params.page || 1));
+    const limit = Math.max(1, Number(params.limit || 50));
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      channel: CommunicationChannel.EMAIL,
+      failureReason: { in: ['HARD_BOUNCE', 'COMPLAINT', 'PERMANENT_REJECTION', 'SPAM_REPORT'] },
+      recipientEmail: { not: null },
+    };
+
+    if (params.search) {
+      where.recipientEmail = { contains: params.search.trim().toLowerCase(), mode: 'insensitive' };
+    }
+
+    const [total, records] = await Promise.all([
+      this.prisma.communicationDelivery.count({ where }),
+      this.prisma.communicationDelivery.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          id: true,
+          recipientEmail: true,
+          recipientName: true,
+          recipientType: true,
+          failureReason: true,
+          errorMessage: true,
+          status: true,
+          updatedAt: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    return {
+      data: records,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * Manually overrides / removes suppression for a recipient with audit trail.
+   */
+  async removeSuppression(recipientEmail: string, removedByUserId?: string, overrideReason?: string) {
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      throw new BadRequestException('A valid recipient email address is required');
+    }
+
+    const normEmail = recipientEmail.trim().toLowerCase();
+
+    const affected = await this.prisma.communicationDelivery.updateMany({
+      where: {
+        recipientEmail: normEmail,
+        channel: CommunicationChannel.EMAIL,
+        failureReason: { in: ['HARD_BOUNCE', 'COMPLAINT', 'PERMANENT_REJECTION', 'SPAM_REPORT'] },
+      },
+      data: {
+        failureReason: 'SUPPRESSION_OVERRIDDEN',
+        errorMessage: `Suppression manually overridden by admin${overrideReason ? `: ${overrideReason}` : ''}`,
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log(
+      `[SUPPRESSION OVERRIDE] Admin removed suppression for ${normEmail}. Cleared ${affected.count} records.`,
+    );
+
+    return {
+      success: true,
+      recipientEmail: normEmail,
+      clearedRecordsCount: affected.count,
+      message: `Suppression removed for ${normEmail}. Recipient is now eligible for future communications.`,
+    };
+  }
 }
+

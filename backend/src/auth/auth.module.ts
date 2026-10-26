@@ -1,4 +1,4 @@
-import { Module, Global } from '@nestjs/common';
+import { Module, Global, forwardRef } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { OtpAdminController } from './otp-admin.controller';
@@ -15,12 +15,14 @@ import { PermissionGuard } from './guards/permission.guard';
 import { RolesGuard } from './guards/roles.guard';
 
 import { LegalModule } from '../legal/legal.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Global()
 @Module({
   imports: [
     PrismaModule,
     LegalModule,
+    forwardRef(() => NotificationsModule),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

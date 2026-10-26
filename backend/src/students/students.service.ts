@@ -417,7 +417,7 @@ export class StudentsService {
         assignedCounselor,
         assignedManager: {
           fullName: 'Regional Admission Manager',
-          email: 'manager@swayamadmission.in',
+          email: process.env.SMTP_FROM_EMAIL || 'swayamadmissions@gmail.com',
         },
         admissionStatus: latestApp?.status || 'NEW',
         currentStage: stage,

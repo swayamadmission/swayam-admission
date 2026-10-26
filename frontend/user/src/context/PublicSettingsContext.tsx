@@ -91,7 +91,7 @@ export function PublicSettingsProvider({ children }: { children: ReactNode }) {
         <p className="text-slate-400 max-w-md text-sm mb-6">
           {settings.maintenanceMessage || "We are currently conducting scheduled system maintenance to improve our service. Please check back shortly."}
         </p>
-        <div className="text-xs text-slate-500 font-mono">Support: {settings.supportEmail || "support@swayamadmission.in"}</div>
+        <div className="text-xs text-slate-500 font-mono">Support: {settings.supportEmail || "swayamadmissions@gmail.com"}</div>
       </div>
     );
   }

@@ -440,6 +440,7 @@ export class FaqService {
 
     const safeAnswer = this.sanitizeContent(faq.answer);
     const safeQuestion = this.sanitizeContent(faq.question);
+    const siteUrl = process.env.PUBLIC_SITE_URL || process.env.FRONTEND_URL || 'https://swayam-admission.vercel.app';
 
     // Generate FAQPage JSON-LD
     const schemaOrg = [
@@ -465,19 +466,19 @@ export class FaqService {
             '@type': 'ListItem',
             position: 1,
             name: 'Home',
-            item: 'https://swayamadmission.org',
+            item: siteUrl,
           },
           {
             '@type': 'ListItem',
             position: 2,
             name: 'FAQs',
-            item: 'https://swayamadmission.org/faq',
+            item: `${siteUrl}/faq`,
           },
           {
             '@type': 'ListItem',
             position: 3,
             name: safeQuestion.substring(0, 60),
-            item: `https://swayamadmission.org/faq/${faq.slug}`,
+            item: `${siteUrl}/faq/${faq.slug}`,
           },
         ],
       },
