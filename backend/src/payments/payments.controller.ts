@@ -567,9 +567,7 @@ export class PaymentsController {
     );
   }
 
-  // ==========================================
   // ENTERPRISE PAYMENT & FINANCE WORKFLOW ROUTES
-  // ==========================================
 
   @Post('counselor/request')
   @Permissions('payment.create')
@@ -649,9 +647,7 @@ export class PaymentsController {
     return this.governanceService.confirmAdmissionFinal(user, id);
   }
 
-  // ==========================================
   // AUTHORITATIVE INVOICE ROUTES
-  // ==========================================
 
   @Post('invoices/generate')
   @Permissions('payment.create')
@@ -690,9 +686,7 @@ export class PaymentsController {
     return this.invoiceService.cancelInvoice(id, user.id, reason || 'Cancelled by admin');
   }
 
-  // ==========================================
   // FINANCIAL RECONCILIATION ROUTES
-  // ==========================================
 
   @Post('reconciliation/batch')
   @Permissions('payment.verify')

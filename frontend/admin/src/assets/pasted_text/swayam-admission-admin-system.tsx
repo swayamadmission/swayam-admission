@@ -19,9 +19,7 @@ The design should feel like:
 - AI-powered admission management system
 - enterprise workflow dashboard
 
-========================================
 BRAND IDENTITY
-========================================
 
 Brand Name:
 Swayam Admission
@@ -44,9 +42,7 @@ Text Color:
 Soft Secondary Background:
 #E8F3EC
 
-========================================
 DESIGN LANGUAGE
-========================================
 
 The UI should feel:
 - modern
@@ -73,9 +69,7 @@ Avoid:
 - too many colors
 - old-style educational software UI
 
-========================================
 UI STYLE REQUIREMENTS
-========================================
 
 Use:
 - large spacing
@@ -106,9 +100,7 @@ Typography:
 - large readable hierarchy
 - mobile-friendly spacing
 
-========================================
 RESPONSIVE REQUIREMENTS
-========================================
 
 The admin panel MUST be:
 - desktop responsive
@@ -123,9 +115,7 @@ Create:
 - mobile-friendly tables
 - quick action floating buttons
 
-========================================
 COMPLETE ROLE-BASED SYSTEM
-========================================
 
 Implement UI/UX for these roles:
 
@@ -139,15 +129,11 @@ Implement UI/UX for these roles:
 8. Marketing Team
 9. Franchise Partner
 
-========================================
 AUTHENTICATION SYSTEM
-========================================
 
 Design complete authentication flows.
 
-========================================
 REGISTRATION FLOW
-========================================
 
 New users must:
 - register account
@@ -172,9 +158,7 @@ Pending Verification
 → Pending Approval
 → Approved
 
-========================================
 LOGIN SYSTEM
-========================================
 
 Allow:
 - Email + Password
@@ -187,9 +171,7 @@ Include:
 - device tracking UI
 - suspicious login alerts
 
-========================================
 FORGOT PASSWORD FLOW
-========================================
 
 Create:
 - mobile/email recovery
@@ -197,9 +179,7 @@ Create:
 - reset password screens
 - success confirmation
 
-========================================
 APPROVAL WORKFLOW
-========================================
 
 Design approval dashboard where senior roles can:
 - approve users
@@ -215,9 +195,7 @@ Approval table should include:
 - documents
 - approval actions
 
-========================================
 MAIN ADMIN PANEL STRUCTURE
-========================================
 
 Dashboard
 Leads Management
@@ -240,9 +218,7 @@ Settings
 RBAC & Permissions
 Activity Logs
 
-========================================
 1. MAIN DASHBOARD
-========================================
 
 Design a premium analytics dashboard.
 
@@ -263,9 +239,7 @@ Include:
 - activity feed
 - quick actions
 
-========================================
 2. LEAD MANAGEMENT MODULE
-========================================
 
 This is the core CRM module.
 
@@ -295,9 +269,7 @@ Create:
 - lead detail drawer
 - activity timeline
 
-========================================
 3. COUNSELOR DASHBOARD
-========================================
 
 Create mobile-first counselor workflows.
 
@@ -314,9 +286,7 @@ Include:
 - floating mobile action button
 - bottom navigation
 
-========================================
 4. COLLEGE MANAGEMENT
-========================================
 
 Features:
 - add/edit colleges
@@ -332,9 +302,7 @@ Include:
 - media uploader
 - course mapping UI
 
-========================================
 5. COURSE MANAGEMENT
-========================================
 
 Features:
 - course categories
@@ -344,9 +312,7 @@ Features:
 - career scope
 - SEO settings
 
-========================================
 6. EXCEL UPLOAD SYSTEM
-========================================
 
 Create UI for:
 - bulk uploads
@@ -362,9 +328,7 @@ Upload:
 - scholarships
 - study materials
 
-========================================
 7. APPLICATION MANAGEMENT
-========================================
 
 Track complete student admission journey.
 
@@ -383,9 +347,7 @@ Include:
 - status tracker
 - approval actions
 
-========================================
 8. DOCUMENT MANAGEMENT
-========================================
 
 Upload and verify:
 - marksheets
@@ -401,9 +363,7 @@ Features:
 - download
 - secure access
 
-========================================
 9. STUDY MATERIAL MODULE
-========================================
 
 Create upload and management system for:
 - PDFs
@@ -419,9 +379,7 @@ Categories:
 - BCA
 - Nursing
 
-========================================
 10. BLOG & SEO MODULE
-========================================
 
 Features:
 - blog editor
@@ -431,9 +389,7 @@ Features:
 - slug generation
 - preview mode
 
-========================================
 11. EXAMS MODULE
-========================================
 
 Manage:
 - exam details
@@ -442,9 +398,7 @@ Manage:
 - syllabus
 - counseling process
 
-========================================
 12. SCHOLARSHIP MODULE
-========================================
 
 Manage:
 - scholarship eligibility
@@ -453,9 +407,7 @@ Manage:
 - state-wise scholarships
 - income criteria
 
-========================================
 13. AI COUNSELOR MANAGEMENT
-========================================
 
 Create futuristic but clean AI management UI.
 
@@ -466,9 +418,7 @@ Features:
 - college recommendation logic
 - prompt settings
 
-========================================
 14. NOTIFICATION SYSTEM
-========================================
 
 Manage:
 - WhatsApp
@@ -481,9 +431,7 @@ Features:
 - automation triggers
 - campaign history
 
-========================================
 15. REPORTS & ANALYTICS
-========================================
 
 Create:
 - state-wise analytics
@@ -497,9 +445,7 @@ Include:
 - tables
 - export system
 
-========================================
 16. MARKETING MODULE
-========================================
 
 Features:
 - campaign tracking
@@ -507,9 +453,7 @@ Features:
 - lead source analytics
 - landing page performance
 
-========================================
 17. PAYMENTS MODULE
-========================================
 
 Features:
 - payment tracking
@@ -518,9 +462,7 @@ Features:
 - finance approvals
 - transaction logs
 
-========================================
 18. RBAC & PERMISSIONS
-========================================
 
 Create full Role-Based Access Control UI.
 
@@ -531,9 +473,7 @@ Features:
 - state-wise restrictions
 - hierarchy management
 
-========================================
 19. SETTINGS MODULE
-========================================
 
 Features:
 - website settings
@@ -544,9 +484,7 @@ Features:
 - SEO settings
 - theme settings
 
-========================================
 20. SYSTEM LOGS
-========================================
 
 Track:
 - login logs
@@ -555,9 +493,7 @@ Track:
 - counselor activity
 - approval history
 
-========================================
 IMPORTANT UX REQUIREMENTS
-========================================
 
 Create proper:
 - loading states
@@ -572,9 +508,7 @@ Create proper:
 - breadcrumbs
 - modern navigation
 
-========================================
 MOBILE-FIRST CRM EXPERIENCE
-========================================
 
 The admin panel should work beautifully on mobile.
 
@@ -590,9 +524,7 @@ Include:
 - quick calling
 - WhatsApp integrations
 
-========================================
 FINAL OUTPUT
-========================================
 
 Generate a COMPLETE enterprise-level CRM + Admin Panel design system for Swayam Admission including:
 - full authentication workflows

@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { AdmissionAlertsService } from '../notifications/admission-alerts.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { ExamQueryDto } from './dto/exam-query.dto';
@@ -34,6 +35,7 @@ export class ExamsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    @Optional() private readonly admissionAlerts?: AdmissionAlertsService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -337,6 +339,17 @@ export class ExamsService {
       },
     });
 
+    if (exam.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'EXAM',
+        contentId: exam.id,
+        title: exam.examName,
+        summary: exam.description || exam.eligibility || `${exam.category} (${exam.level}) entrance exam update.`,
+        category: exam.category,
+        urlPath: `/exams/${exam.slug}`,
+      });
+    }
+
     return this.findById(exam.id);
   }
 
@@ -464,6 +477,17 @@ export class ExamsService {
       oldValue: { examName: existing.examName, status: existing.status },
       newValue: { examName: updated.examName, status: updated.status },
     });
+
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'EXAM',
+        contentId: updated.id,
+        title: updated.examName,
+        summary: updated.description || updated.eligibility || `${updated.category} (${updated.level}) entrance exam update.`,
+        category: updated.category,
+        urlPath: `/exams/${updated.slug}`,
+      });
+    }
 
     return this.findById(id);
   }

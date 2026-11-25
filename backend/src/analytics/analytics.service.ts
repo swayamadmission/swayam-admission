@@ -188,9 +188,7 @@ export class AnalyticsService {
     return { leadWhere, appWhere, payWhere };
   }
 
-  // =========================================================================
   // 1. ENTERPRISE OVERVIEW & EXECUTIVE KPIS
-  // =========================================================================
   async getEnterpriseOverview(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { scope, leadWhere: bLead, appWhere: bApp, payWhere: bPay, taskWhere: bTask } =
       await this.resolveScopeContext(currentUser);
@@ -377,9 +375,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 2. 7-STAGE ADMISSION FUNNEL ANALYTICS
-  // =========================================================================
   async getFunnelAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { leadWhere: bLead, appWhere: bApp, payWhere: bPay } =
       await this.resolveScopeContext(currentUser);
@@ -543,9 +539,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 3. COUNSELOR & SENIOR COUNSELOR PERFORMANCE
-  // =========================================================================
   async getCounselorAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { scope } = await this.resolveScopeContext(currentUser);
     const now = new Date();
@@ -675,9 +669,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 4. SENIOR COUNSELOR TEAM ANALYTICS
-  // =========================================================================
   async getSeniorCounselorTeamAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { scope } = await this.resolveScopeContext(currentUser);
 
@@ -763,9 +755,7 @@ export class AnalyticsService {
     return { teams: teamSummaries };
   }
 
-  // =========================================================================
   // 5. COLLEGE PERFORMANCE & DEMAND
-  // =========================================================================
   async getCollegeAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { scope } = await this.resolveScopeContext(currentUser);
 
@@ -836,9 +826,7 @@ export class AnalyticsService {
     return { colleges: collegeAnalytics.sort((a, b) => b.totalApplications - a.totalApplications) };
   }
 
-  // =========================================================================
   // 6. COURSE & BRANCH DEMAND
-  // =========================================================================
   async getCourseAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { appWhere } = await this.resolveScopeContext(currentUser);
 
@@ -879,9 +867,7 @@ export class AnalyticsService {
     return { courses: results.sort((a, b) => b.totalApplications - a.totalApplications) };
   }
 
-  // =========================================================================
   // 7. GEOGRAPHIC ANALYTICS (STATE & DISTRICT DRILLDOWN)
-  // =========================================================================
   async getGeographicAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { leadWhere } = await this.resolveScopeContext(currentUser);
 
@@ -931,9 +917,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 8. FINANCIAL COLLECTIONS & RECONCILIATION ANALYTICS
-  // =========================================================================
   async getFinanceAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { scope, payWhere } = await this.resolveScopeContext(currentUser);
 
@@ -1008,9 +992,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 9. OPERATIONAL SLA & BOTTLENECK RADAR
-  // =========================================================================
   async getSlaAndBottlenecks(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { appWhere, payWhere, taskWhere } = await this.resolveScopeContext(currentUser);
     const now = new Date();
@@ -1077,9 +1059,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 10. DAILY & MONTHLY TRENDS
-  // =========================================================================
   async getTrendAnalytics(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { leadWhere, appWhere, payWhere } = await this.resolveScopeContext(currentUser);
     const { startDate, endDate } = this.parseDateRange(dto);
@@ -1132,9 +1112,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 11. RECORD DRILLDOWN (IAM-SCOPED)
-  // =========================================================================
   async getDrilldownRecords(dto: EnterpriseAnalyticsQueryDto, currentUser: any) {
     const { leadWhere, appWhere, taskWhere } = await this.resolveScopeContext(currentUser);
     const { metricKey = 'PENDING_APPLICATIONS', page = 1, limit = 25, search } = dto;
@@ -1260,9 +1238,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 12. REPORT EXPORT (CSV FORMAT WITH PII MINIMIZATION)
-  // =========================================================================
   async exportReport(dto: ExportReportDto, currentUser: any) {
     const { leadWhere, appWhere } = await this.resolveScopeContext(currentUser);
 
@@ -1323,9 +1299,7 @@ export class AnalyticsService {
     };
   }
 
-  // =========================================================================
   // 13. SAVED REPORTS CRUD
-  // =========================================================================
   async getSavedReports(currentUser: any) {
     return this.prisma.savedReport.findMany({
       where: { createdById: currentUser.id },

@@ -32,9 +32,7 @@ function record(suite: string, test: string, status: 'PASSED' | 'FAILED' | 'BLOC
 }
 
 async function runTests() {
-  console.log('\n================================================================');
   console.log('🚀 RUNNING PHASE 4.1 AUTOMATED VERIFICATION SUITE');
-  console.log('================================================================\n');
 
   // ---------------------------------------------------------------------------
   // SUITE 1: CORS Allowed Origins & Security Gates
@@ -350,9 +348,7 @@ async function runTests() {
   // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
-  console.log('\n================================================================');
   console.log('📊 PHASE 4.1 TEST RESULTS SUMMARY');
-  console.log('================================================================');
 
   const passed = results.filter((r) => r.status === 'PASSED').length;
   const failed = results.filter((r) => r.status === 'FAILED').length;
@@ -362,7 +358,6 @@ async function runTests() {
   console.log(`PASSED      : ${passed} ✅`);
   console.log(`FAILED      : ${failed} ❌`);
   console.log(`BLOCKED     : ${blocked} ⚠️`);
-  console.log('================================================================\n');
 
   if (failed > 0) {
     process.exit(1);

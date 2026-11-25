@@ -6,9 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function runAICounselorSmokeTest() {
-  console.log('====================================================');
   console.log(' SWAYAM ADMISSION — AI COUNSELOR END-TO-END SMOKE TEST ');
-  console.log('====================================================\n');
 
   // STEP A: Verify Navbar Removal in Frontend Code (Item 1 & 9)
   console.log('[A] Verifying Navbar code has removed "AI Counselor"...');
@@ -218,9 +216,7 @@ async function runAICounselorSmokeTest() {
       });
     }
 
-    console.log('\n====================================================');
     console.log(' 🌟 ALL 11 REQUIREMENTS VERIFIED & PASSED CLEANLY! ');
-    console.log('====================================================');
   } catch (err: any) {
     console.error('\n❌ TEST RUN ERROR:', err.message || err);
     process.exitCode = 1;

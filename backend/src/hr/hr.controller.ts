@@ -33,9 +33,7 @@ import {
 export class HrController {
   constructor(private readonly hrService: HrService) {}
 
-  // ==========================================
   // 1. RECRUITMENT SETTINGS
-  // ==========================================
 
   @Get('settings')
   getSettings() {
@@ -47,9 +45,7 @@ export class HrController {
     return this.hrService.updateRecruitmentSettings(dto, req.user.id);
   }
 
-  // ==========================================
   // 2. JOB VACANCIES
-  // ==========================================
 
   @Post('vacancies')
   createVacancy(@Body() dto: CreateVacancyDto, @Request() req: any) {
@@ -105,9 +101,7 @@ export class HrController {
     return this.hrService.duplicateVacancy(id, req.user.id);
   }
 
-  // ==========================================
   // 3. JOB APPLICATIONS & RECRUITMENT ACTIONS
-  // ==========================================
 
   @Get('applications')
   getApplications(@Query() query: any) {
@@ -179,9 +173,7 @@ export class HrController {
     return this.hrService.getRecruitmentStaff();
   }
 
-  // ==========================================
   // 4. POST-SELECTION: OFFERS
-  // ==========================================
 
   @Post('offers')
   createOffer(@Body() dto: CreateOfferDto, @Request() req: any) {
@@ -213,9 +205,7 @@ export class HrController {
     return this.hrService.respondToOffer(id, dto, req.user.id);
   }
 
-  // ==========================================
   // 5. POST-SELECTION: CLEARANCE & VERIFICATION
-  // ==========================================
 
   @Get('clearance')
   getClearances() {
@@ -260,9 +250,7 @@ export class HrController {
     return this.hrService.completeClearance(id, dto, req.user.id);
   }
 
-  // ==========================================
   // 6. POST-SELECTION: ONBOARDING & STAFF LINKING
-  // ==========================================
 
   @Post('applications/:id/onboarding/start')
   startOnboarding(

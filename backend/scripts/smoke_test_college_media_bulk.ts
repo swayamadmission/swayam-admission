@@ -7,9 +7,7 @@ import * as path from 'path';
 const prisma = new PrismaClient();
 
 async function runSmokeTests() {
-  console.log('===============================================================');
   console.log('  COLLEGE MEDIA & BULK UPLOAD MASTER FIX - COMPREHENSIVE SMOKE TEST');
-  console.log('===============================================================\n');
 
   const mockAuditService: any = {
     logAction: async () => {},
@@ -335,9 +333,7 @@ async function runSmokeTests() {
     });
     console.log('[CLEANUP] Database & test artifacts cleaned successfully.');
 
-    console.log('\n===============================================================');
     console.log(`  ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);
-    console.log('===============================================================\n');
   } catch (err) {
     console.error('Test failed with error:', err);
     process.exit(1);

@@ -11,9 +11,7 @@ const bcryptLib = bcrypt as unknown as {
 };
 
 async function runTestSuite() {
-  console.log('===============================================================');
   console.log('🏁 STARTING ENTERPRISE POSITION IDENTITY & SECURITY TEST SUITE');
-  console.log('===============================================================\n');
 
   // Cleanup test artifacts from previous runs if any
   await prisma.positionAssignment.deleteMany({
@@ -67,9 +65,7 @@ async function runTestSuite() {
     });
   }
 
-  // =========================================================================
   // TEST A: Role Gating & Public Registration Whitelist
-  // =========================================================================
   console.log('🔹 TEST A: Public Registration Whitelist & Privileged Role Rejection');
   const allowedRoles = ['senior-counselor', 'counselor'];
   const testAttemptProtected = 'super-admin';
@@ -80,9 +76,7 @@ async function runTestSuite() {
     throw new Error(`  ❌ Failed: Protected role was allowed.`);
   }
 
-  // =========================================================================
   // TEST B & C: Staff Candidate 1 (Ramesh Kumar) Registration & Masked KYC Upload
-  // =========================================================================
   console.log('\n🔹 TEST B & C: Staff Candidate 1 (Ramesh Kumar) Registration & Masked KYC Upload');
   const emp1Password = 'Ramesh@Password123';
   const hashedPass1 = await bcryptLib.hash(emp1Password, 10);
@@ -139,9 +133,7 @@ async function runTestSuite() {
 
   console.log(`  ✅ Passed: Candidate '${emp1.fullName}' registered. Masked KYC stored as '${kycDoc.documentNumber}' and VERIFIED.`);
 
-  // =========================================================================
   // TEST D: Enterprise Position Creation with Deterministic Email
-  // =========================================================================
   console.log('\n🔹 TEST D: Enterprise Position Creation (Senior Counselor — Madhubani)');
   const companyEmail = 'senior.madhubani@swayamadmission.com';
   const position = await prisma.position.create({
@@ -160,9 +152,7 @@ async function runTestSuite() {
   });
   console.log(`  ✅ Passed: Continuous Position created: '${position.title}' with Company Email '${position.companyEmail}'`);
 
-  // =========================================================================
   // TEST E: Staff Approval & Initial Assignment
-  // =========================================================================
   console.log('\n🔹 TEST E: Approving Candidate & Binding to Position');
   const assignment1 = await prisma.positionAssignment.create({
     data: {
@@ -187,9 +177,7 @@ async function runTestSuite() {
 
   console.log(`  ✅ Passed: Candidate approved. Bound to Position ${position.code}. Position status is ACTIVE.`);
 
-  // =========================================================================
   // TEST F: Corporate Position Login via Company Email
-  // =========================================================================
   console.log('\n🔹 TEST F: Central Login via Company Email (senior.madhubani@swayamadmission.com)');
   // Resolve Position by Company Email
   const resolvedPos = await prisma.position.findUnique({
@@ -222,9 +210,7 @@ async function runTestSuite() {
 
   console.log(`  ✅ Passed: Authenticated '${activeUser.fullName}' against corporate post '${companyEmail}'. Issued JWT with SessionVersion: ${activeUser.sessionVersion}`);
 
-  // =========================================================================
   // TEST G: Self-Service Password Reset Policy Gate
-  // =========================================================================
   console.log('\n🔹 TEST G: Self-Service Password Reset Policy Enforcement');
   if (!resolvedPos.selfServicePasswordReset && !activeUser.selfServicePasswordReset) {
     console.log(`  ✅ Passed: Self-service password reset is BLOCKED for enterprise position account. Only Admin Recovery allowed.`);
@@ -232,9 +218,7 @@ async function runTestSuite() {
     throw new Error('  ❌ Failed: Self-service reset should be blocked.');
   }
 
-  // =========================================================================
   // TEST H: Admin Password Reset, Reason Mandatory & Session Revocation
-  // =========================================================================
   console.log('\n🔹 TEST H: Admin Password Reset with Reason & Instant Session Revocation');
   const tempPassword = 'Temp#Recovery99!';
   const hashedTemp = await bcryptLib.hash(tempPassword, 10);
@@ -261,9 +245,7 @@ async function runTestSuite() {
     throw new Error('  ❌ Failed: Old session was not revoked.');
   }
 
-  // =========================================================================
   // TEST I: First-Login Password Establishment
-  // =========================================================================
   console.log('\n🔹 TEST I: Staff First-Login with Temporary Password & Permanent Password Set');
   const newEmp1Password = 'Ramesh@Permanent2026!';
   const isTempValid = await bcryptLib.compare(tempPassword, updatedUser!.password);
@@ -280,9 +262,7 @@ async function runTestSuite() {
   });
   console.log(`  ✅ Passed: Staff member authenticated with temp password and established private permanent password. mustChangePassword set to false.`);
 
-  // =========================================================================
   // TEST J: Employee 1 Resignation & Access Revocation (Post Continues)
-  // =========================================================================
   console.log('\n🔹 TEST J: Employee 1 Resignation Protocol');
   // End assignment and mark user RESIGNED
   await prisma.positionAssignment.update({
@@ -319,9 +299,7 @@ async function runTestSuite() {
     throw new Error('  ❌ Failed: Position or email did not survive resignation.');
   }
 
-  // =========================================================================
   // TEST K: Replacement Continuity & Independent Credentials for Employee 2
-  // =========================================================================
   console.log('\n🔹 TEST K: Employee 2 (Suresh Sharma) Onboarding & Position Continuation');
   const emp2Password = 'Suresh@Password999';
   const hashedPass2 = await bcryptLib.hash(emp2Password, 10);
@@ -382,9 +360,7 @@ async function runTestSuite() {
     throw new Error('  ❌ Failed: Replacement continuity credential verification failed.');
   }
 
-  // =========================================================================
   // TEST L: Historical Assignment Trail Verification
-  // =========================================================================
   console.log('\n🔹 TEST L: Position 360 Historical Audit Trail');
   const fullPositionHistory = await prisma.position.findUnique({
     where: { id: position.id },
@@ -407,9 +383,7 @@ async function runTestSuite() {
     throw new Error('  ❌ Failed: Historical assignment count mismatch.');
   }
 
-  console.log('\n===============================================================');
   console.log('🎉 ALL 12 ENTERPRISE IDENTITY & SECURITY TESTS PASSED PERFECTLY!');
-  console.log('===============================================================\n');
 
   // Clean up test data
   await prisma.positionAssignment.deleteMany({

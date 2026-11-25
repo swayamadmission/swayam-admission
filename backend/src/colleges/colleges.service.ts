@@ -568,9 +568,7 @@ export class CollegesService {
     });
   }
 
-  // =========================================================================
   // MEDIA MANAGEMENT & FILE UPLOAD
-  // =========================================================================
 
   async uploadMediaFile(
     collegeId: string,
@@ -694,9 +692,7 @@ export class CollegesService {
     }
   }
 
-  // =========================================================================
   // GALLERY MANAGEMENT
-  // =========================================================================
 
   async addGalleryImage(
     collegeId: string,
@@ -766,9 +762,7 @@ export class CollegesService {
     });
   }
 
-  // =========================================================================
   // STUDY MATERIALS LINKING
-  // =========================================================================
 
   async getCollegeStudyMaterials(collegeId: string) {
     return this.prisma.studyMaterial.findMany({
@@ -796,9 +790,7 @@ export class CollegesService {
     });
   }
 
-  // =========================================================================
   // PUBLISH / UNPUBLISH STATUS TOGGLE
-  // =========================================================================
 
   async setPublishStatus(collegeId: string, publish: boolean, adminId: string) {
     const status = publish ? 'PUBLISHED' : 'DRAFT';
@@ -818,9 +810,7 @@ export class CollegesService {
     return updated;
   }
 
-  // =========================================================================
   // COLLEGE PARTNER ORGANIZATION LIFECYCLE & VERIFICATION
-  // =========================================================================
 
   async verifyCollege(id: string, adminId: string) {
     const existing = await this.prisma.college.findUnique({ where: { id } });
@@ -911,9 +901,7 @@ export class CollegesService {
     };
   }
 
-  // =========================================================================
   // COLLEGE PORTAL REAL-TIME BACKEND-DERIVED METRICS
-  // =========================================================================
 
   async getCollegePortalMetrics(collegeId: string, userId?: string) {
     const college = await this.prisma.college.findUnique({
@@ -1046,9 +1034,7 @@ export class CollegesService {
     };
   }
 
-  // =========================================================================
   // COLLEGE STAFF ONBOARDING & MANAGEMENT
-  // =========================================================================
 
   async getCollegeStaff(collegeId: string) {
     const staff = await this.prisma.user.findMany({
@@ -1207,9 +1193,7 @@ export class CollegesService {
     };
   }
 
-  // =========================================================================
   // COLLEGE INSTITUTIONAL COMPLIANCE DOCUMENTS
-  // =========================================================================
 
   async getCollegeDocuments(collegeId: string) {
     const documents = await this.prisma.collegeDocument.findMany({
@@ -1269,9 +1253,7 @@ export class CollegesService {
     };
   }
 
-  // =========================================================================
   // COLLEGE CHANGE REQUESTS GOVERNANCE
-  // =========================================================================
 
   async getChangeRequests(collegeId?: string) {
     const where: any = {};

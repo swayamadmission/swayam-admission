@@ -180,9 +180,7 @@ export const paymentsApi = {
   getStudentContext: (studentId: string) =>
     api.get(`/payments/student-context/${studentId}`),
 
-  // ==========================================
   // ENTERPRISE PAYMENT & FINANCE API METHODS
-  // ==========================================
   counselorCreateRequest: (data: any) =>
     api.post("/payments/counselor/request", data),
 

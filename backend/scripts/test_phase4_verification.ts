@@ -22,9 +22,7 @@ interface ScenarioResult {
 }
 
 async function runPhase4Verification() {
-  console.log('===================================================================================');
   console.log('    SWAYAM ADMISSION — PHASE 4 GO-LIVE VALIDATION & RELIABILITY TEST SUITE        ');
-  console.log('===================================================================================\n');
 
   let app: any;
   try {

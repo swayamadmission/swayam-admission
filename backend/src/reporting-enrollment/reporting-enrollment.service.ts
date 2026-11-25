@@ -482,7 +482,7 @@ export class ReportingEnrollmentService {
     try {
       await this.notificationsService.createNotification({
         userId: reporting.studentId,
-        title: 'Campus Reporting Verified! 🎉',
+        title: 'Campus Reporting Verified!',
         message: `Your campus reporting for ${reporting.college?.name} has been verified successfully. Enrollment confirmation pending.`,
         type: 'APPLICATION' as any,
       });
@@ -610,7 +610,7 @@ export class ReportingEnrollmentService {
     try {
       await this.notificationsService.createNotification({
         userId: app.userId,
-        title: '🎓 Official Enrollment Confirmed!',
+        title: 'Official Enrollment Confirmed!',
         message: `Heartiest Congratulations! You are now officially enrolled at ${app.college?.name} (${app.course?.name}). Your Official Enrollment Number is ${enrollmentNumber}.`,
         type: 'APPLICATION' as any,
       });
@@ -618,7 +618,7 @@ export class ReportingEnrollmentService {
       if (app.counselorId) {
         await this.notificationsService.createNotification({
           userId: app.counselorId,
-          title: 'Student Successfully Enrolled! 🎓',
+          title: 'Student Successfully Enrolled!',
           message: `Your student ${app.user?.fullName} has completed the full admission journey and is enrolled at ${app.college?.name} (${enrollmentNumber}).`,
           type: 'APPLICATION' as any,
         });

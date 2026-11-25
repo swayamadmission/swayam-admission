@@ -205,9 +205,7 @@ export default function AnalyticsPage() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen p-6 space-y-6" style={{ background: BRAND_COLORS.background }}>
-        {/* ========================================================================= */}
         {/* TOP BAR: HEADER + GLOBAL FILTER BAR */}
-        {/* ========================================================================= */}
         <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -366,9 +364,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* ========================================================================= */}
         {/* TAB 1: EXECUTIVE OVERVIEW */}
-        {/* ========================================================================= */}
         {activeTab === "overview" && (
           <div className="space-y-6">
             {/* Operational KPI Grid */}
@@ -528,9 +524,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 2: 7-STAGE ADMISSION FUNNEL */}
-        {/* ========================================================================= */}
         {activeTab === "funnel" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-6">
@@ -595,9 +589,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 3: COUNSELORS & WORKLOAD CAPACITY */}
-        {/* ========================================================================= */}
         {activeTab === "counselors" && (
           <div className="space-y-6">
             {/* Senior Counselor Team Rollups (if available) */}
@@ -692,9 +684,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 4: COLLEGES & COURSES */}
-        {/* ========================================================================= */}
         {activeTab === "colleges" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
@@ -764,9 +754,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 5: GEOGRAPHY (STATE & DISTRICT) */}
-        {/* ========================================================================= */}
         {activeTab === "geography" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
@@ -813,9 +801,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 6: FINANCE & RECONCILIATION */}
-        {/* ========================================================================= */}
         {activeTab === "finance" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -860,9 +846,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 7: SLA & BOTTLENECKS */}
-        {/* ========================================================================= */}
         {activeTab === "sla" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -899,9 +883,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* TAB 8: REPORT BUILDER & EXPORT */}
-        {/* ========================================================================= */}
         {activeTab === "reports" && (
           <div className="space-y-6">
             <div className="p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-sm space-y-4">
@@ -1002,9 +984,7 @@ export default function AnalyticsPage() {
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* RECORD DRILLDOWN DRAWER MODAL (IAM-SCOPED) */}
-        {/* ========================================================================= */}
         {drilldownMetric && (
           <div className="fixed inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDrilldownMetric(null)} />

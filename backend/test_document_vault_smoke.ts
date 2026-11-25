@@ -12,9 +12,7 @@ import { PDFDocument } from 'pdf-lib';
 import sharp from 'sharp';
 
 async function runDocumentVaultSmokeTest() {
-  console.log('================================================================');
   console.log(' SWAYAM ADMISSION — PRODUCTION DOCUMENT VAULT SMOKE TEST SUITE');
-  console.log('================================================================\n');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: false });
   const prisma = app.get(PrismaService);
@@ -440,9 +438,7 @@ async function runDocumentVaultSmokeTest() {
 
     // Clean up stored vault test file
     await vaultStorage.deleteDocument(stored.storageKey);
-    console.log('\n================================================================');
     console.log(' ✅ ALL PRODUCTION SECURITY VAULT SMOKE TESTS PASSED CLEANLY! ');
-    console.log('================================================================');
   } finally {
     await app.close();
   }

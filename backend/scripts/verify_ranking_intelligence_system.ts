@@ -39,9 +39,7 @@ function recordTest(result: SmokeTestResult) {
 }
 
 async function runRankingSmokeTest() {
-  console.log('================================================================');
   console.log('🚀 SWAYAM ADMISSION — COLLEGE RANKING & RESEARCH INTELLIGENCE E2E SMOKE TEST');
-  console.log('================================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const prisma = app.get(PrismaService);
@@ -766,9 +764,7 @@ async function runRankingSmokeTest() {
   }
 
   // Summary
-  console.log('\n================================================================');
   console.log('📊 SMOKE TEST SUMMARY');
-  console.log('================================================================');
   const passed = testResults.filter((t) => t.pass).length;
   const total = testResults.length;
   console.log(`TOTAL TESTS EXECUTED: ${total}`);

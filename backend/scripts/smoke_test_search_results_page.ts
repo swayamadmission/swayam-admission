@@ -2,9 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function runSearchResultsSmokeTest() {
-  console.log('================================================================');
   console.log(' SWAYAM ADMISSION — SEARCH RESULTS PAGE SMOKE TEST & LAYOUT AUDIT ');
-  console.log('================================================================\n');
 
   const filePath = path.resolve(__dirname, '../../frontend/user/src/app/components/SearchResultsPage.tsx');
   if (!fs.existsSync(filePath)) {
@@ -86,9 +84,7 @@ async function runSearchResultsSmokeTest() {
   }
   console.log('    ✅ Category filter state is synchronized with URL search params and includes reset action.');
 
-  console.log('\n================================================================');
   console.log(' 🌟 ALL SEARCH RESULTS PAGE SMOKE TESTS PASSED CLEANLY!         ');
-  console.log('================================================================');
 }
 
 runSearchResultsSmokeTest().catch((err) => {

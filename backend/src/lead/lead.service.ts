@@ -906,7 +906,7 @@ export class LeadService {
           data: {
             userId: studentUser.id,
             receiverId: studentUser.id,
-            title: 'Counselor Assigned! 🎉',
+            title: 'Counselor Assigned!',
             message: `${counselor.fullName} has been assigned as your personal educational counselor to guide your admissions journey.`,
             type: 'APPLICATION',
             priority: 'HIGH',

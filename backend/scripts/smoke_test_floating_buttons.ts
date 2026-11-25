@@ -2,9 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function runFloatingButtonsSmokeTest() {
-  console.log('================================================================');
   console.log('🚀 SMOKE TEST: SWAYAM AI COUNSELOR FLOATING BUTTON POSITIONING');
-  console.log('================================================================\n');
 
   let passed = 0;
   let failed = 0;
@@ -87,9 +85,7 @@ async function runFloatingButtonsSmokeTest() {
   assert(floatingAiContent.includes('z-50'), 'Expanded chat drawer has higher z-index (z-50) than launcher (z-40)');
   assert(floatingAiContent.includes('fixed inset-x-4 bottom-4 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[420px]'), 'Chat window responsive positioning preserved');
 
-  console.log('\n================================================================');
   console.log(`🏁 SMOKE TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
-  console.log('================================================================\n');
 
   if (failed > 0) {
     process.exit(1);

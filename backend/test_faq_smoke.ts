@@ -5,9 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaService } from './src/prisma/prisma.service';
 
 async function runFAQSmokeTest() {
-  console.log('====================================================');
   console.log(' SWAYAM ADMISSION — FAQ / KNOWLEDGE BASE SMOKE TEST  ');
-  console.log('====================================================\n');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: false });
 
@@ -390,9 +388,7 @@ async function runFAQSmokeTest() {
     }
     console.log('    ✅ Archived FAQ immediately removed from public listing.');
 
-    console.log('\n====================================================');
     console.log(' ✅ ALL 17 FAQ END-TO-END SMOKE TESTS PASSED 100%!  ');
-    console.log('====================================================\n');
   } finally {
     // Cleanup created test FAQs
     if (createdFaqIds.length > 0) {

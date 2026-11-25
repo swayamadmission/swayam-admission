@@ -6,9 +6,7 @@ import { CouponService } from './src/coupons/coupon.service';
 const prisma = new PrismaClient();
 
 async function runTests() {
-  console.log('========================================================================');
   console.log('🧪 RUNNING SWAYAM ADMISSION REFERRAL, COUPON & FEE ENGINE VERIFICATION');
-  console.log('========================================================================\n');
 
   let passed = 0;
   let failed = 0;
@@ -312,9 +310,7 @@ async function runTests() {
     await prisma.$disconnect();
   }
 
-  console.log('\n========================================================================');
   console.log(`📊 TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
-  console.log('========================================================================\n');
 
   if (failed > 0) {
     process.exit(1);

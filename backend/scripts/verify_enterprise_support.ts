@@ -6,9 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { BulkSupportActionType } from '../src/support/dto/bulk-support-action.dto';
 
 async function runEnterpriseSupportVerification() {
-  console.log('===============================================================');
   console.log('  SWAYAM ADMISSION — ENTERPRISE SUPPORT DESK VERIFICATION');
-  console.log('===============================================================');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -116,9 +114,7 @@ async function runEnterpriseSupportVerification() {
   await prisma.supportTicket.delete({ where: { id: createdTicket.id } });
   console.log('      ✓ Cleaned up test verification ticket.');
 
-  console.log('\n===============================================================');
   console.log('  ALL ENTERPRISE SUPPORT ENGINE TESTS PASSED (100%)');
-  console.log('===============================================================');
 
   await app.close();
   process.exit(0);

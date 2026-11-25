@@ -9,9 +9,7 @@ import * as bcryptLib from 'bcrypt';
 import { Role } from '@prisma/client';
 
 async function runRecoveryE2ETestSuite() {
-  console.log('=================================================================================');
   console.log('  SWAYAM ADMISSION — EMPLOYEE RECOVERY & AUTHENTICATION END-TO-END VERIFICATION  ');
-  console.log('=================================================================================\n');
 
   let app: any;
   try {
@@ -572,9 +570,7 @@ async function runRecoveryE2ETestSuite() {
 
     await app?.close();
 
-    console.log('\n=================================================================================');
     console.log('                          FINAL E2E VERIFICATION SUMMARY                         ');
-    console.log('=================================================================================');
     const totalPassed = results.filter((r) => r.passed).length;
     console.log(`Total Scenarios: ${results.length}`);
     console.log(`Passed: ${totalPassed} / ${results.length}`);
@@ -585,7 +581,6 @@ async function runRecoveryE2ETestSuite() {
     } else {
       console.log('\n⚠️ Some scenarios did not pass. Inspect details above.');
     }
-    console.log('=================================================================================\n');
   }
 }
 

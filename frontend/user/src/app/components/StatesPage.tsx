@@ -7,7 +7,6 @@ import { PageBannerSlider } from "./common/PageBannerSlider";
 export interface StateInfo {
   slug: string;
   name: string;
-  emoji: string;
   region: string;
   colleges: number;
   students: string;
@@ -26,7 +25,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "uttar-pradesh",
     name: "Uttar Pradesh",
-    emoji: "🕌",
     region: "North India",
     colleges: 258,
     students: "18L+",
@@ -43,7 +41,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "bihar",
     name: "Bihar",
-    emoji: "🏛️",
     region: "East India",
     colleges: 145,
     students: "12L+",
@@ -60,7 +57,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "delhi-ncr",
     name: "Delhi NCR",
-    emoji: "🏙️",
     region: "North India",
     colleges: 168,
     students: "14L+",
@@ -77,7 +73,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "punjab",
     name: "Punjab",
-    emoji: "🌿",
     region: "North India",
     colleges: 115,
     students: "8L+",
@@ -94,7 +89,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "haryana",
     name: "Haryana",
-    emoji: "🌾",
     region: "North India",
     colleges: 98,
     students: "7L+",
@@ -111,7 +105,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "rajasthan",
     name: "Rajasthan",
-    emoji: "🏜️",
     region: "West India",
     colleges: 132,
     students: "9L+",
@@ -128,7 +121,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "madhya-pradesh",
     name: "Madhya Pradesh",
-    emoji: "🌳",
     region: "Central India",
     colleges: 118,
     students: "8L+",
@@ -145,7 +137,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "maharashtra",
     name: "Maharashtra",
-    emoji: "🌊",
     region: "West India",
     colleges: 312,
     students: "22L+",
@@ -162,7 +153,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "jharkhand",
     name: "Jharkhand",
-    emoji: "⛏️",
     region: "East India",
     colleges: 68,
     students: "4L+",
@@ -179,7 +169,6 @@ export const ALL_STATES: StateInfo[] = [
   {
     slug: "uttarakhand",
     name: "Uttarakhand",
-    emoji: "🏔️",
     region: "North India",
     colleges: 62,
     students: "3.5L+",
@@ -224,7 +213,6 @@ export default function StatesPage() {
               .replace(/[^a-z0-9]+/g, "-")
               .replace(/(^-|-$)+/g, "")),
       name: st.name,
-      emoji: staticInfo?.emoji || "🏛️",
       region: st.region
         ? st.region.includes("India")
           ? st.region
@@ -316,7 +304,6 @@ export default function StatesPage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 <div className="absolute inset-0 p-4 flex flex-col justify-end">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-2xl">{state.emoji}</span>
                     <h3 className="text-white" style={{ fontSize: "18px", fontWeight: 800 }}>{state.name}</h3>
                   </div>
                   <div className="flex items-center gap-3">
@@ -351,7 +338,7 @@ export default function StatesPage() {
           {filtered.map(state => (
             <Link key={state.slug} to={`/states/${state.slug}`}
               className="group bg-white rounded-2xl border border-gray-100 p-4 hover:shadow-md hover:border-[#4A7B5B]/20 transition-all text-center">
-              <div className="text-3xl mb-2">{state.emoji}</div>
+              <div className="w-10 h-10 bg-[#E8F3EC] rounded-xl flex items-center justify-center mx-auto mb-2.5"><MapPin size={18} className="text-[#4A7B5B]" /></div>
               <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#4A7B5B" }}>{state.name}</h3>
               <p style={{ fontSize: "11px", color: "#94a3b8" }} className="mb-2">{state.colleges} Colleges</p>
               <div className="flex items-center justify-center gap-1">

@@ -15,9 +15,7 @@ import {
 } from '@prisma/client';
 
 async function runEnterpriseNotificationsVerification() {
-  console.log('===============================================================');
   console.log('  SWAYAM ADMISSION — ENTERPRISE NOTIFICATION & COMMUNICATION');
-  console.log('===============================================================');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -166,9 +164,7 @@ async function runEnterpriseNotificationsVerification() {
   await prisma.communicationCampaign.delete({ where: { id: createdCampaign.id } });
   console.log('[10/10] Cleaned up verification test records.');
 
-  console.log('\n===============================================================');
   console.log('  ALL ENTERPRISE NOTIFICATION & COMMUNICATION TESTS PASSED (100%)');
-  console.log('===============================================================');
 
   await app.close();
   process.exit(0);

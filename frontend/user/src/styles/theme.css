@@ -191,10 +191,8 @@
   }
 }
 
-/* ========================================================================== */
 /* STANDALONE OFFICIAL RECEIPT PRINT ISOLATION                                */
 /* Ensures only .receipt-print-area is printed, hiding all other webpage UI  */
-/* ========================================================================== */
 @media print {
   @page {
     size: A4 portrait;

@@ -8,9 +8,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { Role } from '@prisma/client';
 
 async function runEnterpriseReferralsVerification() {
-  console.log('===============================================================');
   console.log('  SWAYAM ADMISSION — ENTERPRISE REFERRAL & REWARD ENGINE');
-  console.log('===============================================================');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -145,9 +143,7 @@ async function runEnterpriseReferralsVerification() {
   await prisma.user.delete({ where: { id: testApplicantUser.id } });
   console.log('[10/10] Cleaned up verification test records.');
 
-  console.log('\n===============================================================');
   console.log('  ALL ENTERPRISE REFERRAL & REWARD TESTS PASSED (100%)');
-  console.log('===============================================================');
 
   await app.close();
   process.exit(0);

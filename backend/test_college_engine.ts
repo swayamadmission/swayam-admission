@@ -4,9 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function runCollegeEngineVerification() {
-  console.log('====================================================');
   console.log('🚀 RUNNING SWAYAM ADMISSION COLLEGE ENGINE TESTS');
-  console.log('====================================================\n');
 
   try {
     // 1. Setup Test College Partners
@@ -236,9 +234,7 @@ async function runCollegeEngineVerification() {
     await prisma.application.delete({ where: { id: testApp.id } });
     await prisma.collegeOffering.deleteMany({ where: { collegeId: collegeA.id } });
 
-    console.log('\n====================================================');
     console.log('🎉 ALL COLLEGE ENGINE & SEAT CONCURRENCY TESTS PASSED!');
-    console.log('====================================================\n');
   } catch (error) {
     console.error('❌ Test failed with error:', error);
     process.exit(1);

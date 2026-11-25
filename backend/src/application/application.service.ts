@@ -487,7 +487,7 @@ export class ApplicationService implements OnModuleInit {
         data: {
           userId,
           type: 'APPLICATION',
-          title: 'Application Submitted Successfully! 🎉',
+          title: 'Application Submitted Successfully!',
           message: `Your application (${applicationId}) for ${app.college?.name} - ${app.course?.name} has been submitted.`,
           isRead: false,
         },
@@ -2992,7 +2992,7 @@ export class ApplicationService implements OnModuleInit {
     await this.notificationsService.createNotification({
       userId: app.userId,
       type: 'APPLICATION',
-      title: 'Application Submitted! 🎉',
+      title: 'Application Submitted!',
       message: isFeeSettled
         ? `Your application (${publicAppNum}) for ${app.college?.name} - ${app.course?.name} has been submitted successfully.`
         : `Your application (${publicAppNum}) for ${app.college?.name} - ${app.course?.name} has been submitted successfully. Please complete the application fee payment.`,

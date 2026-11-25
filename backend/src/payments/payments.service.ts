@@ -1996,7 +1996,7 @@ export class PaymentsService {
         userId,
         type: NotificationType.PAYMENT,
         priority: NotificationPriority.HIGH,
-        title: 'Payment Successful! 🎉',
+        title: 'Payment Successful!',
         message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} has been verified. Receipt: ${payment.receiptNumber || payment.id}`,
         relatedPaymentId: payment.id,
       });
@@ -2152,7 +2152,7 @@ export class PaymentsService {
               userId: payment.userId,
               type: NotificationType.PAYMENT,
               priority: NotificationPriority.HIGH,
-              title: 'Payment Confirmed! 🎉',
+              title: 'Payment Confirmed!',
               message: `Your payment of ₹${payment.amount.toLocaleString('en-IN')} has been confirmed. Receipt: ${payment.receiptNumber || payment.id}`,
               relatedPaymentId: payment.id,
             });
@@ -2385,8 +2385,8 @@ export class PaymentsService {
       type: NotificationType.APPLICATION,
       priority: NotificationPriority.HIGH,
       title: isFlaggedFraud
-        ? 'Payment Under Additional Audit ⚠️'
-        : 'Payment Proof Uploaded! 📄',
+        ? 'Payment Under Additional Audit'
+        : 'Payment Proof Uploaded!',
       message: isFlaggedFraud
         ? `Your payment proof has been submitted and is under compliance audit.`
         : `Your payment proof (UTR: ${dto.utrNumber}) has been submitted and is under verification by our team.`,
@@ -2398,7 +2398,7 @@ export class PaymentsService {
         type: NotificationType.APPLICATION,
         priority: NotificationPriority.HIGH,
         title: isFlaggedFraud
-          ? '⚠️ Suspicious Payment Proof Flagged'
+          ? 'Suspicious Payment Proof Flagged'
           : 'Student Uploaded Payment Proof',
         message: isFlaggedFraud
           ? `Suspicious payment proof for ${payment.applicationId || paymentId} flagged: ${fraudReason}`
@@ -2469,7 +2469,7 @@ export class PaymentsService {
         userId: payment.userId,
         type: NotificationType.APPLICATION,
         priority: NotificationPriority.HIGH,
-        title: 'Payment Verified & Confirmed! 🎉',
+        title: 'Payment Verified & Confirmed!',
         message: `Your payment of ₹${payment.amount.toLocaleString()} for ${payment.college?.name || 'Admission'} has been verified and confirmed.`,
       });
 

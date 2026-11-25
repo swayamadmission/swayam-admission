@@ -29,10 +29,8 @@ import { IUser } from '../auth/interfaces/user.interface';
 export class FaqController {
   constructor(private readonly faqService: FaqService) {}
 
-  // ==========================================
   // PUBLIC STUDENT ENDPOINTS (No Auth Required)
   // Only published, non-deleted FAQs are accessible
-  // ==========================================
 
   // 1. Public Paginated List (Safe Projection)
   @Get('public')
@@ -108,10 +106,8 @@ export class FaqController {
     return this.faqService.getMyQuestions(user);
   }
 
-  // ==========================================
   // ADMIN & AUTHORIZED STAFF ENDPOINTS
   // Protected with JwtAuthGuard and RolesGuard
-  // ==========================================
 
   // 9. Dashboard Statistics
   @Get('stats')

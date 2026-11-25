@@ -22,9 +22,7 @@ const mockNotificationsService = {
 } as any;
 
 async function runChatAndPrivacySmokeTests() {
-  console.log('===========================================================');
   console.log('🧪 SWAYAM ADMISSION — ASSIGNED COUNSELOR CHAT & PRIVACY TEST');
-  console.log('===========================================================\n');
 
   let passed = 0;
   let failed = 0;
@@ -294,9 +292,7 @@ async function runChatAndPrivacySmokeTests() {
   const unreadAfter = await chatService.getUnreadCount(studentActor);
   assert(unreadAfter.unreadCount === 0, 'Mark-read successfully clears unread count');
 
-  console.log('\n===========================================================');
   console.log(`🏁 TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
-  console.log('===========================================================');
 
   if (failed > 0) {
     process.exit(1);

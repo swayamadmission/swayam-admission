@@ -316,9 +316,7 @@ async function runTests() {
   });
   console.log('\nTest applications cleaned up.');
 
-  console.log('\n======================================================');
   console.log('ALL 9 TESTS PASSED ACCORDING TO PROMPT REQUIREMENTS!');
-  console.log('======================================================');
 }
 
 runTests()

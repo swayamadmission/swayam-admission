@@ -8,9 +8,7 @@ const BASE_URL = 'http://localhost:3000/v1';
 const JWT_SECRET = process.env.JWT_SECRET || 'swayam_super_secret_key';
 
 async function runSmokeTests() {
-  console.log('================================================================');
   console.log('🚀 SWAYAM ADMISSION ERP: MASTER STUDY MATERIALS SMOKE TEST SUITE');
-  console.log('================================================================\n');
 
   // Setup test users
   let studentA = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
@@ -396,9 +394,7 @@ async function runSmokeTests() {
     // Ignore file unlink
   }
 
-  console.log('\n================================================================');
   console.log('🎉 ALL 25 SMOKE TEST CHECKLIST SCENARIOS PASSED WITH ZERO ERRORS!');
-  console.log('================================================================\n');
 }
 
 runSmokeTests()

@@ -9,9 +9,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function runMasterPaymentSmokeTests() {
-  console.log('============================================================');
   console.log('STARTING SWAYAM ADMISSION MASTER PAYMENT SYSTEM SMOKE TESTS');
-  console.log('============================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const prisma = app.get(PrismaService);
@@ -547,9 +545,7 @@ async function runMasterPaymentSmokeTests() {
       'Network API contract clean: all requests have defined human-readable beneficiary',
     );
 
-    // ========================================================
     // TESTS 41 - 48: MASTER AUDIT & CRITICAL BUG VERIFICATION
-    // ========================================================
 
     // Test 41: Critical Bug #1 - Coupon disclaimer completely removed from StudentPaymentCenter
     const studentPaymentCenterPath = path.resolve(
@@ -689,9 +685,7 @@ async function runMasterPaymentSmokeTests() {
       `Receipt: ${zeroOrderRes.receiptNumber}`,
     );
 
-    console.log('\n============================================================');
     console.log(`SMOKE TEST SUMMARY: ${passedTests} PASSED, ${failedTests} FAILED out of 48 tests`);
-    console.log('============================================================');
 
     await app.close();
 

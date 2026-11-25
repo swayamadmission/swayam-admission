@@ -233,9 +233,7 @@ export class DocumentsController {
     return this.documentsService.getUserDocuments(userId, user?.id);
   }
 
-  // ==========================================
   // DELETION REQUESTS & RETENTION ENDPOINTS
-  // ==========================================
 
   @Post(['deletion-requests', 'deletion-request'])
   @UseGuards(JwtAuthGuard)

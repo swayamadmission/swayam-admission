@@ -235,51 +235,118 @@ export class StaffOnboardingService {
    * Verify Mobile / Email OTP
    */
   async verifyOtp(dto: VerifyOtpDto) {
-    // In production environment, verify against Redis/SMS cache. Validated here for all 6-digit OTPs.
-    if (dto.otp !== '123456' && dto.otp.length !== 6) {
-      throw new BadRequestException('Invalid OTP. Please check and re-enter.');
+    const rawOtp = (dto.otp || '').trim();
+    if (!rawOtp || rawOtp.length !== 6 || !/^\d{6}$/.test(rawOtp)) {
+      throw new BadRequestException('Please enter a valid 6-digit OTP.');
+    }
+
+    const cleanIdentifier = dto.identifier.trim();
+    const isDevBypass =
+      process.env.NODE_ENV !== 'production' &&
+      process.env.ENABLE_DEV_OTP === 'true' &&
+      rawOtp === '123456';
+
+    if (!isDevBypass) {
+      // Find active unused OTP record for identifier
+      const activeOtp = await this.prisma.otpVerification.findFirst({
+        where: {
+          identifier: { in: [cleanIdentifier, cleanIdentifier.toLowerCase()] },
+          isUsed: false,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (!activeOtp) {
+        throw new BadRequestException('No active OTP found. Please request a new OTP.');
+      }
+
+      if (activeOtp.expiresAt < new Date()) {
+        await this.prisma.otpVerification.update({
+          where: { id: activeOtp.id },
+          data: { isUsed: true },
+        });
+        throw new BadRequestException('OTP has expired. Please request a new OTP.');
+      }
+
+      if (activeOtp.attempts >= activeOtp.maxAttempts) {
+        await this.prisma.otpVerification.update({
+          where: { id: activeOtp.id },
+          data: { isUsed: true },
+        });
+        throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      }
+
+      // Verify OTP hash
+      const salt =
+        process.env.JWT_SECRET || 'swayam_development_local_jwt_secret_key_32_chars';
+      const computedHash = crypto
+        .createHash('sha256')
+        .update(`${rawOtp}:${salt}`)
+        .digest('hex');
+      const isHashMatch =
+        activeOtp.otpHash === computedHash ||
+        (await bcryptLib.compare(rawOtp, activeOtp.otpHash).catch(() => false));
+
+      if (!isHashMatch) {
+        await this.prisma.otpVerification.update({
+          where: { id: activeOtp.id },
+          data: { attempts: { increment: 1 } },
+        });
+        const remaining = activeOtp.maxAttempts - (activeOtp.attempts + 1);
+        throw new BadRequestException(
+          `Invalid OTP code. ${remaining > 0 ? `${remaining} attempts remaining.` : 'Please request a new OTP.'}`,
+        );
+      }
+
+      // Mark OTP as used immediately (one-time use)
+      await this.prisma.otpVerification.update({
+        where: { id: activeOtp.id },
+        data: { isUsed: true },
+      });
     }
 
     const request = await this.prisma.staffRegistrationRequest.findFirst({
       where: {
         OR: [
-          { personalMobile: dto.identifier.trim() },
-          { personalEmail: dto.identifier.trim().toLowerCase() },
+          { personalMobile: cleanIdentifier },
+          { personalEmail: cleanIdentifier.toLowerCase() },
         ],
       },
       orderBy: { submittedAt: 'desc' },
     });
 
-    if (request) {
-      const updateData: any = {};
-      if (dto.type === 'mobile') {
-        updateData.mobileVerifiedAt = new Date();
-      } else {
-        updateData.emailVerifiedAt = new Date();
-      }
-
-      await this.prisma.staffRegistrationRequest.update({
-        where: { id: request.id },
-        data: updateData,
-      });
-
-      await this.prisma.user.update({
-        where: { id: request.userId },
-        data: dto.type === 'mobile' ? { phoneVerified: true } : { emailVerified: true },
-      });
-
-      await this.prisma.auditLog.create({
-        data: {
-          userId: request.userId,
-          action: 'STAFF_OTP_VERIFIED',
-          module: 'STAFF_ONBOARDING',
-          severity: 'INFO',
-          status: 'SUCCESS',
-          description: `Candidate verified ${dto.type} OTP successfully.`,
-          targetUserId: request.userId,
-        },
-      });
+    if (!request) {
+      throw new NotFoundException('No pending registration found for this mobile/email.');
     }
+
+    const updateData: any = {};
+    if (dto.type === 'mobile') {
+      updateData.mobileVerifiedAt = new Date();
+    } else {
+      updateData.emailVerifiedAt = new Date();
+    }
+
+    await this.prisma.staffRegistrationRequest.update({
+      where: { id: request.id },
+      data: updateData,
+    });
+
+    await this.prisma.user.update({
+      where: { id: request.userId },
+      data: dto.type === 'mobile' ? { phoneVerified: true } : { emailVerified: true },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: request.userId,
+        action: 'STAFF_OTP_VERIFIED',
+        module: 'STAFF_ONBOARDING',
+        severity: 'INFO',
+        status: 'SUCCESS',
+        description: `Candidate verified ${dto.type} OTP successfully.`,
+        targetUserId: request.userId,
+      },
+    });
 
     return {
       message: `${dto.type === 'mobile' ? 'Mobile' : 'Email'} verified successfully.`,

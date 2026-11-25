@@ -9,9 +9,7 @@ import { ALL_35_MODULES } from '../src/roles/seed-permissions';
 import { RoleStatus } from '@prisma/client';
 
 async function runRbacMasterVerification() {
-  console.log('================================================================');
   console.log('🛡️ SWAYAM ADMISSION — ROLES & PERMISSIONS MASTER VERIFICATION');
-  console.log('================================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn'],
@@ -410,9 +408,7 @@ async function runRbacMasterVerification() {
     await prisma.user.delete({ where: { id: testStaffUser.id } });
     console.log('    Cleanup complete.');
 
-    console.log('\n================================================================');
     console.log(`📊 FINAL RESULT: ${passed} PASSED, ${failed} FAILED`);
-    console.log('================================================================\n');
 
     await app.close();
     process.exit(failed > 0 ? 1 : 0);

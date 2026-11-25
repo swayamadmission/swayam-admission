@@ -60,6 +60,9 @@ describe('Phase 13: Enterprise Authorization Integration & DataScope Enforcement
       auditLog: {
         create: jest.fn(),
       },
+      permission: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     mockRoleHierarchyService = {
@@ -211,7 +214,22 @@ describe('Phase 13: Enterprise Authorization Integration & DataScope Enforcement
       });
 
       const leadFilter = dataScopeService.buildLeadScopeFilter(ctx);
-      expect(leadFilter).toEqual({ assignedCounselorId: 'counselor-1' });
+      expect(leadFilter).toEqual({
+        OR: [
+          { assignedCounselorId: 'counselor-1' },
+          { assignedSeniorCounselorId: 'counselor-1' },
+          {
+            assignedPosition: {
+              assignments: {
+                some: {
+                  status: 'ACTIVE',
+                  userId: 'counselor-1',
+                },
+              },
+            },
+          },
+        ],
+      });
 
       const appFilter = dataScopeService.buildApplicationScopeFilter(ctx);
       expect(appFilter.OR).toBeDefined();

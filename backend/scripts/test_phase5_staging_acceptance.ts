@@ -92,9 +92,7 @@ function makeHttpRequest(
 }
 
 async function runPhase5Acceptance() {
-  console.log('\n===================================================================================');
   console.log('       SWAYAM ADMISSION — PHASE 5 STAGING ACCEPTANCE & RELIABILITY SUITE           ');
-  console.log('===================================================================================\n');
 
   const liveApiBase = 'https://swayam-admission.onrender.com/v1';
   const adminOrigin = 'https://swayam-admission-eg2x.vercel.app';
@@ -507,9 +505,7 @@ async function runPhase5Acceptance() {
   // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
-  console.log('\n===================================================================================');
   console.log('                 📊 PHASE 5 STAGING ACCEPTANCE RESULTS SUMMARY                     ');
-  console.log('===================================================================================');
 
   const passed = testResults.filter((r) => r.status === 'PASSED').length;
   const failed = testResults.filter((r) => r.status === 'FAILED').length;
@@ -519,7 +515,6 @@ async function runPhase5Acceptance() {
   console.log(`PASSED      : ${passed} ✅`);
   console.log(`FAILED      : ${failed} ❌`);
   console.log(`BLOCKED     : ${blocked} ⚠️`);
-  console.log('===================================================================================\n');
 
   await prisma.$disconnect();
 

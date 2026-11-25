@@ -49,9 +49,7 @@ function record(suite: string, name: string, status: 'PASSED' | 'FAILED' | 'BLOC
 }
 
 async function runPhase7Tests() {
-  console.log('\n===================================================================================');
   console.log('   SWAYAM ADMISSION — PHASE 7 ACTIVATION, SECURITY & READINESS SUITE               ');
-  console.log('===================================================================================\n');
 
   const emailChannel = new EmailChannel(prisma as any);
   const dispatcher = new NotificationDispatcher(
@@ -633,9 +631,7 @@ async function runPhase7Tests() {
   // ---------------------------------------------------------------------------
   // FINAL SUMMARY
   // ---------------------------------------------------------------------------
-  console.log('\n===================================================================================');
   console.log('                          PHASE 7 TEST RESULTS SUMMARY                             ');
-  console.log('===================================================================================\n');
 
   const passed = records.filter((r) => r.status === 'PASSED').length;
   const failed = records.filter((r) => r.status === 'FAILED').length;

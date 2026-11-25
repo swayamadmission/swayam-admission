@@ -103,9 +103,7 @@ export default function PaymentsPage() {
   // Config tab selected college
   const [configCollegeId, setConfigCollegeId] = useState<string>("");
 
-  // ==========================================
   // QUERIES
-  // ==========================================
 
   // Stats query
   const { data: statsRes, refetch: refetchStats } = useQuery({
@@ -312,9 +310,7 @@ export default function PaymentsPage() {
     }
   }, [collegeConfig]);
 
-  // ==========================================
   // MUTATIONS
-  // ==========================================
 
   const verifyStepMutation = useMutation({
     mutationFn: (payload: { paymentId: string; action: string; remarks?: string; requestedUTR?: boolean }) =>
@@ -559,9 +555,7 @@ export default function PaymentsPage() {
         ))}
       </div>
 
-      {/* ==========================================
-          TAB 1: ALL PAYMENTS
-         ========================================== */}
+      {/* TAB 1: ALL PAYMENTS */}
       {activeTab === "all_payments" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
@@ -817,9 +811,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB: INVOICES MATRIX
-         ========================================== */}
+      {/* TAB: INVOICES MATRIX */}
       {activeTab === "invoices" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
@@ -948,9 +940,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB: FINANCIAL RECONCILIATION ENGINE
-         ========================================== */}
+      {/* TAB: FINANCIAL RECONCILIATION ENGINE */}
       {activeTab === "reconciliation" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
@@ -1135,9 +1125,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB: VERIFICATION QUEUE
-         ========================================== */}
+      {/* TAB: VERIFICATION QUEUE */}
       {activeTab === "verification_queue" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
@@ -1286,9 +1274,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 3: PAYMENT REQUESTS MANAGEMENT
-         ========================================== */}
+      {/* TAB 3: PAYMENT REQUESTS MANAGEMENT */}
       {activeTab === "payment_requests" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
@@ -1392,9 +1378,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 4: FEE HEADS MANAGEMENT
-         ========================================== */}
+      {/* TAB 4: FEE HEADS MANAGEMENT */}
       {activeTab === "fee_heads" && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center">
@@ -1493,9 +1477,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 5: COLLEGE ROUTING ENGINE & CONFIG
-         ========================================== */}
+      {/* TAB 5: COLLEGE ROUTING ENGINE & CONFIG */}
       {activeTab === "college_config" && (
         <div className="space-y-6">
           <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1695,9 +1677,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 6: ANALYTICS & TRENDS
-         ========================================== */}
+      {/* TAB 6: ANALYTICS & TRENDS */}
       {activeTab === "analytics" && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
@@ -1753,9 +1733,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          TAB 7: SLA & FRAUD ALERTS
-         ========================================== */}
+      {/* TAB 7: SLA & FRAUD ALERTS */}
       {activeTab === "sla_fraud" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1800,9 +1778,7 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* ==========================================
-          MODALS & DRAWERS
-         ========================================== */}
+      {/* MODALS & DRAWERS */}
 
       {/* Rejection Modal */}
       {rejectionModal.isOpen && (

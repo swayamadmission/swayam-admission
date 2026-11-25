@@ -28,9 +28,7 @@ import { IUser } from '../auth/interfaces/user.interface';
 export class CollegeCounselingController {
   constructor(private readonly counselingService: CollegeCounselingService) {}
 
-  // ==========================================
   // STUDENT SELF ENDPOINTS
-  // ==========================================
 
   @Get('students/me/requirement-profile')
   getStudentMyRequirementProfile(@CurrentUser() user: IUser) {
@@ -108,9 +106,7 @@ export class CollegeCounselingController {
     return this.counselingService.initiateApplication(user, user.id, dto);
   }
 
-  // ==========================================
   // COUNSELOR / STAFF / ADMIN SCOPED ENDPOINTS
-  // ==========================================
 
   @Get('counselor/students/:studentId/requirement-profile')
   @UseGuards(PermissionGuard)

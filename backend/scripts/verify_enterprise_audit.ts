@@ -6,9 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { Role } from '@prisma/client';
 
 async function runEnterpriseAuditVerification() {
-  console.log('===============================================================');
   console.log('  SWAYAM ADMISSION — ENTERPRISE AUDIT & GOVERNANCE ENGINE');
-  console.log('===============================================================');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -146,9 +144,7 @@ async function runEnterpriseAuditVerification() {
   await prisma.auditLog.deleteMany({ where: { entityId: testEntityId } });
   console.log('[8/8] Cleaned up verification test records.');
 
-  console.log('\n===============================================================');
   console.log('  ALL ENTERPRISE AUDIT ENGINE TESTS PASSED (100%)');
-  console.log('===============================================================');
 
   await app.close();
   process.exit(0);

@@ -25,9 +25,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class BannersController {
   constructor(private readonly bannersService: BannersService) {}
 
-  // ==========================================
   // PUBLIC FRONTEND ENDPOINTS
-  // ==========================================
 
   @Get('public')
   getPublic(@Query('slot') slot?: string) {
@@ -39,9 +37,7 @@ export class BannersController {
     return this.bannersService.getAvailableSlots();
   }
 
-  // ==========================================
   // ADMIN MANAGEMENT ENDPOINTS
-  // ==========================================
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)

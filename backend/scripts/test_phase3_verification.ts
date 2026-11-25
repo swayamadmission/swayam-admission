@@ -17,9 +17,7 @@ interface ScenarioResult {
 }
 
 async function runPhase3Verification() {
-  console.log('===================================================================================');
   console.log('    SWAYAM ADMISSION — PHASE 3 PRODUCTION HARDENING & RELIABILITY TEST SUITE      ');
-  console.log('===================================================================================\n');
 
   let app: any;
   try {

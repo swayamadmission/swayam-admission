@@ -12,9 +12,7 @@ const ADMIN_EMAIL = 'admin@swayamadmission.in';
 const ADMIN_PASSWORD = 'Admin@123';
 
 async function runVerification() {
-  console.log('================================================================');
   console.log('🧪 RUNNING SWAYAM ADMISSION MASTER AUTH & GEOGRAPHY VALIDATION');
-  console.log('================================================================\n');
 
   let passed = 0;
   let total = 0;
@@ -345,9 +343,7 @@ async function runVerification() {
     await prisma.user.delete({ where: { id: user2.id } });
   });
 
-  console.log('\n================================================================');
   console.log(`📊 MASTER VERIFICATION RESULTS: ${passed}/${total} TESTS PASSED (${Math.round((passed / total) * 100)}%)`);
-  console.log('================================================================\n');
 
   if (passed !== total) {
     process.exit(1);

@@ -21,9 +21,7 @@ import {
   ScholarshipData,
 } from '../knowledge/scholarships.knowledge';
 
-// ================================
 // CAREER PATH MATCHING
-// ================================
 
 function calculateCareerRelevance(
   career: CareerData,
@@ -107,9 +105,7 @@ export function matchCareers(
   }));
 }
 
-// ================================
 // SCHOLARSHIP MATCHING
-// ================================
 
 function isScholarshipEligible(
   scholarship: ScholarshipData,
@@ -168,9 +164,7 @@ export function matchScholarships(input: StudentInput): ScholarshipInfo[] {
   return results;
 }
 
-// ================================
 // PERSONALIZED ADVICE GENERATOR
-// ================================
 
 export function generatePersonalizedAdvice(input: StudentInput): string[] {
   const advice: string[] = [];
@@ -179,19 +173,19 @@ export function generatePersonalizedAdvice(input: StudentInput): string[] {
   // Marks-based advice
   if (avgMarks >= 85) {
     advice.push(
-      '🌟 Your excellent academic record opens doors to top-tier institutions. Aim high and apply to premium colleges!',
+      'Your excellent academic record opens doors to top-tier institutions. Aim high and apply to premium colleges!',
     );
   } else if (avgMarks >= 70) {
     advice.push(
-      '📚 Your marks are competitive for most good colleges. Focus on entrance exam preparation to boost your chances.',
+      'Your marks are competitive for most good colleges. Focus on entrance exam preparation to boost your chances.',
     );
   } else if (avgMarks >= 55) {
     advice.push(
-      '💪 Solid marks! Consider a mix of government and private colleges. Entrance exam scores can compensate.',
+      'Solid marks! Consider a mix of government and private colleges. Entrance exam scores can compensate.',
     );
   } else {
     advice.push(
-      '🎯 Focus on entrance exam preparation — many colleges give more weightage to entrance scores than board marks.',
+      'Focus on entrance exam preparation — many colleges give more weightage to entrance scores than board marks.',
     );
   }
 
@@ -205,7 +199,7 @@ export function generatePersonalizedAdvice(input: StudentInput): string[] {
       )
     ) {
       advice.push(
-        '🏥 For medical aspirations, NEET is mandatory. Start NCERT-focused preparation at least 1 year before the exam.',
+        'For medical aspirations, NEET is mandatory. Start NCERT-focused preparation at least 1 year before the exam.',
       );
     }
     if (
@@ -216,23 +210,23 @@ export function generatePersonalizedAdvice(input: StudentInput): string[] {
       )
     ) {
       advice.push(
-        '💻 For engineering, JEE Main opens NITs/IIITs and JEE Advanced opens IITs. Practice at least 100 mock tests.',
+        'For engineering, JEE Main opens NITs/IIITs and JEE Advanced opens IITs. Practice at least 100 mock tests.',
       );
     }
   } else if (input.stream === 'COMMERCE') {
     advice.push(
-      '📊 Commerce offers diverse paths — CA, MBA, banking, or entrepreneurship. CUET and CAT are key entrance exams.',
+      'Commerce offers diverse paths — CA, MBA, banking, or entrepreneurship. CUET and CAT are key entrance exams.',
     );
   } else if (input.stream === 'ARTS') {
     advice.push(
-      '🎨 Arts graduates are thriving in law (CLAT), civil services (UPSC), design (NIFT), and digital content creation.',
+      'Arts graduates are thriving in law (CLAT), civil services (UPSC), design (NIFT), and digital content creation.',
     );
   }
 
   // Budget advice
   if (input.budgetMax <= 100000) {
     advice.push(
-      '💰 On a tight budget? Government colleges and national scholarship portals (scholarships.gov.in) are your best friends.',
+      'On a tight budget? Government colleges and national scholarship portals (scholarships.gov.in) are your best friends.',
     );
   }
 
@@ -243,14 +237,14 @@ export function generatePersonalizedAdvice(input: StudentInput): string[] {
     )
   ) {
     advice.push(
-      "📍 Consider colleges in Delhi, Chandigarh, or Kolkata — they're nearby and have excellent institutions at reasonable costs.",
+      "Consider colleges in Delhi, Chandigarh, or Kolkata — they're nearby and have excellent institutions at reasonable costs.",
     );
   }
 
   // Career goal advice
   if (input.careerGoal) {
     advice.push(
-      `🎯 You mentioned "${input.careerGoal}" as your career goal. The recommended career paths below show step-by-step roadmaps to get there.`,
+      `You mentioned "${input.careerGoal}" as your career goal. The recommended career paths below show step-by-step roadmaps to get there.`,
     );
   }
 

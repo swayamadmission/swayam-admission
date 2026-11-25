@@ -6,9 +6,7 @@ const BASE_URL = 'http://localhost:3000/v1';
 const JWT_SECRET = process.env.JWT_SECRET || 'swayam_super_secret_key';
 
 async function main() {
-  console.log('===========================================================');
   console.log('🌐 TESTING STUDY MATERIALS HTTP API ENDPOINTS');
-  console.log('===========================================================\n');
 
   // 1. Fetch Users
   const studentA = await prisma.user.findFirst({ where: { role: 'STUDENT' } });
@@ -217,9 +215,7 @@ async function main() {
   await prisma.studyMaterial.delete({ where: { id: createdMaterial.id } });
   console.log(`✓ Test record deleted permanently.`);
 
-  console.log('\n===========================================================');
   console.log('🎉 ALL STUDY MATERIALS HTTP API TESTS PASSED SUCCESSFULLY!');
-  console.log('===========================================================');
 }
 
 main()

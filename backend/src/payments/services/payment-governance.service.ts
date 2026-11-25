@@ -33,9 +33,7 @@ export class PaymentGovernanceService {
     private readonly dataScopeService: DataScopeService,
   ) {}
 
-  // ==========================================
   // 1. PAYMENT REQUEST SYSTEM
-  // ==========================================
   async createPaymentRequest(createdById: string, dto: any) {
     const {
       studentId,
@@ -556,9 +554,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 2. COLLEGE PAYMENT CONFIG & RULES
-  // ==========================================
   async getCollegePaymentConfig(collegeId: string) {
     const college = await this.prisma.college.findUnique({
       where: { id: collegeId },
@@ -736,9 +732,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 3. TIMELINE & FINANCIAL LEDGER
-  // ==========================================
   async recordTimelineEvent(
     paymentId: string,
     userId: string | null,
@@ -804,9 +798,7 @@ export class PaymentGovernanceService {
     return { success: true, data: events };
   }
 
-  // ==========================================
   // 4. MULTI-LEVEL VERIFICATION QUEUE & ACTIONS
-  // ==========================================
   async getVerificationQueue(userRole: string, userId: string, query: any) {
     const { status, collegeId, search } = query || {};
 
@@ -1284,9 +1276,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 5. GOVERNANCE LIVE KPIS
-  // ==========================================
   async getGovernanceKpis() {
     const totalRevenueRes = await this.prisma.payment.aggregate({
       where: { status: 'COMPLETED' },
@@ -1356,9 +1346,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 6. FEE HEAD MANAGEMENT
-  // ==========================================
   async createFeeHead(createdById: string, dto: any) {
     const {
       name,
@@ -1521,9 +1509,7 @@ export class PaymentGovernanceService {
     return { success: true, message: 'Fee head deactivated successfully' };
   }
 
-  // ==========================================
   // 7. FRAUD ALERTS & SLA BREACHES
-  // ==========================================
   async getSlaBreaches() {
     const now = new Date();
     const breaches = await this.prisma.payment.findMany({
@@ -1638,9 +1624,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 8. ADMIN PAYMENT REQUEST MANAGEMENT
-  // ==========================================
   async getPaymentRequestsAdmin(query: any) {
     const {
       skip = 0,
@@ -1805,9 +1789,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // 9. UNIFIED ADMIN DASHBOARD KPIs
-  // ==========================================
   async getAdminDashboardKpis() {
     const now = new Date();
     const startOfToday = new Date(
@@ -1993,9 +1975,7 @@ export class PaymentGovernanceService {
     };
   }
 
-  // ==========================================
   // ENTERPRISE PAYMENT & FINANCE WORKFLOW METHODS
-  // ==========================================
 
   /**
    * 1. COUNSELOR PAYMENT REQUEST (Application-Scoped)
@@ -2848,7 +2828,7 @@ export class PaymentGovernanceService {
     try {
       await this.notificationsService.createNotification({
         userId: app.userId,
-        title: '🎉 Admission Confirmed!',
+        title: 'Admission Confirmed!',
         message: `Heartiest Congratulations! Your admission to ${app.college?.name} - ${app.course?.name} is officially CONFIRMED.`,
         type: 'APPLICATION' as any,
       });

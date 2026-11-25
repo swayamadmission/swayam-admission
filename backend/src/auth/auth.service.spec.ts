@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthorizationService } from './authorization.service';
 import { IdGeneratorService } from '../common/id-generator.service';
+import { ConsentService } from '../legal/consent.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -49,6 +50,13 @@ describe('AuthService', () => {
           useValue: {
             generateStudentId: jest.fn().mockResolvedValue('STU-12345'),
             generateRegistrationNumber: jest.fn().mockResolvedValue('REG-2026-12345'),
+          },
+        },
+        {
+          provide: ConsentService,
+          useValue: {
+            hasAcceptedLatestPolicies: jest.fn().mockResolvedValue(true),
+            recordConsent: jest.fn().mockResolvedValue({}),
           },
         },
       ],

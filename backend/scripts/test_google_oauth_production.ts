@@ -6,9 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { Role } from '@prisma/client';
 
 async function runGoogleOAuthVerification() {
-  console.log('================================================================');
   console.log('🧪 SWAYAM ADMISSION — PRODUCTION GOOGLE OAUTH & SECURITY SUITE');
-  console.log('================================================================\n');
 
   // Set environment variable for test execution
   process.env.ALLOW_TEST_AUTH = 'true';
@@ -253,9 +251,7 @@ async function runGoogleOAuthVerification() {
     }
     console.log(`    ✅ Standard password login functioning normally.`);
 
-    console.log('\n================================================================');
     console.log(' 🎉 ALL 8 PRODUCTION GOOGLE OAUTH SECURITY SCENARIOS PASSED!   ');
-    console.log('================================================================\n');
   } finally {
     // Clean up created test data
     if (cleanupUserIds.length > 0) {

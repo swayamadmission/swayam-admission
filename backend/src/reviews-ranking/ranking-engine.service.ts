@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -14,6 +15,7 @@ import {
   OFFICIAL_NINE_PILLARS,
 } from './dto/reviews-ranking.dto';
 import { RankingMethodologyService } from './ranking-methodology.service';
+import { AdmissionAlertsService } from '../notifications/admission-alerts.service';
 
 export interface PillarBreakdown {
   academicExcellence: number;
@@ -34,6 +36,7 @@ export class RankingEngineService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly methodologyService: RankingMethodologyService,
+    @Optional() private readonly admissionAlerts?: AdmissionAlertsService,
   ) {}
 
   /**
@@ -819,9 +822,18 @@ export class RankingEngineService {
       userId: actor.id,
     });
 
+    void this.admissionAlerts?.notifySubscribersOnPublish({
+      contentType: 'RANKING',
+      contentId: edition.id,
+      title: `Official Swayam National College Rankings ${year} Released`,
+      summary: `Explore the official Swayam National College Rankings ${year} evaluated across 9 research pillars (${edition.results?.length || 0} institutions).`,
+      category: 'Research & Rankings',
+      urlPath: '/rankings',
+    });
+
     return {
       success: true,
-      message: `🎉 Swayam College Rankings ${year} has been officially PUBLISHED!`,
+      message: `Swayam College Rankings ${year} has been officially PUBLISHED!`,
       data: updated,
     };
   }

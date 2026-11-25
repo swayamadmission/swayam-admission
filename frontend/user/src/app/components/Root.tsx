@@ -32,7 +32,7 @@ export default function Root() {
     <NavAuthContext.Provider value={{ isLoggedIn, openAuth: () => setAuthOpen(true), logout }}>
       <div className="min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
         <Navbar />
-        <main className="flex-1 pt-16">
+        <main className="flex-1">
           <Outlet />
         </main>
         <Footer />

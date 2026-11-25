@@ -32,9 +32,7 @@ export class StaffOnboardingController {
     private readonly staffOnboardingService: StaffOnboardingService,
   ) {}
 
-  // ==========================================
   // PUBLIC ENDPOINTS (Registration & OTP)
-  // ==========================================
 
   @Get('allowed-roles')
   async getAllowedRoles() {
@@ -68,9 +66,7 @@ export class StaffOnboardingController {
     );
   }
 
-  // ==========================================
   // ADMIN & IAM APPROVER ENDPOINTS
-  // ==========================================
 
   @Get('requests')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -135,9 +131,7 @@ export class StaffOnboardingController {
     return this.staffOnboardingService.rejectStaff(id, dto, req.user?.id);
   }
 
-  // ==========================================
   // STAFF LIFECYCLE & RESIGNATION
-  // ==========================================
 
   @Post('staff/:userId/resign')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -150,9 +144,7 @@ export class StaffOnboardingController {
     return this.staffOnboardingService.resignStaff(userId, dto, req.user?.id);
   }
 
-  // ==========================================
   // ADMIN CONTROLLED SECURITY & PASSWORD RECOVERY
-  // ==========================================
 
   @Post('staff/:userId/admin-password-reset')
   @UseGuards(JwtAuthGuard, PermissionGuard)

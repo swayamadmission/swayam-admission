@@ -1,9 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 async function runFullAuthAndCampaignRegression() {
-  console.log('====================================================');
   console.log('1. VERIFYING DATABASE ACCOUNT RECORD');
-  console.log('====================================================');
   const prisma = new PrismaClient();
   const user = await prisma.user.findUnique({
     where: { email: 'admin@swayamadmission.com' },
@@ -25,9 +23,7 @@ async function runFullAuthAndCampaignRegression() {
     throw new Error('FAILED: Role is not SUPER_ADMIN');
   }
 
-  console.log('\n====================================================');
   console.log('2. TESTING WRONG CREDENTIALS REJECTION (HTTP 401)');
-  console.log('====================================================');
   const wrongRes = await fetch('http://localhost:3000/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -43,9 +39,7 @@ async function runFullAuthAndCampaignRegression() {
     throw new Error('FAILED: Wrong password was not rejected with HTTP 401');
   }
 
-  console.log('\n====================================================');
   console.log('3. TESTING OFFICIAL ADMIN LOGIN (admin@swayamadmission.com / Admin@123)');
-  console.log('====================================================');
   const loginRes = await fetch('http://localhost:3000/v1/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -65,9 +59,7 @@ async function runFullAuthAndCampaignRegression() {
   console.log('User isSuperAdmin:', loginData.user.isSuperAdmin);
   console.log('Permissions Count:', loginData.user.effectivePermissions?.length);
 
-  console.log('\n====================================================');
   console.log('4. TESTING /users/me PROFILE ENDPOINT');
-  console.log('====================================================');
   const meRes = await fetch('http://localhost:3000/v1/users/me', {
     headers: { Authorization: 'Bearer ' + loginData.access_token },
   });
@@ -80,9 +72,7 @@ async function runFullAuthAndCampaignRegression() {
     throw new Error('FAILED: /users/me returned invalid email or role');
   }
 
-  console.log('\n====================================================');
   console.log('5. TESTING CAMPAIGN WIZARD SENTINEL VALUES CREATION');
-  console.log('====================================================');
   const sentinelCampaignPayload = {
     campaignName: 'AAA_CAMPAIGN',
     name: 'AAA_CAMPAIGN',
@@ -130,9 +120,7 @@ async function runFullAuthAndCampaignRegression() {
     throw new Error('FAILED: Sentinel fields corrupted during persistence');
   }
 
-  console.log('\n====================================================');
   console.log('6. VERIFYING CAMPAIGN IN CAMPAIGN LIST');
-  console.log('====================================================');
   const listRes = await fetch('http://localhost:3000/v1/notifications/campaigns', {
     headers: { Authorization: 'Bearer ' + loginData.access_token },
   });
@@ -153,9 +141,7 @@ async function runFullAuthAndCampaignRegression() {
     throw new Error('FAILED: Campaign not found in list with correct sentinel values');
   }
 
-  console.log('\n====================================================');
   console.log('7. TESTING AUDIENCE PREVIEW WITH CLASS-VALIDATOR DTO');
-  console.log('====================================================');
   const audiencePreviewRes = await fetch('http://localhost:3000/v1/notifications/audience/preview', {
     method: 'POST',
     headers: {

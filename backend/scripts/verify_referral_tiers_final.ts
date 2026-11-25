@@ -11,9 +11,7 @@ import { NotificationsService } from '../src/notifications/notifications.service
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('\n===============================================================');
   console.log('  SWAYAM ADMISSION — FINAL REFERRAL RULE & POLICY VERIFICATION');
-  console.log('===============================================================');
 
   const moduleRef: TestingModule = await Test.createTestingModule({
     providers: [
@@ -240,9 +238,7 @@ async function main() {
   await prisma.studentReferralCode.deleteMany({ where: { userId: referrerUser.id } });
   await prisma.user.delete({ where: { id: referrerUser.id } });
 
-  console.log('\n===============================================================');
   console.log('  ALL 12 FINAL REFERRAL, TIER & POLICY TESTS PASSED (100%)');
-  console.log('===============================================================\n');
 }
 
 main()

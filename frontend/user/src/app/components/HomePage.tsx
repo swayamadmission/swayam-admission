@@ -503,10 +503,6 @@ export default function HomePage() {
 
             {/* RIGHT SIDE - EXISTING CONTENT */}
             <div className="order-1 lg:order-2 text-center lg:text-left animate-[fadeIn_0.8s_ease-out_0.2s_both] relative z-30">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-[#E8F3EC] rounded-full mb-6">
-                <Bot size={13} className="text-[#4A7B5B]" />
-                <span style={{ fontSize:"12px", fontWeight:600, color:"#4A7B5B" }}>AI-Powered Admission Guidance — Free for Students</span>
-              </div>
               <h1 style={{ fontSize:"clamp(28px,5vw,52px)", fontWeight:800, lineHeight:1.15, color:"#4A7B5B" }} className="mb-5">
                 Find Your Dream College{" "}
                 <span style={{ color:"#4A7B5B" }}>with Smart AI</span>{" "}
@@ -589,7 +585,7 @@ export default function HomePage() {
                 <span style={{fontSize:"11px",fontWeight:600,color:"white"}}>AI Active — Online Now</span>
               </div>
               <h2 className="text-white mb-3" style={{fontSize:"clamp(20px,3vw,30px)",fontWeight:800}}>
-                {aiCounselorBanner?.title || "Meet Swayam AI Counselor"}
+                {aiCounselorBanner?.title || "Meet Ziaf AI"}
               </h2>
               <p className="text-white/80 mb-6 max-w-md" style={{fontSize:"14px",lineHeight:1.7}}>
                 {aiCounselorBanner?.subtitle || "Tell your marks, budget and career goals. Our AI will instantly recommend perfect colleges and courses — for free!"}
@@ -618,9 +614,9 @@ export default function HomePage() {
             <div className="w-full md:w-72 relative z-10 shrink-0">
               <div className="bg-white/10 backdrop-blur rounded-2xl p-4 space-y-3">
                 {[
-                  {side:"ai", msg:"Namaste! 👋 I'm your AI counselor. Share your marks and budget to get personalized recommendations."},
+                  {side:"ai", msg:"Namaste! I'm your AI counselor. Share your marks and budget to get personalized recommendations."},
                   {side:"user", msg:"I got 75% in PCM. Budget is ₹2L/year"},
-                  {side:"ai", msg:"Perfect! Found 12 B.Tech colleges in your budget. Top pick: DTU Delhi 🎓"},
+                  {side:"ai", msg:"Perfect! Found 12 B.Tech colleges in your budget. Top pick: DTU Delhi"},
                 ].map((m,i)=>(
                   <div key={i} className={`flex items-end gap-2 ${m.side==="user"?"justify-end":""}`}>
                     {m.side==="ai"&&<div className="w-6 h-6 rounded-full bg-[#F0AE1A] flex items-center justify-center shrink-0"><Bot size={12} className="text-white"/></div>}
@@ -813,7 +809,7 @@ export default function HomePage() {
                         <div className="absolute top-3 left-3 flex gap-1 z-10">
                           {c.featured && (
                             <span className="px-2.5 py-0.5 bg-[#4A7B5B] rounded-full text-white font-bold flex items-center gap-1 shadow-xs" style={{fontSize:"9px"}}>
-                              ⭐ Featured
+                              Featured
                             </span>
                           )}
                         </div>

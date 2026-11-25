@@ -610,7 +610,7 @@ export default function FAQPage() {
                 <h3 className="font-bold text-base">Have a specific question?</h3>
               </div>
               <p className="text-white/80 text-xs leading-relaxed">
-                Chat with Swayam AI Counselor for personalized admission answers based on your marks, location, and budget.
+                Chat with Ziaf AI for personalized admission answers based on your marks, location, and budget.
               </p>
               <Link
                 to="/ai-counselor"

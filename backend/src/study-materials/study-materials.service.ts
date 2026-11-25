@@ -14,6 +14,7 @@ import { StorageService } from '../storage/storage.service';
 import { CouponService } from '../coupons/coupon.service';
 import { PaymentGatewayService } from '../payments/gateways/payment-gateway.service';
 import { ConsentService } from '../legal/consent.service';
+import { AdmissionAlertsService } from '../notifications/admission-alerts.service';
 import { CreateStudyMaterialDto } from './dto/create-study-material.dto';
 import { UpdateStudyMaterialDto } from './dto/update-study-material.dto';
 import { StudyMaterialQueryDto } from './dto/study-material-query.dto';
@@ -34,6 +35,8 @@ export class StudyMaterialsService {
     private readonly paymentGatewayService: PaymentGatewayService,
     @Optional()
     private readonly consentService?: ConsentService,
+    @Optional()
+    private readonly admissionAlerts?: AdmissionAlertsService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -330,6 +333,14 @@ export class StudyMaterialsService {
         id: material.id,
         title: material.title,
       });
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'STUDY_MATERIAL',
+        contentId: material.id,
+        title: material.title,
+        summary: material.description || `${material.materialType || 'Study material'} published on Swayam Admission.`,
+        category: material.category || material.materialType || 'Study Material',
+        urlPath: '/study-materials',
+      });
     }
 
     return material;
@@ -430,6 +441,14 @@ export class StudyMaterialsService {
       this.liveSync.publishEvent('material.published', {
         id: updated.id,
         title: updated.title,
+      });
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'STUDY_MATERIAL',
+        contentId: updated.id,
+        title: updated.title,
+        summary: updated.description || `${updated.materialType || 'Study material'} published on Swayam Admission.`,
+        category: updated.category || updated.materialType || 'Study Material',
+        urlPath: '/study-materials',
       });
     } else if (existing.status === 'PUBLISHED' && updated.status !== 'PUBLISHED') {
       this.liveSync.publishEvent('material.unpublished', {

@@ -1435,7 +1435,7 @@ export default function ApplyNowPage() {
                   style={{ fontWeight: 800, color: "#4A7B5B", fontSize: "24px" }}
                   className="mb-1"
                 >
-                  Application Created Successfully! 🎉
+                  Application Created Successfully!
                 </h2>
 
                 {/* Canonical Application Code Badge */}

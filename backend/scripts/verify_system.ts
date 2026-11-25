@@ -3,9 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function verifySystem() {
-  console.log('====================================================');
   console.log('🧪 VERIFYING COURSE -> BRANCH HIERARCHY & LEADS API');
-  console.log('====================================================\n');
 
   // 1. Direct DB Model Check
   const btech = await prisma.course.findFirst({
@@ -169,9 +167,7 @@ async function verifySystem() {
     where: { mobile: { in: ['9888811111', '9888822222', '9888833333'] } },
   });
 
-  console.log('\n====================================================');
   console.log('🎉 ALL COURSE -> BRANCH ARCHITECTURE TESTS PASSED!');
-  console.log('====================================================');
 }
 
 verifySystem()

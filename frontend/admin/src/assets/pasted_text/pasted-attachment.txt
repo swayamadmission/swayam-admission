@@ -8,9 +8,7 @@ These modules are extremely important and should feel like a complete enterprise
 
 Maintain the same modern premium design system and brand identity.
 
-========================================
 BRAND COLORS
-========================================
 
 Primary Green:
 #4A7B5B
@@ -27,9 +25,7 @@ Text:
 Soft Secondary:
 #E8F3EC
 
-========================================
 DESIGN STYLE
-========================================
 
 Maintain:
 - modern SaaS dashboard feel
@@ -47,9 +43,7 @@ Inspired by:
 - Notion
 - modern AI CRM systems
 
-========================================
 1. ROLE & PERMISSION MANAGEMENT (RBAC)
-========================================
 
 Create a complete RBAC management system.
 
@@ -81,9 +75,7 @@ UI Requirements:
 - hierarchy visualization
 - access summary cards
 
-========================================
 2. COURSES MANAGEMENT MODULE
-========================================
 
 Manage complete course catalog.
 
@@ -105,9 +97,7 @@ Include:
 - filters
 - analytics cards
 
-========================================
 3. EXAMS MODULE
-========================================
 
 Manage entrance exams.
 
@@ -127,9 +117,7 @@ Include:
 - upcoming exam widgets
 - responsive cards
 
-========================================
 4. SCHOLARSHIPS MODULE
-========================================
 
 Manage scholarships and eligibility tracking.
 
@@ -160,9 +148,7 @@ Include:
 - scholarship analytics
 - deadline reminders
 
-========================================
 5. STUDY MATERIALS MODULE
-========================================
 
 Create a complete content management system for educational resources.
 
@@ -195,9 +181,7 @@ UI:
 - modern uploader
 - drag-and-drop upload
 
-========================================
 6. BLOGS & SEO MODULE
-========================================
 
 Create a modern content management and SEO system.
 
@@ -224,9 +208,7 @@ UI:
 - SEO score widget
 - content preview
 
-========================================
 7. DOCUMENT MANAGEMENT MODULE
-========================================
 
 Securely manage student documents.
 
@@ -258,9 +240,7 @@ UI:
 - approval panel
 - mobile-friendly uploads
 
-========================================
 8. AI COUNSELOR MANAGEMENT MODULE
-========================================
 
 Create a modern AI recommendation engine management system.
 
@@ -299,9 +279,7 @@ AI UI should feel:
 - premium
 - non-robotic
 
-========================================
 9. MARKETING MODULE
-========================================
 
 Create a modern marketing analytics system.
 
@@ -328,9 +306,7 @@ Include:
 - campaign comparison
 - source performance widgets
 
-========================================
 10. NOTIFICATIONS MODULE
-========================================
 
 Manage communication systems.
 
@@ -360,9 +336,7 @@ UI:
 - schedule calendar
 - delivery charts
 
-========================================
 11. PAYMENTS MODULE
-========================================
 
 Create a complete finance and payment tracking system.
 
@@ -389,9 +363,7 @@ Include:
 - payment analytics
 - revenue reports
 
-========================================
 12. ACTIVITY LOGS MODULE
-========================================
 
 Track all system activities.
 
@@ -416,9 +388,7 @@ UI:
 - activity timeline
 - expandable detail drawers
 
-========================================
 IMPORTANT UX REQUIREMENTS
-========================================
 
 All modules should include:
 - loading states
@@ -433,9 +403,7 @@ All modules should include:
 - mobile responsiveness
 - smooth navigation
 
-========================================
 MOBILE-FIRST EXPERIENCE
-========================================
 
 Counselors and managers will heavily use mobile devices.
 
@@ -447,9 +415,7 @@ Create:
 - bottom navigation
 - quick WhatsApp/call actions
 
-========================================
 FINAL GOAL
-========================================
 
 The final admin panel should feel like:
 

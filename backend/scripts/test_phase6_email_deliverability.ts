@@ -50,9 +50,7 @@ function record(suite: string, name: string, status: 'PASSED' | 'FAILED' | 'BLOC
 }
 
 async function runPhase6Tests() {
-  console.log('\n===================================================================================');
   console.log('    SWAYAM ADMISSION — PHASE 6 EMAIL DELIVERABILITY & PROVIDER TEST SUITE         ');
-  console.log('===================================================================================\n');
 
   const emailChannel = new EmailChannel(prisma as any);
   const dispatcher = new NotificationDispatcher(
@@ -600,9 +598,7 @@ async function runPhase6Tests() {
   // ---------------------------------------------------------------------------
   // FINAL SUMMARY REPORT
   // ---------------------------------------------------------------------------
-  console.log('\n===================================================================================');
   console.log('                 PHASE 6 TEST SUITE EXECUTION SUMMARY                              ');
-  console.log('===================================================================================');
 
   const passed = records.filter((r) => r.status === 'PASSED').length;
   const failed = records.filter((r) => r.status === 'FAILED').length;

@@ -3,9 +3,7 @@ import { CollegesService } from '../src/colleges/colleges.service';
 import { CollegesBulkService } from '../src/colleges/colleges-bulk.service';
 
 async function runSmokeTest() {
-  console.log('================================================================');
   console.log('🚀 STARTING COMPREHENSIVE SMOKE TEST FOR COLLEGES DIRECTORY');
-  console.log('================================================================\n');
 
   const prisma = new PrismaClient();
   await prisma.$connect();
@@ -389,9 +387,7 @@ async function runSmokeTest() {
     await prisma.$disconnect();
   }
 
-  console.log('\n================================================================');
   console.log(`🏁 SMOKE TEST SUMMARY: ${passed} PASSED, ${failed} FAILED`);
-  console.log('================================================================\n');
 
   if (failed > 0) {
     process.exit(1);

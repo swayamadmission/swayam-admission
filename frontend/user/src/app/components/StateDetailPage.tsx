@@ -191,7 +191,6 @@ export default function StateDetailPage() {
     }
   };
 
-  const stateEmoji = staticState?.emoji || "🏛️";
   const studentsCount = staticState?.students || "5L+";
 
   return (
@@ -211,7 +210,6 @@ export default function StateDetailPage() {
           <div className="flex items-end justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="text-4xl">{stateEmoji}</span>
                 <h1 className="text-white" style={{ fontSize: "clamp(22px,4vw,34px)", fontWeight: 800 }}>{stateName}</h1>
               </div>
               <div className="flex items-center gap-4 flex-wrap">
@@ -447,7 +445,7 @@ export default function StateDetailPage() {
               <div className="space-y-4">
                 <div className="bg-[#E8F3EC] rounded-2xl p-4 border border-[#4A7B5B]/20 mb-2">
                   <p style={{ fontSize: "13px", color: "#4A7B5B", lineHeight: 1.6 }}>
-                    🎓 <strong>{(dbScholarships.length > 0 ? dbScholarships.length : totalScholarshipsCount)}+ scholarships</strong> are available for students domiciled in {stateName}. Check eligibility and apply before deadlines.
+                    <strong>{(dbScholarships.length > 0 ? dbScholarships.length : totalScholarshipsCount)}+ scholarships</strong> are available for students domiciled in {stateName}. Check eligibility and apply before deadlines.
                   </p>
                 </div>
 
@@ -558,8 +556,8 @@ export default function StateDetailPage() {
 
                 {!isLoadingExams && filteredExams.length === 0 && (
                   <div className="bg-white rounded-2xl p-10 border border-gray-100 text-center">
-                    <div className="w-12 h-12 rounded-2xl bg-[#E8F3EC] flex items-center justify-center mx-auto mb-3 text-xl">
-                      📝
+                    <div className="w-12 h-12 rounded-2xl bg-[#E8F3EC] flex items-center justify-center mx-auto mb-3 text-[#4A7B5B]">
+                      <BookOpen size={20} />
                     </div>
                     <h4 className="text-base font-bold text-[#4A7B5B] mb-1">No Entrance Exams Listed Yet</h4>
                     <p className="text-xs text-gray-500 max-w-md mx-auto mb-4">
@@ -774,7 +772,7 @@ export default function StateDetailPage() {
                 {ALL_STATES.filter(s => s.slug !== slug).slice(0, 5).map(s => (
                   <Link key={s.slug} to={`/states/${s.slug}`}
                     className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-[#E8F3EC] transition-colors group">
-                    <span className="text-lg">{s.emoji}</span>
+                    <MapPin size={14} className="text-[#4A7B5B] shrink-0" />
                     <span className="group-hover:text-[#4A7B5B] transition-colors" style={{ fontSize: "12px", fontWeight: 500, color: "#374151" }}>{s.name}</span>
                     <span className="ml-auto" style={{ fontSize: "10px", color: "#94a3b8" }}>{s.colleges}</span>
                   </Link>

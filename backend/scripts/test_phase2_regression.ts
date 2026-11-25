@@ -5,9 +5,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { EmailChannel } from '../src/notifications/notification-channels.service';
 
 async function runPhase2RegressionTest() {
-  console.log('===============================================================');
   console.log('       SWAYAM ADMISSION — PHASE 2 REGRESSION TEST SUITE        ');
-  console.log('===============================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const authService = app.get(AuthService);
@@ -91,9 +89,7 @@ async function runPhase2RegressionTest() {
     await prisma.passwordResetToken.deleteMany({ where: { userId: dummyStudent.id } });
     await prisma.user.delete({ where: { id: dummyStudent.id } });
 
-    console.log('\n===============================================================');
     console.log(`Phase 2 Regression Results: ${passed} passed, ${failed} failed`);
-    console.log('===============================================================\n');
 
     if (failed > 0) {
       process.exit(1);

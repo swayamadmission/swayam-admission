@@ -86,9 +86,7 @@ export class CollegesController {
     return this.collegesService.compareColleges(idArray);
   }
 
-  // =========================================================================
   // BULK UPLOAD ENDPOINTS (MUST BE BEFORE :id)
-  // =========================================================================
 
   @Get('bulk/template')
   downloadBulkTemplate(
@@ -191,9 +189,7 @@ export class CollegesController {
     return this.collegesService.updateCourse(courseId, dto);
   }
 
-  // =========================================================================
   // MEDIA MANAGEMENT & FILE UPLOAD
-  // =========================================================================
 
   @Post(':id/media')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -220,9 +216,7 @@ export class CollegesController {
     );
   }
 
-  // =========================================================================
   // GALLERY MANAGEMENT
-  // =========================================================================
 
   @Post(':id/gallery')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -255,9 +249,7 @@ export class CollegesController {
     return this.collegesService.deleteGalleryImage(id, imageId);
   }
 
-  // =========================================================================
   // STUDY MATERIALS LINKING
-  // =========================================================================
 
   @Get(':id/study-materials')
   getCollegeStudyMaterials(@Param('id') id: string) {
@@ -284,9 +276,7 @@ export class CollegesController {
     return this.collegesService.unlinkStudyMaterial(id, materialId);
   }
 
-  // =========================================================================
   // PUBLISH / UNPUBLISH STATUS
-  // =========================================================================
 
   @Patch(':id/publish')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -299,9 +289,7 @@ export class CollegesController {
     return this.collegesService.setPublishStatus(id, !!publish, user.id);
   }
 
-  // =========================================================================
   // COLLEGE VERIFICATION & STATUS
-  // =========================================================================
 
   @Post(':id/verify')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -328,9 +316,7 @@ export class CollegesController {
     return this.collegesService.suspendCollege(id, user.id, reason);
   }
 
-  // =========================================================================
   // COLLEGE PORTAL METRICS
-  // =========================================================================
 
   @Get(':id/portal-metrics')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -342,9 +328,7 @@ export class CollegesController {
     return this.collegesService.getCollegePortalMetrics(id, user.id);
   }
 
-  // =========================================================================
   // COLLEGE STAFF
-  // =========================================================================
 
   @Get(':id/staff')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -389,9 +373,7 @@ export class CollegesController {
     );
   }
 
-  // =========================================================================
   // COLLEGE COMPLIANCE DOCUMENTS
-  // =========================================================================
 
   @Get(':id/documents')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -431,9 +413,7 @@ export class CollegesController {
     return this.collegesService.deleteCollegeDocument(id, docId);
   }
 
-  // =========================================================================
   // CHANGE REQUESTS GOVERNANCE
-  // =========================================================================
 
   @Get('change-requests')
   @UseGuards(JwtAuthGuard, PermissionGuard)

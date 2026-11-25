@@ -52,6 +52,8 @@ import { LegalModule } from './legal/legal.module';
 import { HrModule } from './hr/hr.module';
 import { ProfileModule } from './profile/profile.module';
 import { EmployeesModule } from './employees/employees.module';
+import { MarketingModule } from './marketing/marketing.module';
+import { HomepageModule } from './modules/homepage/homepage.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 
@@ -116,6 +118,8 @@ import { APP_GUARD } from '@nestjs/core';
     LegalModule,
     ProfileModule,
     EmployeesModule,
+    MarketingModule,
+    HomepageModule,
   ],
   controllers: [AppController, CommonController],
   providers: [

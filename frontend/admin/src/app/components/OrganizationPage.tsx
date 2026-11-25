@@ -578,9 +578,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
       {/* TAB 1: DEPARTMENTS */}
-      {/* ========================================================================= */}
       {activeTab === 'departments' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -741,9 +739,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* TAB 2: ORGANIZATIONAL UNITS & TEAMS */}
-      {/* ========================================================================= */}
       {activeTab === 'units' && (
         <div className="space-y-4">
           <div className="bg-white rounded-2xl border border-[#F1F5F9] overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -888,16 +884,12 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* TAB 3: POSITIONS & POSTS */}
-      {/* ========================================================================= */}
       {activeTab === 'positions' && (
         <PositionsTab departments={departments} states={states} />
       )}
 
-      {/* ========================================================================= */}
       {/* TAB 4: GEOGRAPHIC RESPONSIBILITY */}
-      {/* ========================================================================= */}
       {activeTab === 'geography' && (
         <div className="space-y-4">
           {/* Historical Safety Callout Banner */}
@@ -1049,9 +1041,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* TAB 4: GOVERNANCE & AUDIT TRAIL */}
-      {/* ========================================================================= */}
       {activeTab === 'audit' && (
         <div className="space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-[#F1F5F9]" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
@@ -1098,9 +1088,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL: CREATE / EDIT DEPARTMENT */}
-      {/* ========================================================================= */}
       {isDeptModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl bg-white border border-gray-100 p-6 shadow-2xl space-y-5">
@@ -1259,9 +1247,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL: CREATE / EDIT ORGANIZATIONAL UNIT */}
-      {/* ========================================================================= */}
       {isUnitModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl bg-white border border-gray-100 p-6 shadow-2xl space-y-5">
@@ -1432,9 +1418,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL: ASSIGN USER TO UNIT */}
-      {/* ========================================================================= */}
       {isAssignMemberModalOpen && targetUnitForMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl bg-white border border-gray-100 p-6 shadow-2xl space-y-5">
@@ -1550,9 +1534,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* MODAL: ASSIGN / REASSIGN GEOGRAPHIC RESPONSIBILITY */}
-      {/* ========================================================================= */}
       {isGeoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-lg rounded-2xl bg-white border border-gray-100 p-6 shadow-2xl space-y-5">
@@ -1713,9 +1695,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* DRAWER: UNIT / TEAM ROSTER & DETAILS */}
-      {/* ========================================================================= */}
       {selectedUnitDrawer && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-xl h-full bg-white border-l border-[#E2E8F0] p-6 overflow-y-auto space-y-6 shadow-2xl">
@@ -1834,9 +1814,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* DRAWER: DEPARTMENT DETAILS & SUB-STRUCTURE */}
-      {/* ========================================================================= */}
       {selectedDeptDrawer && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-xl h-full bg-white border-l border-[#E2E8F0] p-6 overflow-y-auto space-y-6 shadow-2xl">
@@ -1963,9 +1941,7 @@ export const OrganizationPage: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* DRAWER: GEOGRAPHIC TIMELINE & REASSIGNMENT HISTORY */}
-      {/* ========================================================================= */}
       {selectedGeoHistory && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-lg h-full bg-white border-l border-[#E2E8F0] p-6 overflow-y-auto space-y-6 shadow-2xl">

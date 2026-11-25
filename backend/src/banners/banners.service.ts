@@ -18,9 +18,7 @@ export class BannersService {
     private readonly storage: StorageService,
   ) {}
 
-  // ==========================================
   // PUBLIC FRONTEND ENDPOINTS
-  // ==========================================
 
   async getPublicBanners(slot?: string) {
     const now = new Date();
@@ -78,9 +76,7 @@ export class BannersService {
     }));
   }
 
-  // ==========================================
   // ADMIN PANEL ENDPOINTS
-  // ==========================================
 
   getAvailableSlots() {
     return Object.values(BANNER_SLOT_METADATA);
@@ -311,9 +307,7 @@ export class BannersService {
     });
   }
 
-  // ==========================================
   // MEDIA UPLOAD
-  // ==========================================
 
   async uploadMedia(file: Express.Multer.File) {
     if (!file) {

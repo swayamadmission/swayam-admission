@@ -398,9 +398,7 @@ export class DataScopeService {
     };
   }
 
-  // =========================================================================
   // SCOPE QUERY BUILDERS (Prisma WHERE clauses)
-  // =========================================================================
 
   /**
    * Builds Prisma UserWhereInput filter for Student queries
@@ -1103,9 +1101,7 @@ export class DataScopeService {
       : {};
   }
 
-  // =========================================================================
   // RECORD-LEVEL SCOPE ENFORCEMENT & IDOR AUDITING
-  // =========================================================================
 
   /**
    * Enforces that student record is accessible within user scope

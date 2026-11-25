@@ -6160,3 +6160,31 @@ model AccountActivationToken {
   @@index([userId])
   @@index([tokenHash])
 }
+
+model AlertSubscriber {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  source           String    @default("BLOG_SIDEBAR")
+  status           String    @default("ACTIVE")
+  unsubscribeToken String    @unique
+  subscribedAt     DateTime  @default(now())
+  unsubscribedAt   DateTime?
+  lastNotifiedAt   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([status])
+  @@index([email])
+}
+
+model AlertBroadcastLog {
+  id             String   @id @default(cuid())
+  alertKey       String   @unique
+  contentType    String
+  contentId      String
+  title          String
+  recipientCount Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@index([contentType, contentId])
+}

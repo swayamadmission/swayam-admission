@@ -63,8 +63,20 @@ jobs:
           npm ci --legacy-peer-deps || npm install --legacy-peer-deps
           npm run build
 
-      # Step 5: Run Automated Unit & Reliability Tests
+      # Step 5: Run Automated Backend Unit & Security Regression Tests
       - name: Execute Deterministic Security & Reliability Tests
         working-directory: backend
         run: |
-          npm test -- --passWithNoTests || true
+          npm test -- --passWithNoTests --runInBand
+
+      # Step 6: Execute Admin Portal Frontend Regression Tests
+      - name: Execute Admin Portal Frontend Tests
+        working-directory: frontend/admin
+        run: |
+          npm test
+
+      # Step 7: Execute Student Portal Frontend Regression Tests
+      - name: Execute Student Portal Frontend Tests
+        working-directory: frontend/user
+        run: |
+          npm test

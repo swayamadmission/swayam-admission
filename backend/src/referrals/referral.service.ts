@@ -427,7 +427,7 @@ export class ReferralService {
     // Notify Referrer
     try {
       await this.notificationService.createNotification({
-        title: 'New Student Referral Recorded 🎉',
+        title: 'New Student Referral Recorded',
         message: `Your referral for ${this.maskName(dto.fullName)} has been registered as an active applicant.`,
         priority: 'MEDIUM' as any,
         category: 'CRM',
@@ -677,7 +677,7 @@ export class ReferralService {
     // Notify Student
     try {
       await this.notificationService.createNotification({
-        title: `Referral Milestone Reached: ${achievedTier.name} 🎁`,
+        title: `Referral Milestone Reached: ${achievedTier.name}`,
         message: `Congratulations! You unlocked ${achievedTier.name} with ${qualifyingReferrals} qualifying student admissions. Your reward of ₹${netPayable} is now in processing.`,
         priority: 'HIGH' as any,
         category: 'PAYMENT',
@@ -806,7 +806,7 @@ export class ReferralService {
 
     try {
       await this.notificationService.createNotification({
-        title: 'Referral Reward Paid 💳',
+        title: 'Referral Reward Paid',
         message: `Your reward of ₹${reward.amount} has been paid via ${dto.payoutMethod} (Ref: ${dto.payoutReference}).`,
         priority: 'HIGH' as any,
         category: 'PAYMENT',

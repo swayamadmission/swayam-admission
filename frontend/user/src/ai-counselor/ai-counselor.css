@@ -43,7 +43,7 @@ body::before {
   pointer-events:none;
 }
 
-/* ===== NAVBAR ===== */
+/* NAVBAR */
 .navbar {
   position:sticky;top:0;z-index:100;
   background:rgba(10,14,26,0.9);
@@ -73,10 +73,10 @@ body::before {
 }
 .btn-primary:hover { transform:translateY(-1px);box-shadow:0 4px 15px var(--accent-glow); }
 
-/* ===== LAYOUT ===== */
+/* LAYOUT */
 .container { max-width:1200px;margin:0 auto;padding:2rem;position:relative;z-index:1; }
 
-/* ===== HERO ===== */
+/* HERO */
 .hero {
   text-align:center;padding:3rem 0 2rem;
 }
@@ -88,7 +88,7 @@ body::before {
 }
 .hero p { font-size:1.1rem;color:var(--text-secondary);max-width:600px;margin:0 auto; }
 
-/* ===== STEPPER ===== */
+/* STEPPER */
 .stepper {
   display:flex;justify-content:center;gap:0;margin:2rem 0;position:relative;
 }
@@ -117,7 +117,7 @@ body::before {
 }
 .step-line.completed { background:var(--green); }
 
-/* ===== FORM CARD ===== */
+/* FORM CARD */
 .form-card {
   background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius);padding:2rem;
@@ -192,7 +192,7 @@ body::before {
 .btn-next:hover,.btn-analyze:hover { transform:translateY(-2px);box-shadow:0 6px 20px var(--accent-glow); }
 .btn-analyze:hover { box-shadow:0 6px 20px var(--green-glow); }
 
-/* ===== LOADING ===== */
+/* LOADING */
 .loading-screen {
   display:none;text-align:center;padding:4rem 0;
 }
@@ -206,7 +206,7 @@ body::before {
 .loading-screen h3 { font-size:1.3rem;margin-bottom:0.5rem; }
 .loading-screen p { color:var(--text-secondary); }
 
-/* ===== RESULTS ===== */
+/* RESULTS */
 .results-section { display:none; }
 .results-section.active { display:block; }
 
@@ -237,7 +237,7 @@ body::before {
   border-radius:var(--radius-sm);font-size:0.9rem;color:var(--text-secondary);line-height:1.5;
 }
 
-/* ===== RECOMMENDATION CARDS ===== */
+/* RECOMMENDATION CARDS */
 .rec-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1.2rem; }
 .rec-card {
   background:var(--bg-card);border:1px solid var(--border);
@@ -287,7 +287,7 @@ body::before {
 .btn-save:hover,.btn-save.saved { background:var(--green);border-color:var(--green)!important;color:#fff; }
 .btn-apply { background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff; }
 
-/* ===== EXAM CARDS ===== */
+/* EXAM CARDS */
 .exam-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem; }
 .exam-card {
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem;
@@ -312,7 +312,7 @@ body::before {
 .tips-list { display:none;margin-top:8px;padding-left:16px;font-size:0.8rem;color:var(--text-secondary);line-height:1.6; }
 .tips-list.show { display:block; }
 
-/* ===== CAREER CARDS ===== */
+/* CAREER CARDS */
 .career-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem; }
 .career-card {
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;
@@ -335,7 +335,7 @@ body::before {
 }
 .career-exams { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
 
-/* ===== SCHOLARSHIP CARDS ===== */
+/* SCHOLARSHIP CARDS */
 .scholarship-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem; }
 .scholarship-card {
   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1.3rem;
@@ -346,7 +346,7 @@ body::before {
 .scholarship-card .elig { font-size:0.82rem;color:var(--text-secondary);line-height:1.4;margin-bottom:8px; }
 .scholarship-card .deadline { font-size:0.8rem;color:var(--yellow); }
 
-/* ===== COMPARE ===== */
+/* COMPARE */
 .compare-section { margin-top:2rem; }
 .compare-header { display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem; }
 .compare-header h3 { font-size:1.1rem; }
@@ -360,7 +360,7 @@ body::before {
 .compare-table td { color:var(--text-secondary); }
 .compare-table tr:hover td { background:var(--bg-glass); }
 
-/* ===== NEW ANALYSIS ===== */
+/* NEW ANALYSIS */
 .btn-new-analysis {
   display:block;margin:2rem auto;padding:14px 40px;
   background:linear-gradient(135deg,var(--accent),#7c3aed);
@@ -369,7 +369,7 @@ body::before {
 }
 .btn-new-analysis:hover { transform:translateY(-2px);box-shadow:0 6px 20px var(--accent-glow); }
 
-/* ===== RESPONSIVE ===== */
+/* RESPONSIVE */
 @media(max-width:768px) {
   .hero h1 { font-size:1.8rem; }
   .form-grid { grid-template-columns:1fr; }

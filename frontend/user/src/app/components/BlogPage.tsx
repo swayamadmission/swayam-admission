@@ -5,6 +5,7 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { PageBannerSlider } from "./common/PageBannerSlider";
 import { useQuery } from "@tanstack/react-query";
 import { blogsApi, PublicBlogQueryParams } from "../../api/blogs.api";
+import { alertsApi } from "../../api/alerts.api";
 import { useDebounce } from "../../hooks/useDebounce";
 import { formatIndianDate } from "../../utils/date.utils";
 
@@ -43,6 +44,50 @@ const TRENDING = [
 export default function BlogPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const [alertEmail, setAlertEmail] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribeFeedback, setSubscribeFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = alertEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setSubscribeFeedback({
+        type: "error",
+        text: "Please enter a valid email address.",
+      });
+      return;
+    }
+
+    setSubscribing(true);
+    setSubscribeFeedback(null);
+    try {
+      const res = await alertsApi.subscribe(email, "BLOG_SIDEBAR");
+      setSubscribeFeedback({
+        type: "success",
+        text:
+          res.data?.message ||
+          "Subscribed! Admission alerts will be sent to your inbox.",
+      });
+      if (!res.data?.alreadySubscribed) {
+        setAlertEmail("");
+      }
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.userMessage ||
+        "Unable to subscribe right now. Please try again.";
+      setSubscribeFeedback({
+        type: "error",
+        text: Array.isArray(msg) ? msg[0] : String(msg),
+      });
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   const debouncedSearch = useDebounce(search, 500);
 
@@ -278,7 +323,10 @@ export default function BlogPage() {
             </div>
 
             {/* Newsletter */}
-            <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5 shadow-sm text-white">
+            <form
+              onSubmit={handleSubscribe}
+              className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5 shadow-sm text-white"
+            >
               <h3 className="mb-2" style={{ fontSize: "15px", fontWeight: 700 }}>
                 Get Admission Alerts
               </h3>
@@ -287,13 +335,36 @@ export default function BlogPage() {
               </p>
               <input
                 type="email"
+                required
+                value={alertEmail}
+                onChange={(e) => {
+                  setAlertEmail(e.target.value);
+                  if (subscribeFeedback) setSubscribeFeedback(null);
+                }}
                 placeholder="Your email address"
-                className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-xl text-white text-xs placeholder:text-white/60 focus:outline-none mb-2.5"
+                disabled={subscribing}
+                aria-label="Email address for admission alerts"
+                className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-xl text-white text-xs placeholder:text-white/60 focus:outline-none mb-2.5 disabled:opacity-60"
               />
-              <button className="w-full py-2 bg-[#F0AE1A] hover:bg-[#d99b16] text-white rounded-xl font-semibold text-xs transition-colors">
-                Subscribe Free
+              <button
+                type="submit"
+                disabled={subscribing}
+                className="w-full py-2 bg-[#F0AE1A] hover:bg-[#d99b16] text-white rounded-xl font-semibold text-xs transition-colors cursor-pointer disabled:opacity-60"
+              >
+                {subscribing ? "Subscribing..." : "Subscribe Free"}
               </button>
-            </div>
+              {subscribeFeedback && (
+                <p
+                  className={`mt-2.5 text-[11px] leading-snug rounded-lg px-2.5 py-1.5 ${
+                    subscribeFeedback.type === "success"
+                      ? "bg-white/15 text-emerald-100"
+                      : "bg-red-500/25 text-red-100"
+                  }`}
+                >
+                  {subscribeFeedback.text}
+                </p>
+              )}
+            </form>
           </div>
         </div>
       </div>

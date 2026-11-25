@@ -5,9 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 async function runOtpSettingsSmokeTest() {
-  console.log('====================================================');
   console.log(' SWAYAM ADMISSION — OTP SETTINGS API & PERSISTENCE  ');
-  console.log('====================================================\n');
 
   let app: NestExpressApplication;
   try {
@@ -328,9 +326,7 @@ async function runOtpSettingsSmokeTest() {
     }
     console.log('    ✅ Audit logs verified with secrets safely excluded.');
 
-    console.log('\n====================================================');
     console.log(' ✅ ALL OTP SETTINGS VERIFICATION TESTS PASSED 100%! ');
-    console.log('====================================================');
   } finally {
     await prisma.$disconnect();
     await app.close();

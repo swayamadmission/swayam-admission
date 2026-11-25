@@ -8,9 +8,7 @@ const BASE_URL = 'http://localhost:3000/v1';
 const JWT_SECRET = process.env.JWT_SECRET || 'swayam-erp-super-secret-key-change-in-production';
 
 async function verifyPreviewUpload() {
-  console.log('================================================================');
   console.log('🧪 VERIFYING STUDY MATERIAL PREVIEW RESOURCE UPLOAD FIX');
-  console.log('================================================================');
 
   // 1. Get Admin User & generate token
   const admin = await prisma.user.findFirst({
@@ -161,9 +159,7 @@ async function verifyPreviewUpload() {
   if (fs.existsSync(dummyPreviewPdf)) fs.unlinkSync(dummyPreviewPdf);
   if (fs.existsSync(dummyReplacementPreview)) fs.unlinkSync(dummyReplacementPreview);
 
-  console.log('\n================================================================');
   console.log('🎉 PREVIEW UPLOAD FIX FULLY VERIFIED AND WORKING!');
-  console.log('================================================================');
 }
 
 verifyPreviewUpload()

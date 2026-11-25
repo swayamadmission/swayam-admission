@@ -42,9 +42,7 @@ function record(category: string, testName: string, status: 'PASSED' | 'FAILED' 
 }
 
 async function runPhase8ReliabilitySuite() {
-  console.log('\n===================================================================================');
   console.log('   SWAYAM ADMISSION — PHASE 8 PRODUCTION RELIABILITY & SRE ACCEPTANCE SUITE        ');
-  console.log('===================================================================================\n');
 
   const outboxService = new DurableOutboxService(prisma as any);
   const healthController = new HealthController(prisma as any, outboxService as any);
@@ -338,9 +336,7 @@ async function runPhase8ReliabilitySuite() {
   // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
-  console.log('\n===================================================================================');
   console.log('              📊 PHASE 8 PRODUCTION RELIABILITY RESULTS SUMMARY                    ');
-  console.log('===================================================================================');
 
   const passed = testResults.filter((r) => r.status === 'PASSED').length;
   const failed = testResults.filter((r) => r.status === 'FAILED').length;
@@ -350,7 +346,6 @@ async function runPhase8ReliabilitySuite() {
   console.log(`PASSED          : ${passed} ✅`);
   console.log(`FAILED          : ${failed} ❌`);
   console.log(`BLOCKED         : ${blocked} ⚠️`);
-  console.log('===================================================================================\n');
 
   await prisma.$disconnect();
 

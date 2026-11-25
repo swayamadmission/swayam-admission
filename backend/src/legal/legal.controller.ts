@@ -40,9 +40,7 @@ export class LegalController {
     private readonly cookieService: CookieService,
   ) {}
 
-  // ==========================================
   // PUBLIC ENDPOINTS
-  // ==========================================
 
   @Get('legal-policies')
   async getPublishedPolicies() {
@@ -99,9 +97,7 @@ export class LegalController {
     return { success: true, data };
   }
 
-  // ==========================================
   // ADMIN LEGAL & POLICIES ENDPOINTS
-  // ==========================================
 
   @Get('admin/legal-policies')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -199,9 +195,7 @@ export class LegalController {
     return { success: true, data };
   }
 
-  // ==========================================
   // ADMIN CONSENT CONFIGURATION
-  // ==========================================
 
   @Get('admin/legal-consent-config')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -252,9 +246,7 @@ export class LegalController {
     };
   }
 
-  // ==========================================
   // ADMIN GRIEVANCES
-  // ==========================================
 
   @Get('admin/grievances')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -296,9 +288,7 @@ export class LegalController {
     return { success: true, data };
   }
 
-  // ==========================================
   // ADMIN COOKIES
-  // ==========================================
 
   @Get('admin/cookies')
   @UseGuards(JwtAuthGuard, RolesGuard)

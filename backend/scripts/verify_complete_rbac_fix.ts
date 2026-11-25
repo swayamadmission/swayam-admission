@@ -10,9 +10,7 @@ import { PermissionGuard } from '../src/auth/guards/permission.guard';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('================================================================');
   console.log('SWAYAM ADMISSION — COMPLETE RBAC & MODULES VERIFICATION');
-  console.log('================================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, { logger: false });
   const rolesService = app.get(RolesService);
@@ -347,9 +345,7 @@ async function main() {
     }
     console.log('✅ [TEST 5 PASSED] State restrictions and audit trail immediately updated and synchronized');
 
-    console.log('\n================================================================');
     console.log('🎉 ALL 5 TEST SUITES PASSED SUCCESSFULLY WITH ZERO REGRESSIONS!');
-    console.log('================================================================\n');
   } finally {
     console.log('Cleaning up test data...');
     if (testUserId) {

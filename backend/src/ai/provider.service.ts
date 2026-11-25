@@ -325,7 +325,7 @@ CRITICAL FORMATTING INSTRUCTIONS:
         `You can submit applications directly through Swayam Admission and track your review status in real time.`;
     } else {
       text =
-        `### Welcome to Swayam Admission AI Counselor 👋\n\n` +
+        `### Welcome to Ziaf AI\n\n` +
         `I am your dedicated academic advisor. I can help you find verified colleges, understand course eligibilities, compare program fees, check placement statistics, and explore scholarships across India.\n\n` +
         `**What would you like to explore today?**\n` +
         `* Explore engineering, management, or medical programs\n` +

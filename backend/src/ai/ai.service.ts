@@ -107,7 +107,7 @@ export class AiService {
       isEnabled: (settings as any).isEnabled ?? true,
       welcomeMessage:
         (settings as any).welcomeMessage ||
-        'Hi there! 👋 I am the Swayam Admission AI Counselor. How can I help you with colleges, courses, or admissions today?',
+        'Hi there! I am Ziaf AI. How can I help you with colleges, courses, or admissions today?',
       suggestedChips:
         (settings as any).suggestedChips || [
           'Top Colleges in Bihar',
@@ -217,9 +217,9 @@ export class AiService {
         messageId: `offline_${Date.now()}`,
         role: 'ASSISTANT',
         reply:
-          'The Swayam Admission AI Counselor is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
+          'Ziaf AI is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
         content:
-          'The Swayam Admission AI Counselor is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
+          'Ziaf AI is temporarily paused for scheduled optimization. Please connect directly with our academic counseling desk for instant guidance.',
         chips: ['Talk to Counselor', 'Explore Colleges', 'Check Scholarships'],
         counselorHandoff: {
           handoffAvailable: true,
@@ -259,9 +259,9 @@ export class AiService {
         messageId: `secure_deflect_${Date.now()}`,
         role: 'ASSISTANT',
         reply:
-          'I am the Swayam Admission AI Counselor, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
+          'I am Ziaf AI, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
         content:
-          'I am the Swayam Admission AI Counselor, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
+          'I am Ziaf AI, dedicated exclusively to assisting students with colleges, programs, fees, scholarships, and career paths in India. How can I assist with your educational goals today?',
         chips: (settings as any).suggestedChips || [
           'Top Colleges in Bihar',
           'B.Tech under ₹2L',

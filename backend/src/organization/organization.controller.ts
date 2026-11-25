@@ -52,9 +52,7 @@ export class OrganizationController {
     private readonly geographyService: GeographyService,
   ) {}
 
-  // ==========================================
   // DEPARTMENTS
-  // ==========================================
 
   @Get('departments')
   @RequirePermissions('department.view')
@@ -109,9 +107,7 @@ export class OrganizationController {
     return this.departmentsService.softDelete(id, req.user?.id);
   }
 
-  // ==========================================
   // ORGANIZATIONAL UNITS & TEAMS
-  // ==========================================
 
   @Get('units')
   @RequirePermissions('unit.view')
@@ -188,9 +184,7 @@ export class OrganizationController {
     return this.unitsService.softDelete(id, req.user?.id);
   }
 
-  // ==========================================
   // GEOGRAPHY & RESPONSIBILITY FOUNDATION
-  // ==========================================
 
   @Get('geography/states')
   @RequirePermissions('geographic.view')

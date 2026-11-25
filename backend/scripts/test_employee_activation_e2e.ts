@@ -11,9 +11,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function runE2ETests() {
-  console.log('=====================================================');
   console.log('   SWAYAM ADMISSION — EMPLOYEE ACTIVATION & E2E TEST  ');
-  console.log('=====================================================\n');
 
   const testEmail = `test.employee.${Date.now()}@swayamadmission.com`;
   const testMobile = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
@@ -331,9 +329,7 @@ async function runE2ETests() {
       console.log(`     • [${v.vacancyCode}] ${v.title} (${v.department}) - Status: ${v.status}`);
     });
 
-    console.log('\n=====================================================');
     console.log('   🎉 ALL 8 E2E PRODUCTION VERIFICATION TESTS PASSED!   ');
-    console.log('=====================================================\n');
   } catch (err) {
     console.error('\n❌ Test execution failed:', err);
     process.exit(1);

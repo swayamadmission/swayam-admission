@@ -27,12 +27,19 @@ import { NotificationsModule } from '../notifications/notifications.module';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'swayam_super_secret_key',
-        signOptions: {
-          expiresIn: '7d',
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        const isProd = config.get<string>('NODE_ENV') === 'production';
+        if (isProd && (!secret || secret.length < 32 || secret === 'swayam_super_secret_key')) {
+          throw new Error('FATAL SECURITY ERROR: Insecure or missing JWT_SECRET in production.');
+        }
+        return {
+          secret: secret || (process.env.NODE_ENV === 'test' ? 'test_jwt_secret_key_minimum_32_characters_length' : 'swayam_development_local_jwt_secret_key_32_chars'),
+          signOptions: {
+            expiresIn: '7d',
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController, OtpAdminController],

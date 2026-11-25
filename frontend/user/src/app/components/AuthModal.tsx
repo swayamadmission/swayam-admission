@@ -686,7 +686,7 @@ export default function AuthModal({
             </div>
           )}
 
-          {/* ===================== LOGIN TAB ===================== */}
+          {/* LOGIN TAB */}
           {tab === "login" && (
             <div className="space-y-4">
               <div className="space-y-3.5">
@@ -818,7 +818,7 @@ export default function AuthModal({
             </div>
           )}
 
-          {/* ===================== SIGNUP TAB ===================== */}
+          {/* SIGNUP TAB */}
           {tab === "signup" && (
             <div className="space-y-3.5">
               {signupSuccess ? (
@@ -1153,7 +1153,7 @@ export default function AuthModal({
             </div>
           )}
 
-          {/* ===================== FORGOT / RESET TAB ===================== */}
+          {/* FORGOT / RESET TAB */}
           {tab === "forgot" && (
             <div className="space-y-4">
               {forgotMessage && (

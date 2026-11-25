@@ -5,9 +5,7 @@ import * as nodemailer from 'nodemailer';
 import { buildOtpEmailHtml } from '../src/notifications/email-templates';
 
 async function testLiveSmtp() {
-  console.log('====================================================');
   console.log(' SWAYAM ADMISSION — LIVE GMAIL SMTP DISPATCH TEST  ');
-  console.log('====================================================\n');
 
   const host = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
   const port = parseInt(process.env.SMTP_PORT || '587', 10);
@@ -73,13 +71,11 @@ async function testLiveSmtp() {
       html: htmlContent,
     });
 
-    console.log('====================================================');
     console.log('🎉 LIVE EMAIL DELIVERED SUCCESSFULLY!');
     console.log(`   Message ID: ${info.messageId}`);
     console.log(`   Recipient:  ${recipient}`);
     console.log(`   OTP Sent:   ${testOtp}`);
     console.log(`   Response:   ${info.response}`);
-    console.log('====================================================\n');
   } catch (sendErr: any) {
     console.error('❌ Failed to send email:');
     console.error(`   ${sendErr.message}\n`);

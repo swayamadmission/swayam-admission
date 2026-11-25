@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
@@ -10,12 +11,14 @@ import { BlogQueryDto } from './dto/blog-query.dto';
 import { GeoSeoUtility } from './geo-seo.utility';
 import { Prisma } from '@prisma/client';
 import { LiveSyncService } from '../events/live-sync.service';
+import { AdmissionAlertsService } from '../notifications/admission-alerts.service';
 
 @Injectable()
 export class BlogService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly liveSyncService: LiveSyncService,
+    @Optional() private readonly admissionAlerts?: AdmissionAlertsService,
   ) {}
 
   /**
@@ -690,6 +693,17 @@ export class BlogService {
       // ignore
     }
 
+    if (blog.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'BLOG',
+        contentId: blog.id,
+        title: blog.title,
+        summary: blog.excerpt || blog.tldr || blog.content,
+        category: blog.category,
+        urlPath: `/blog/${blog.slug}`,
+      });
+    }
+
     return blog;
   }
 
@@ -798,6 +812,17 @@ export class BlogService {
       });
     } catch {
       // ignore
+    }
+
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'BLOG',
+        contentId: updated.id,
+        title: updated.title,
+        summary: updated.excerpt || updated.tldr || updated.content,
+        category: updated.category,
+        urlPath: `/blog/${updated.slug}`,
+      });
     }
 
     return updated;

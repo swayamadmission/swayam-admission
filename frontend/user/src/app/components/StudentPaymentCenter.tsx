@@ -943,9 +943,7 @@ export const StudentPaymentCenter: React.FC<StudentPaymentCenterProps> = ({
         </div>
       </div>
 
-      {/* ======================================================== */}
       {/* MODAL 1: ONLINE RAZORPAY CHECKOUT MODAL                  */}
-      {/* ======================================================== */}
       {onlinePayModalReq && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">
@@ -1075,9 +1073,7 @@ export const StudentPaymentCenter: React.FC<StudentPaymentCenterProps> = ({
         </div>
       )}
 
-      {/* ======================================================== */}
       {/* MODAL 2: DIRECT COLLEGE BANK PAYMENT & PROOF             */}
-      {/* ======================================================== */}
       {collegePayModalReq && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95">
@@ -1480,9 +1476,7 @@ export const StudentPaymentCenter: React.FC<StudentPaymentCenterProps> = ({
         </div>
       )}
 
-      {/* ======================================================== */}
       {/* MODAL 3: OFFICIAL RECEIPT / INVOICE PREVIEW MODAL         */}
-      {/* ======================================================== */}
       {activeReceipt && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95">

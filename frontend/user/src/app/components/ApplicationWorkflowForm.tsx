@@ -1133,7 +1133,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
             <Coins className="w-4 h-4 text-amber-300" />
             <span>
               {isNextFree
-                ? `🎉 Free Application Quota: You have ${freeRemaining} free submission${freeRemaining > 1 ? 's' : ''} remaining.`
+                ? `Free Application Quota: You have ${freeRemaining} free submission${freeRemaining > 1 ? 's' : ''} remaining.`
                 : 'Application Quota: First 3 free applications have been used. Standard application fee applies.'}
             </span>
           </div>
@@ -1208,9 +1208,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
       {/* 3. Main Form Body */}
       <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
 
-        {/* ========================================================================= */}
         {/* STEP 1: PERSONAL INFORMATION */}
-        {/* ========================================================================= */}
         {activeStep === 1 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="flex items-center justify-between border-b pb-4">
@@ -1389,9 +1387,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* STEP 2: ACADEMIC & ADDRESS INFORMATION */}
-        {/* ========================================================================= */}
         {activeStep === 2 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="border-b pb-4">
@@ -1925,9 +1921,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* STEP 3: PROGRAM SUMMARY (READ ONLY) */}
-        {/* ========================================================================= */}
         {activeStep === 3 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="border-b pb-4">
@@ -1979,9 +1973,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* STEP 4: DOCUMENTS & FINANCE */}
-        {/* ========================================================================= */}
         {activeStep === 4 && (
           <div className="space-y-8 animate-fadeIn">
             {/* Part 1: Dynamic Documents Checklist */}
@@ -2078,7 +2070,8 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                         <p className="text-xs text-gray-500">{docItem.description}</p>
                         {docItem.fileName && (
                           <p className="text-xs text-gray-600 font-mono flex items-center gap-1">
-                            📄 {docItem.fileName}
+                            <FileText className="w-3.5 h-3.5 text-[#4A7B5B] shrink-0" />
+                            {docItem.fileName}
                           </p>
                         )}
                       </div>
@@ -2261,7 +2254,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                   <h4 className="font-bold text-sm text-white">Application Fee & Quota Summary</h4>
                   <p className="text-xs text-slate-400">
                     {authoritativeFee?.isWithinFreeQuota ?? isNextFree
-                      ? `🎉 Free Application Quota: You have ${authoritativeFee?.freeApplicationsRemaining ?? freeRemaining} free submission${(authoritativeFee?.freeApplicationsRemaining ?? freeRemaining) > 1 ? 's' : ''} remaining.`
+                      ? `Free Application Quota: You have ${authoritativeFee?.freeApplicationsRemaining ?? freeRemaining} free submission${(authoritativeFee?.freeApplicationsRemaining ?? freeRemaining) > 1 ? 's' : ''} remaining.`
                       : 'Standard admission fee applies. Applicable promo/coupon codes can be applied during payment.'}
                   </p>
                 </div>
@@ -2275,9 +2268,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* STEP 5: DECLARATION & FINAL REVIEW */}
-        {/* ========================================================================= */}
         {activeStep === 5 && (
           <div className="space-y-8 animate-fadeIn">
             <div className="border-b pb-4">
@@ -2484,9 +2475,7 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
           </div>
         )}
 
-        {/* ========================================================================= */}
         {/* STEP 6: PAY APPLICATION FEE */}
-        {/* ========================================================================= */}
         {activeStep === 6 && (
           <div className="space-y-6 animate-fadeIn">
             <div className="border-b pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2668,9 +2657,9 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                           <label className="text-xs font-bold text-gray-700 block">Select Preferred Payment Gateway Route</label>
                           <div className="grid grid-cols-3 gap-3">
                             {[
-                              { id: 'UPI', label: 'UPI / QR', icon: '📱', sub: 'GPay, PhonePe, Paytm' },
-                              { id: 'DEBIT_CARD', label: 'Cards', icon: '💳', sub: 'Debit & Credit' },
-                              { id: 'NET_BANKING', label: 'Net Banking', icon: '🏦', sub: 'All Indian Banks' },
+                              { id: 'UPI', label: 'UPI / QR', sub: 'GPay, PhonePe, Paytm' },
+                              { id: 'DEBIT_CARD', label: 'Cards', sub: 'Debit & Credit' },
+                              { id: 'NET_BANKING', label: 'Net Banking', sub: 'All Indian Banks' },
                             ].map((pm) => (
                               <button
                                 key={pm.id}
@@ -2682,7 +2671,6 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                                     : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                                 }`}
                               >
-                                <div className="text-2xl mb-1">{pm.icon}</div>
                                 <div className="text-xs font-bold">{pm.label}</div>
                                 <div className="text-[10px] text-gray-500 mt-0.5">{pm.sub}</div>
                               </button>
@@ -2840,9 +2828,9 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
               <label className="text-xs font-bold text-gray-700 block">Select Payment Method</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: 'UPI', label: 'UPI / QR', icon: '📱' },
-                  { id: 'DEBIT_CARD', label: 'Cards', icon: '💳' },
-                  { id: 'NET_BANKING', label: 'Net Banking', icon: '🏦' },
+                  { id: 'UPI', label: 'UPI / QR' },
+                  { id: 'DEBIT_CARD', label: 'Cards' },
+                  { id: 'NET_BANKING', label: 'Net Banking' },
                 ].map((pm) => (
                   <button
                     key={pm.id}
@@ -2854,7 +2842,6 @@ export const ApplicationWorkflowForm: React.FC<ApplicationWorkflowFormProps> = (
                         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                     }`}
                   >
-                    <div className="text-lg mb-0.5">{pm.icon}</div>
                     <div className="text-xs">{pm.label}</div>
                   </button>
                 ))}

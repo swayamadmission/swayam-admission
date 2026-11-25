@@ -470,9 +470,7 @@ interface PerRecordLog {
 }
 
 export async function runCourseMigration() {
-  console.log('====================================================');
   console.log('🔄 STARTING SAFE COURSE & BRANCH MIGRATION');
-  console.log('====================================================\n');
 
   // Step 1: Ensure Anchor College exists
   let anchorCollege = await prisma.college.findFirst({
@@ -753,9 +751,7 @@ export async function runCourseMigration() {
   }
 
   // ── Print Final Migration Report ──
-  console.log('\n====================================================');
   console.log('📊 MIGRATION EXECUTION REPORT');
-  console.log('====================================================\n');
 
   console.log('### SUMMARY');
   console.log(`Normalized Program Families: ${totalFamilies}`);
@@ -778,9 +774,7 @@ export async function runCourseMigration() {
     console.log('--------------------------------------------------------------------------------');
   }
 
-  console.log('====================================================');
   console.log('✅ COURSE & BRANCH MIGRATION COMPLETED');
-  console.log('====================================================');
 }
 
 if (require.main === module) {

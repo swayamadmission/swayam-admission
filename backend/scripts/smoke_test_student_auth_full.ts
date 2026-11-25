@@ -13,9 +13,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
 async function runStudentAuthSmokeTest() {
-  console.log('================================================================');
   console.log('🚀 RUNNING SWAYAM ADMISSION STUDENT AUTHENTICATION END-TO-END VERIFICATION');
-  console.log('================================================================\n');
 
   const prisma = new PrismaClient();
   await prisma.$connect();
@@ -573,9 +571,7 @@ async function runStudentAuthSmokeTest() {
     await prisma.$disconnect();
   }
 
-  console.log('\n================================================================');
   console.log(`SMOKE TEST COMPLETE: ${passed} PASSED, ${failed} FAILED`);
-  console.log('================================================================\n');
 
   if (failed > 0) {
     process.exit(1);

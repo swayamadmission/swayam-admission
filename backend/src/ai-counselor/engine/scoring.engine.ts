@@ -33,9 +33,7 @@ interface CollegeCourseData {
   courseSeats: number;
 }
 
-// ================================
 // NEIGHBORING STATES MAP (India)
-// ================================
 const NEIGHBORING_STATES: Record<string, string[]> = {
   Bihar: ['Jharkhand', 'Uttar Pradesh', 'West Bengal'],
   Jharkhand: [
@@ -115,9 +113,7 @@ const NEIGHBORING_STATES: Record<string, string[]> = {
   ],
 };
 
-// ================================
 // STREAM → COURSE KEYWORD MAPPING
-// ================================
 const STREAM_COURSE_KEYWORDS: Record<string, string[]> = {
   SCIENCE: [
     'b.tech',
@@ -187,9 +183,7 @@ const STREAM_COURSE_KEYWORDS: Record<string, string[]> = {
   OTHER: ['diploma', 'vocational', 'skill', 'polytechnic', 'iti'],
 };
 
-// ================================
 // INDIVIDUAL SCORING FUNCTIONS
-// ================================
 
 /**
  * Marks Score (weight: 25%)
@@ -393,9 +387,7 @@ function calculateSeatScore(data: CollegeCourseData): number {
   return 40;
 }
 
-// ================================
 // MAIN SCORING FUNCTION
-// ================================
 
 function getMatchLevel(score: number): 'EXCELLENT' | 'GOOD' | 'FAIR' | 'LOW' {
   if (score >= 80) return 'EXCELLENT';
@@ -456,9 +448,7 @@ function generateReasoning(
   return parts.join('. ') + '.';
 }
 
-// ================================
 // EXPORTED SCORING FUNCTION
-// ================================
 
 export function scoreCollegeCourse(
   input: StudentInput,

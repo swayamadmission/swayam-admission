@@ -10,9 +10,7 @@ async function api(url, options = {}) {
 }
 
 async function runSmokeTest() {
-  console.log('====================================================');
   console.log('STARTING SWAYAM ADMISSION GUIDES SMOKE TEST');
-  console.log('====================================================\n');
 
   // 1. Find Admin and 2 Real Students
   const admin = await prisma.user.findFirst({
@@ -202,9 +200,7 @@ async function runSmokeTest() {
   await prisma.blog.delete({ where: { id: newGuide.id } });
   console.log('\n[CLEANUP] Smoke test guide cleaned up successfully.');
 
-  console.log('\n====================================================');
   console.log('ALL SMOKE TEST CRITERIA PASSED SUCCESSFULLY! (14/14)');
-  console.log('====================================================\n');
 }
 
 runSmokeTest()

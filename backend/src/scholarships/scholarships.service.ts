@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { AdmissionAlertsService } from '../notifications/admission-alerts.service';
 import { CreateScholarshipDto } from './dto/create-scholarship.dto';
 import { UpdateScholarshipDto } from './dto/update-scholarship.dto';
 import { ScholarshipQueryDto } from './dto/scholarship-query.dto';
@@ -11,6 +12,7 @@ export class ScholarshipsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
+    @Optional() private readonly admissionAlerts?: AdmissionAlertsService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -259,6 +261,17 @@ export class ScholarshipsService {
       },
     });
 
+    if (scholarship.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'SCHOLARSHIP',
+        contentId: scholarship.id,
+        title: scholarship.scholarshipName,
+        summary: scholarship.description || scholarship.eligibility || `${scholarship.provider || 'Scholarship'} opportunity now open.`,
+        category: scholarship.category || 'Scholarship',
+        urlPath: `/scholarships/${scholarship.slug}`,
+      });
+    }
+
     return scholarship;
   }
 
@@ -363,6 +376,17 @@ export class ScholarshipsService {
         status: updated.status,
       },
     });
+
+    if (existing.status !== 'PUBLISHED' && updated.status === 'PUBLISHED') {
+      void this.admissionAlerts?.notifySubscribersOnPublish({
+        contentType: 'SCHOLARSHIP',
+        contentId: updated.id,
+        title: updated.scholarshipName,
+        summary: updated.description || updated.eligibility || `${updated.provider || 'Scholarship'} opportunity now open.`,
+        category: updated.category || 'Scholarship',
+        urlPath: `/scholarships/${updated.slug}`,
+      });
+    }
 
     return updated;
   }

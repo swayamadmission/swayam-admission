@@ -1671,7 +1671,7 @@ export default function StudentDashboard() {
             {activeSection==="overview" && (
               <div className="space-y-5">
                 <div>
-                  <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"22px"}}>Welcome back, {studentName.split(" ")[0]}! 👋</h2>
+                  <h2 style={{fontWeight:800,color:"#4A7B5B",fontSize:"22px"}}>Welcome back, {studentName.split(" ")[0]}!</h2>
                   <p style={{fontSize:"13px",color:"#94a3b8"}}>Here's a summary of your admission journey</p>
                 </div>
 
@@ -3068,8 +3068,8 @@ export default function StudentDashboard() {
                                 >
                                   <GraduationCap size={13} />{" "}
                                   {app.status === "STUDENT_ENROLLED"
-                                    ? "Enrolled 🎓 View Details"
-                                    : "Campus Reporting 🏛️"}
+                                    ? "Enrolled · View Details"
+                                    : "Campus Reporting"}
                                 </button>
                               )}
                             </div>
@@ -3105,7 +3105,7 @@ export default function StudentDashboard() {
                             <GraduationCap size={24} />
                           </div>
                           <div>
-                            <h4 className="text-base font-black text-slate-900">Congratulations! You are Officially Enrolled! 🎓</h4>
+                            <h4 className="text-base font-black text-slate-900">Congratulations! You are Officially Enrolled!</h4>
                             <p className="text-xs text-slate-600 mt-1">
                               Your admission journey for {reportingModalApp.course?.name} at {reportingModalApp.college?.name} is complete.
                             </p>
@@ -4865,7 +4865,7 @@ export default function StudentDashboard() {
                   </div>
                 )}
                 <p style={{fontSize:"12px",color:"#94a3b8"}}>
-                  🔒 Swayam Vault: All documents are encrypted in storage, audit-logged on every access, and shared securely across all your college applications.
+                  Swayam Vault: All documents are encrypted in storage, audit-logged on every access, and shared securely across all your college applications.
                 </p>
 
                 {/* Version History Modal */}

@@ -9,9 +9,7 @@ import { ApplicationStatus, PaymentStatus, PaymentType, Role } from '@prisma/cli
 import * as crypto from 'crypto';
 
 async function runComprehensiveSmokeTest() {
-  console.log('======================================================================');
   console.log('🚀 SWAYAM ADMISSION — FULL E2E APPLICATION FEE + RAZORPAY SMOKE TEST');
-  console.log('======================================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn'],
@@ -488,9 +486,7 @@ async function runComprehensiveSmokeTest() {
     throw new Error('TEST 20 FAILED: Platform revenue ledger entry missing');
   }
 
-  console.log('\n======================================================================');
   console.log('🎉 ALL 20 TESTS PASSED! APPLICATION FEE + RAZORPAY SYSTEM READY!');
-  console.log('======================================================================\n');
 
   await app.close();
 }

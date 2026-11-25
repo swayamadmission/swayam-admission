@@ -11,9 +11,7 @@ import {
 } from '../src/notifications/email-templates';
 
 async function runNodemailerOtpTest() {
-  console.log('===============================================================');
   console.log(' SWAYAM ADMISSION — NODEMAILER & EMAIL OTP VERIFICATION SUITE  ');
-  console.log('===============================================================\n');
 
   console.log('Initializing Nest application context...');
   let app: any;
@@ -228,9 +226,7 @@ async function runNodemailerOtpTest() {
     await prisma.otpVerification.deleteMany({ where: { identifier: testEmail } });
     await prisma.user.delete({ where: { id: testUser.id } }).catch(() => {});
 
-    console.log('===============================================================');
     console.log(' 🎉 ALL 7 NODEMAILER & EMAIL OTP TESTS PASSED SUCCESSFULLY!    ');
-    console.log('===============================================================\n');
   } catch (error: any) {
     console.error('\n❌ TEST FAILED:', error.message);
     process.exit(1);

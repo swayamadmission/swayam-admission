@@ -64,7 +64,7 @@ export class RankingSurveyService {
       try {
         await this.notificationsService.createNotification({
           userId: dto.surveyorId,
-          title: 'Field Research Survey Assigned 📋',
+          title: 'Field Research Survey Assigned',
           message: `You have been assigned to conduct an on-ground college ranking survey for ${college.name}.`,
           type: 'COUNSELOR' as any,
         });

@@ -18,3 +18,32 @@
     overflow: hidden;
   }
 }
+
+@keyframes announcement-marquee {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.announcement-marquee-track {
+  width: max-content;
+  will-change: transform;
+  animation: announcement-marquee 42s linear infinite;
+}
+
+.announcement-marquee-wrapper:hover .announcement-marquee-track,
+.announcement-marquee-wrapper:focus-within .announcement-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .announcement-marquee-wrapper {
+    overflow-x: auto;
+  }
+  .announcement-marquee-track {
+    animation: none;
+  }
+}

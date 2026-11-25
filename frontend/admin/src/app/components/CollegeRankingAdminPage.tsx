@@ -152,7 +152,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
     author: 'Swayam Admission Research Governance Board',
   });
 
-  // ================= QUERIES =================
+  // QUERIES
   const { data: statsRes } = useQuery({
     queryKey: ['ranking_overview_stats', selectedYear],
     queryFn: () => reviewsRankingApi.getOverviewStats(selectedYear),
@@ -221,7 +221,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
   });
   const availableColleges = (collegesRes?.data as any)?.data || [];
 
-  // ================= MUTATIONS =================
+  // MUTATIONS
   const calculateMutation = useMutation({
     mutationFn: (payload: any) => reviewsRankingApi.calculateRanking(payload),
     onSuccess: (data) => {
@@ -589,9 +589,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         )}
       </div>
 
-      {/* ============================================================ */}
       {/* TAB 1: OVERVIEW DASHBOARD */}
-      {/* ============================================================ */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
           {/* Key Metrics Grid */}
@@ -685,9 +683,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 2: OFFICIAL RANKINGS TABLE */}
-      {/* ============================================================ */}
       {activeTab === 'rankings' && (
         <div className="space-y-4">
           {/* Filter and Search Bar */}
@@ -835,9 +831,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 3: METHODOLOGY GOVERNANCE */}
-      {/* ============================================================ */}
       {activeTab === 'methodology' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -935,9 +929,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 4: ANNUAL CYCLES */}
-      {/* ============================================================ */}
       {activeTab === 'cycles' && (
         <div className="space-y-6">
           <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -1011,9 +1003,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 5: STUDENT REPORTS */}
-      {/* ============================================================ */}
       {activeTab === 'student_reports' && (
         <div className="space-y-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -1126,9 +1116,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 6: SWAYAM SURVEYS */}
-      {/* ============================================================ */}
       {activeTab === 'surveys' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -1215,9 +1203,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 7: VERIFICATION QUEUE */}
-      {/* ============================================================ */}
       {activeTab === 'verification' && (
         <div className="space-y-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -1300,9 +1286,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 8: ANNUAL RESEARCH REPORTS */}
-      {/* ============================================================ */}
       {activeTab === 'annual_reports' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-white p-5 rounded-2xl border border-slate-200/80">
@@ -1395,9 +1379,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* TAB 9: SPECIAL RANKINGS (20 LEADERBOARDS) */}
-      {/* ============================================================ */}
       {activeTab === 'special_rankings' && (
         <div className="space-y-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-3">
@@ -1491,9 +1473,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 1: CALCULATION MODAL */}
-      {/* ============================================================ */}
       {showCalcModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -1562,9 +1542,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 2: NEW ANNUAL CYCLE */}
-      {/* ============================================================ */}
       {showCycleModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -1691,9 +1669,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 3: SCORECARD DRILLDOWN */}
-      {/* ============================================================ */}
       {selectedCollegeDetail && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1779,9 +1755,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 4: INSPECT ANNUAL REPORT SECTIONS */}
-      {/* ============================================================ */}
       {viewingReport && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -1849,9 +1823,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 5: GENERATE REPORT MODAL */}
-      {/* ============================================================ */}
       {showReportGenModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -1915,9 +1887,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 6: NEW METHODOLOGY VERSION */}
-      {/* ============================================================ */}
       {showMethodologyModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -2095,9 +2065,7 @@ export const CollegeRankingAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* ============================================================ */}
       {/* MODAL 7: SCHEDULE NEW SURVEY */}
-      {/* ============================================================ */}
       {showSurveyModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">

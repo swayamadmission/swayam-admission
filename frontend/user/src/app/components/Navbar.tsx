@@ -7,6 +7,7 @@ import { notificationsApi } from "../../api/notifications.api";
 import { useAuth as useUserAuth } from "../../context/AuthContext";
 import { useUserLiveSync } from "../../hooks/useUserLiveSync";
 import { usePublicSettings } from "../../context/PublicSettingsContext";
+import AnnouncementBar from "./AnnouncementBar";
 
 function formatDDMMYYYY(dateInput: any): string {
   if (!dateInput) return "N/A";
@@ -118,7 +119,9 @@ export default function Navbar() {
   const isActive = (href: string) => location.pathname === href;
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-lg shadow-sm border-b border-gray-100" : "bg-white/90 backdrop-blur-sm"}`}>
+    <header className="sticky top-0 left-0 right-0 z-50">
+      <AnnouncementBar />
+      <nav className={`transition-all duration-300 ${scrolled ? "bg-white/95 backdrop-blur-lg shadow-sm border-b border-gray-100" : "bg-white/95 backdrop-blur-sm border-b border-gray-100/60"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -309,6 +312,7 @@ export default function Navbar() {
           </div>
         </div>
       )}
-    </nav>
+      </nav>
+    </header>
   );
 }

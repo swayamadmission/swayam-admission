@@ -3,10 +3,12 @@ import { NotificationsController } from './notifications.controller';
 import { AudienceController } from './audience.controller';
 import { CommunicationTemplateController } from './communication-template.controller';
 import { CommunicationCampaignController } from './communication-campaign.controller';
+import { AdmissionAlertsController } from './admission-alerts.controller';
 import { NotificationsService } from './notifications.service';
 import { AudienceBuilderService } from './audience-builder.service';
 import { TemplateEngineService } from './template-engine.service';
 import { CommunicationCampaignService } from './communication-campaign.service';
+import { AdmissionAlertsService } from './admission-alerts.service';
 import {
   InAppChannel,
   EmailChannel,
@@ -32,6 +34,7 @@ import { SettingsModule } from '../settings/settings.module';
     CommunicationTemplateController,
     AudienceController,
     NotificationsController,
+    AdmissionAlertsController,
   ],
   providers: [
     NotificationsService,
@@ -44,6 +47,7 @@ import { SettingsModule } from '../settings/settings.module';
     SmsChannel,
     WhatsAppChannel,
     NotificationDispatcher,
+    AdmissionAlertsService,
   ],
   exports: [
     NotificationsService,
@@ -56,6 +60,7 @@ import { SettingsModule } from '../settings/settings.module';
     WhatsAppChannel,
     SmsChannel,
     InAppChannel,
+    AdmissionAlertsService,
   ],
 })
 export class NotificationsModule implements OnModuleInit {

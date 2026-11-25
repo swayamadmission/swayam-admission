@@ -10,9 +10,7 @@ import { DocumentsService } from '../src/documents/documents.service';
 import { AnalyticsService } from '../src/analytics/analytics.service';
 
 async function verifyFullBackendStartup() {
-  console.log('===========================================================');
   console.log('🔍 SWAYAM ADMISSION — FULL NESTJS DI & ENDPOINT VERIFICATION');
-  console.log('===========================================================\n');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
@@ -145,9 +143,7 @@ async function verifyFullBackendStartup() {
       throw new Error(`GET /v1/analytics/overview failed: ${JSON.stringify(analyticsData)}`);
     }
 
-    console.log('\n===========================================================');
     console.log('🎉 ALL NESTJS DI & API ENDPOINT TESTS PASSED WITH 100% SUCCESS!');
-    console.log('===========================================================');
   } finally {
     await app.close();
   }

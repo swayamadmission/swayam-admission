@@ -50,9 +50,7 @@ export default function ReportingEnrollmentPage() {
   const [targetEnrollApp, setTargetEnrollApp] = useState<any | null>(null);
   const [enrollRemarks, setEnrollRemarks] = useState("");
 
-  // ==========================================
   // QUERIES
-  // ==========================================
   const { data: queueRes, isLoading, refetch } = useQuery({
     queryKey: ["reporting_queue", activeTab, search, selectedCollege, page],
     queryFn: () =>
@@ -75,9 +73,7 @@ export default function ReportingEnrollmentPage() {
   const counts = meta.counts || {};
   const colleges = collegesRes?.data?.data || [];
 
-  // ==========================================
   // MUTATIONS
-  // ==========================================
   const claimMutation = useMutation({
     mutationFn: (id: string) => reportingEnrollmentApi.claimReporting(id),
     onSuccess: (res) => {

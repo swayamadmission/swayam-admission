@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import {
-  Bot,
   Send,
   User,
   MapPin,
@@ -49,35 +48,78 @@ import { useAuth as useNavAuth } from "./Navbar";
 import { useAuth } from "../../context/AuthContext";
 import PolicyViewerModal from "./PolicyViewerModal";
 
+const ZIAF_GRADIENT =
+  "linear-gradient(135deg, #43B5F5 0%, #08BD53 36%, #903C5A 72%, #F8CF98 100%)";
+
+const ZIAF_SURFACE_WASH =
+  "linear-gradient(180deg, #FFFFFF 60%, rgba(67, 181, 245, 0.06) 82%, rgba(8, 189, 83, 0.05) 92%, rgba(248, 207, 152, 0.12) 100%)";
+
+function sanitizeWelcomeMessage(raw: string): string {
+  return raw
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/Swayam (Admission )?AI Counselor/gi, "Ziaf AI")
+    .trim();
+}
+
+function ZiafAiBadge({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
+  const boxClass =
+    size === "lg"
+      ? "w-16 h-16 rounded-2xl text-xl"
+      : size === "md"
+      ? "w-12 h-12 rounded-2xl text-sm"
+      : "w-8 h-8 rounded-lg text-[11px]";
+
+  const innerBorder =
+    size === "lg"
+      ? "w-9 h-9 text-sm rounded-md border-2"
+      : size === "md"
+      ? "w-7 h-7 text-[11px] rounded border-[1.5px]"
+      : "w-5 h-5 text-[9px] rounded-[3px] border-[1.5px]";
+
+  return (
+    <div
+      style={{ background: ZIAF_GRADIENT }}
+      className={`${boxClass} flex items-center justify-center shrink-0 shadow-md text-white`}
+    >
+      <span
+        className={`${innerBorder} border-white/95 font-black tracking-tight flex items-center justify-center leading-none`}
+      >
+        AI
+      </span>
+    </div>
+  );
+}
+
 // Initial Welcome Message
 const INITIAL_MESSAGES: Message[] = [
   {
     id: "welcome_msg",
     type: "ai",
     content:
-      "Namaste! 🙏 Welcome to **Swayam Admission AI Counselor**.\n\nI provide verified academic and admission guidance backed directly by our university directory, course catalog, and official 9-pillar national rankings. How can I assist your educational journey today?",
+      "Namaste! Welcome to **Ziaf AI**.\n\nI provide verified academic and admission guidance backed directly by our university directory, course catalog, and official 9-pillar national rankings. How can I assist your educational journey today?",
     chips: [
-      "🎓 Colleges in Bihar",
-      "💻 B.Tech under ₹2L",
-      "⚖️ Compare Colleges",
-      "📋 Check Eligibility",
-      "💰 Scholarships & Aid",
-      "📞 Talk to Counselor",
+      "Colleges in Bihar",
+      "B.Tech under ₹2L",
+      "Compare Colleges",
+      "Check Eligibility",
+      "Scholarships & Aid",
+      "Talk to Counselor",
     ],
   },
 ];
 
 // Reference-style Category Discovery Tabs
 const CATEGORY_TABS = [
-  { id: "all", label: "✨ All Guidance", query: "" },
-  { id: "colleges", label: "🏛️ Top Colleges", query: "Show top verified colleges in Bihar and India" },
-  { id: "courses", label: "📚 Course Guidance", query: "Explore B.Tech, MBA, and Polytechnic courses with eligibility" },
-  { id: "careers", label: "🚀 Career Advice", query: "What are the best career paths after 12th PCM and PCB?" },
-  { id: "compare", label: "⚖️ Compare Colleges", query: "Compare B.Tech colleges in Bihar side by side" },
-  { id: "exams", label: "📝 Entrance Exams", query: "Tell me about JEE Main and NEET eligibility and dates" },
-  { id: "scholarships", label: "💰 Scholarships", query: "What scholarships and financial aid options are available?" },
-  { id: "fees", label: "🏷️ Fees & Budget", query: "What are the college fees for engineering under ₹2 Lakhs?" },
-  { id: "process", label: "📄 Admission Process", query: "What documents and process are required for college admission?" },
+  { id: "all", label: "All Guidance", query: "" },
+  { id: "colleges", label: "Top Colleges", query: "Show top verified colleges in Bihar and India" },
+  { id: "courses", label: "Course Guidance", query: "Explore B.Tech, MBA, and Polytechnic courses with eligibility" },
+  { id: "careers", label: "Career Advice", query: "What are the best career paths after 12th PCM and PCB?" },
+  { id: "compare", label: "Compare Colleges", query: "Compare B.Tech colleges in Bihar side by side" },
+  { id: "exams", label: "Entrance Exams", query: "Tell me about JEE Main and NEET eligibility and dates" },
+  { id: "scholarships", label: "Scholarships", query: "What scholarships and financial aid options are available?" },
+  { id: "fees", label: "Fees & Budget", query: "What are the college fees for engineering under ₹2 Lakhs?" },
+  { id: "process", label: "Admission Process", query: "What documents and process are required for college admission?" },
 ];
 
 // Helper to sanitize any raw JSON strings if present
@@ -128,7 +170,7 @@ function FormattedMarkdownText({ text, isAi }: { text: string; isAi: boolean }) 
           return (
             <h4
               key={idx}
-              className={`font-extrabold text-sm mt-2 mb-1 ${isAi ? "text-[#4A7B5B]" : "text-white"}`}
+              className={`font-extrabold text-sm mt-2 mb-1 ${isAi ? "text-[#0e6b9e]" : "text-white"}`}
             >
               {trimmed.replace(/^###\s+/, "")}
             </h4>
@@ -139,7 +181,7 @@ function FormattedMarkdownText({ text, isAi }: { text: string; isAi: boolean }) 
           return (
             <h3
               key={idx}
-              className={`font-extrabold text-base mt-2 mb-1 ${isAi ? "text-[#4A7B5B]" : "text-white"}`}
+              className={`font-extrabold text-base mt-2 mb-1 ${isAi ? "text-[#0e6b9e]" : "text-white"}`}
             >
               {trimmed.replace(/^##\s+/, "")}
             </h3>
@@ -150,7 +192,7 @@ function FormattedMarkdownText({ text, isAi }: { text: string; isAi: boolean }) 
           const bulletContent = trimmed.replace(/^[\*\-]\s+/, "");
           return (
             <div key={idx} className="flex items-start gap-2 pl-1 text-[13px] leading-relaxed">
-              <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${isAi ? "bg-[#4A7B5B]" : "bg-white"}`} />
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${isAi ? "bg-[#43B5F5]" : "bg-white"}`} />
               <div>{renderInlineFormatting(bulletContent, isAi)}</div>
             </div>
           );
@@ -161,7 +203,7 @@ function FormattedMarkdownText({ text, isAi }: { text: string; isAi: boolean }) 
           const numContent = trimmed.replace(/^\d+\.\s+/, "");
           return (
             <div key={idx} className="flex items-start gap-2 pl-1 text-[13px] leading-relaxed">
-              <span className={`font-bold text-xs shrink-0 ${isAi ? "text-[#4A7B5B]" : "text-white/90"}`}>{num}.</span>
+              <span className={`font-bold text-xs shrink-0 ${isAi ? "text-[#0e6b9e]" : "text-white/90"}`}>{num}.</span>
               <div>{renderInlineFormatting(numContent, isAi)}</div>
             </div>
           );
@@ -188,7 +230,7 @@ function renderInlineFormatting(str: string, isAi: boolean) {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={i} className={`font-bold ${isAi ? "text-[#2e553c]" : "text-white"}`}>
+        <strong key={i} className={`font-bold ${isAi ? "text-slate-900" : "text-white"}`}>
           {part.slice(2, -2)}
         </strong>
       );
@@ -219,20 +261,21 @@ class AICounselorErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div style={{ backgroundColor: "#F8FAFC" }} className="min-h-screen flex items-center justify-center p-6">
-          <div className="bg-white rounded-3xl border border-gray-100 p-8 max-w-md w-full text-center space-y-4 shadow-xl">
-            <div className="w-16 h-16 bg-emerald-50 text-[#4A7B5B] rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-              <Bot size={32} />
+          <div className="bg-white rounded-3xl border border-slate-200 p-8 max-w-md w-full text-center space-y-4 shadow-xl">
+            <div className="flex justify-center">
+              <ZiafAiBadge size="lg" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-[#4A7B5B]">Swayam AI Counselor</h2>
-              <p className="text-xs text-gray-500 mt-1">
+              <h2 className="text-lg font-bold text-slate-900">Ziaf AI</h2>
+              <p className="text-xs text-slate-500 mt-1">
                 We encountered a temporary connection issue. You can resume your session smoothly below.
               </p>
             </div>
             <div className="flex flex-col gap-2 pt-2">
               <button
                 onClick={() => this.setState({ hasError: false })}
-                className="w-full py-3 bg-[#4A7B5B] hover:bg-[#3d6b4d] text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+                style={{ background: ZIAF_GRADIENT }}
+                className="w-full py-3 hover:opacity-95 text-white text-xs font-bold rounded-xl shadow-sm transition-opacity flex items-center justify-center gap-2"
               >
                 <RotateCcw size={14} /> Resume Session
               </button>
@@ -328,7 +371,9 @@ function AICounselorContent() {
                   {
                     id: "welcome_msg",
                     type: "ai",
-                    content: cfg.welcomeMessage || prev[0].content,
+                    content: cfg.welcomeMessage
+                      ? sanitizeWelcomeMessage(cfg.welcomeMessage)
+                      : prev[0].content,
                     chips:
                       cfg.suggestedChips && cfg.suggestedChips.length > 0
                         ? cfg.suggestedChips
@@ -530,20 +575,18 @@ function AICounselorContent() {
         {/* Top Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#4A7B5B] to-[#2e553c] rounded-2xl flex items-center justify-center shadow-md text-white shrink-0">
-              <Bot size={26} />
-            </div>
+            <ZiafAiBadge size="md" />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-[#4A7B5B] tracking-tight">
-                  Swayam AI Counselor
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Ziaf AI
                 </h1>
-                <span className="px-2 py-0.5 bg-[#F0AE1A]/15 border border-[#F0AE1A]/40 text-[#b5800d] text-[10px] font-black rounded-full uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 bg-sky-50 border border-[#43B5F5]/40 text-[#0e6b9e] text-[10px] font-black rounded-full uppercase tracking-wider">
                   Verified Engine
                 </span>
               </div>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                <span className="w-2 h-2 bg-[#08BD53] rounded-full animate-pulse" />
                 <span className="text-xs text-slate-500 font-medium">
                   Direct Live Database Grounding · 9-Pillar Ranking Synchronized
                 </span>
@@ -555,7 +598,7 @@ function AICounselorContent() {
             {isLoggedIn && (
               <button
                 onClick={() => setHistorySidebarOpen(!historySidebarOpen)}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-bold hover:bg-sky-50 hover:border-[#43B5F5]/50 hover:text-[#0e6b9e] transition-all shadow-sm"
               >
                 {historySidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
                 <span>History ({pastConversations.length})</span>
@@ -564,7 +607,8 @@ function AICounselorContent() {
 
             <button
               onClick={startNewChat}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+              style={{ background: ZIAF_GRADIENT }}
+              className="flex items-center gap-1.5 px-4 py-2 hover:opacity-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
             >
               <RotateCcw size={14} /> New Chat
             </button>
@@ -583,10 +627,11 @@ function AICounselorContent() {
                     setActiveCategory(tab.id);
                     if (tab.query) sendMessage(tab.query, tab.id);
                   }}
+                  style={isActive ? { background: ZIAF_GRADIENT } : undefined}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all border ${
                     isActive
-                      ? "bg-[#4A7B5B] text-white border-[#4A7B5B] shadow-sm"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-[#E8F3EC] hover:text-[#4A7B5B] hover:border-[#4A7B5B]/30"
+                      ? "text-white border-transparent shadow-sm"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-sky-50 hover:text-[#0e6b9e] hover:border-[#43B5F5]/50"
                   }`}
                 >
                   {tab.label}
@@ -631,7 +676,7 @@ function AICounselorContent() {
                         onClick={() => switchConversation(c.id)}
                         className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group ${
                           isCurrent
-                            ? "bg-[#E8F3EC] border-[#4A7B5B] text-[#4A7B5B]"
+                            ? "bg-sky-50 border-[#43B5F5] text-[#0e6b9e]"
                             : "bg-slate-50 border-slate-100 hover:bg-slate-100 text-slate-700"
                         }`}
                       >
@@ -665,68 +710,70 @@ function AICounselorContent() {
 
           {/* Chat Container */}
           <div
+            style={{ background: ZIAF_GRADIENT }}
             className={`${
               historySidebarOpen && isLoggedIn ? "lg:col-span-8" : "lg:col-span-12"
-            } bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col`}
-            style={{ minHeight: "600px" }}
+            } p-[1.5px] rounded-3xl shadow-md overflow-hidden flex flex-col`}
           >
-            {/* Guest Login Banner */}
-            {!isLoggedIn && (
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-200/60 p-3.5 px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-[#b5800d] shrink-0" />
-                  <p className="text-xs text-amber-900 font-medium">
-                    You are exploring as a <strong>Guest</strong>. Log in to save conversation history and unlock personalized profile matching!
-                  </p>
+            <div
+              className="rounded-[22px] overflow-hidden flex flex-col flex-1"
+              style={{ minHeight: "600px", background: ZIAF_SURFACE_WASH }}
+            >
+              {/* Guest Login Banner */}
+              {!isLoggedIn && (
+                <div className="bg-white/95 border-b border-[#43B5F5]/20 p-3.5 px-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} className="text-[#0e6b9e] shrink-0" />
+                    <p className="text-xs text-slate-700 font-medium">
+                      You are exploring as a <strong className="text-slate-900">Guest</strong>. Log in to save conversation history and unlock personalized profile matching.
+                    </p>
+                  </div>
+                  <button
+                    onClick={openAuth}
+                    style={{ background: ZIAF_GRADIENT }}
+                    className="px-3.5 py-1.5 hover:opacity-95 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-opacity shrink-0 shadow-sm"
+                  >
+                    <LogIn size={13} /> Student Login
+                  </button>
                 </div>
-                <button
-                  onClick={openAuth}
-                  className="px-3.5 py-1.5 bg-[#4A7B5B] hover:bg-[#3d674c] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shrink-0 shadow-sm"
-                >
-                  <LogIn size={13} /> Student Login
-                </button>
-              </div>
-            )}
+              )}
 
-            {/* Chat Messages List */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-h-[620px]">
-              {messages.map((msg, msgIdx) => {
-                const isAi = msg.type === "ai";
+              {/* Chat Messages List */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 max-h-[620px]">
+                {messages.map((msg, msgIdx) => {
+                  const isAi = msg.type === "ai";
 
-                return (
-                  <div key={msg.id || `msg_${msgIdx}`} className="space-y-3">
-                    {/* Message Bubble */}
-                    <div className={`flex items-start gap-3 ${isAi ? "" : "justify-end"}`}>
-                      {isAi && (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] flex items-center justify-center shrink-0 shadow-sm text-white mt-0.5">
-                          <Bot size={16} />
+                  return (
+                    <div key={msg.id || `msg_${msgIdx}`} className="space-y-3">
+                      {/* Message Bubble */}
+                      <div className={`flex items-start gap-3 ${isAi ? "" : "justify-end"}`}>
+                        {isAi && <ZiafAiBadge size="sm" />}
+
+                        <div
+                          style={isAi ? undefined : { background: ZIAF_GRADIENT }}
+                          className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 sm:px-5 py-3.5 shadow-sm ${
+                            isAi
+                              ? "bg-white border border-slate-200/90 rounded-tl-sm"
+                              : "text-white rounded-tr-sm"
+                          }`}
+                        >
+                          <FormattedMarkdownText text={msg.content || msg.reply || ""} isAi={isAi} />
                         </div>
-                      )}
 
-                      <div
-                        className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-4 sm:px-5 py-3.5 shadow-sm ${
-                          isAi
-                            ? "bg-[#F8FAFC] border border-slate-200/80 rounded-tl-none"
-                            : "bg-[#4A7B5B] text-white rounded-tr-none"
-                        }`}
-                      >
-                        <FormattedMarkdownText text={msg.content || msg.reply || ""} isAi={isAi} />
+                        {!isAi && (
+                          <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-600 mt-0.5">
+                            <User size={15} />
+                          </div>
+                        )}
                       </div>
-
-                      {!isAi && (
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 text-slate-600 mt-0.5">
-                          <User size={15} />
-                        </div>
-                      )}
-                    </div>
 
                     {/* Structured Cards Rendering Area */}
                     {isAi && (
                       <div className="pl-11 pr-2 space-y-4">
                         {/* 1. Comparison Card */}
                         {msg.comparison && msg.comparison.colleges && (
-                          <div className="bg-white border border-[#4A7B5B]/30 rounded-2xl p-4 shadow-sm space-y-3">
-                            <div className="flex items-center gap-2 text-sm font-extrabold text-[#4A7B5B]">
+                          <div className="bg-white border border-[#43B5F5]/40 rounded-2xl p-4 shadow-sm space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-extrabold text-[#0e6b9e]">
                               <Scale size={18} />
                               <span>{msg.comparison.title || "Institutional Comparison"}</span>
                             </div>
@@ -737,7 +784,7 @@ function AICounselorContent() {
                                   <tr className="border-b border-slate-100 bg-slate-50 text-slate-600">
                                     <th className="p-2.5 font-bold">Attribute</th>
                                     {msg.comparison.colleges.map((c, i) => (
-                                      <th key={c.id || i} className="p-2.5 font-extrabold text-[#4A7B5B]">
+                                      <th key={c.id || i} className="p-2.5 font-extrabold text-[#0e6b9e]">
                                         {c.name}
                                       </th>
                                     ))}
@@ -753,7 +800,7 @@ function AICounselorContent() {
                                   <tr>
                                     <td className="p-2.5 font-bold text-slate-500">Tuition Fees</td>
                                     {msg.comparison.colleges.map((c, i) => (
-                                      <td key={i} className="p-2.5 font-bold text-[#4A7B5B]">{c.fees}</td>
+                                      <td key={i} className="p-2.5 font-bold text-[#0e6b9e]">{c.fees}</td>
                                     ))}
                                   </tr>
                                   <tr>
@@ -781,8 +828,8 @@ function AICounselorContent() {
                             </div>
 
                             {msg.comparison.verdict && (
-                              <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/50 rounded-xl text-xs text-emerald-900 leading-relaxed font-medium">
-                                <strong>Swayam Verdict:</strong> {msg.comparison.verdict}
+                              <div className="p-2.5 bg-sky-50/70 border border-[#43B5F5]/30 rounded-xl text-xs text-slate-800 leading-relaxed font-medium">
+                                <strong className="text-[#0e6b9e]">Swayam Verdict:</strong> {msg.comparison.verdict}
                               </div>
                             )}
                           </div>
@@ -794,19 +841,22 @@ function AICounselorContent() {
                             {msg.colleges.map((col, idx) => (
                               <div
                                 key={col.id || idx}
-                                className="bg-white border border-slate-200 hover:border-[#4A7B5B]/50 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                                className="bg-white border border-slate-200 hover:border-[#43B5F5]/60 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3"
                               >
                                 <div className="space-y-1.5">
                                   <div className="flex items-start justify-between gap-2">
-                                    <h4 className="font-extrabold text-sm text-[#4A7B5B] leading-tight">
+                                    <h4 className="font-extrabold text-sm text-[#0e6b9e] leading-tight">
                                       {col.name}
                                     </h4>
                                     {col.officialRank ? (
-                                      <span className="px-2 py-0.5 bg-[#4A7B5B] text-white text-[10px] font-extrabold rounded-md shrink-0">
+                                      <span
+                                        style={{ background: ZIAF_GRADIENT }}
+                                        className="px-2 py-0.5 text-white text-[10px] font-extrabold rounded-md shrink-0"
+                                      >
                                         #{col.officialRank} Swayam
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 bg-emerald-50 text-[#4A7B5B] border border-emerald-200 text-[10px] font-bold rounded-md shrink-0">
+                                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-[#08BD53]/30 text-[10px] font-bold rounded-md shrink-0">
                                         Verified
                                       </span>
                                     )}
@@ -820,7 +870,7 @@ function AICounselorContent() {
                                   <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-600">
                                     <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                                       <span className="text-[10px] text-slate-400 block font-medium">Tuition Fees</span>
-                                      <span className="font-bold text-[#4A7B5B]">{col.fees}</span>
+                                      <span className="font-bold text-[#0e6b9e]">{col.fees}</span>
                                     </div>
                                     <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
                                       <span className="text-[10px] text-slate-400 block font-medium">Placement Highest</span>
@@ -848,7 +898,8 @@ function AICounselorContent() {
                                   </Link>
                                   <Link
                                     to="/apply-now"
-                                    className="flex-1 text-center py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                                    style={{ background: ZIAF_GRADIENT }}
+                                    className="flex-1 text-center py-2 hover:opacity-95 text-white text-xs font-bold rounded-xl transition-opacity shadow-sm"
                                   >
                                     Apply Now
                                   </Link>
@@ -864,10 +915,10 @@ function AICounselorContent() {
                             {msg.courses.map((co, idx) => (
                               <div
                                 key={co.id || idx}
-                                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-[#4A7B5B]/50 transition-all space-y-2.5"
+                                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-[#43B5F5]/60 transition-all space-y-2.5"
                               >
                                 <div>
-                                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">
+                                  <span className="text-[10px] font-bold text-[#08BD53] uppercase tracking-wide">
                                     {co.duration} Program
                                   </span>
                                   <h4 className="font-bold text-sm text-slate-800 leading-tight">
@@ -879,7 +930,7 @@ function AICounselorContent() {
                                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1 text-xs">
                                   <div className="flex justify-between">
                                     <span className="text-slate-400">Total Fees:</span>
-                                    <span className="font-bold text-[#4A7B5B]">{co.totalFees}</span>
+                                    <span className="font-bold text-[#0e6b9e]">{co.totalFees}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-slate-400">Eligibility:</span>
@@ -891,7 +942,8 @@ function AICounselorContent() {
 
                                 <Link
                                   to="/apply-now"
-                                  className="w-full block text-center py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white text-xs font-bold rounded-xl transition-colors"
+                                  style={{ background: ZIAF_GRADIENT }}
+                                  className="w-full block text-center py-2 hover:opacity-95 text-white text-xs font-bold rounded-xl transition-opacity"
                                 >
                                   Apply for Course
                                 </Link>
@@ -906,11 +958,11 @@ function AICounselorContent() {
                             {msg.exams.map((ex, idx) => (
                               <div
                                 key={ex.name || idx}
-                                className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2"
+                                className="bg-white border border-slate-200 hover:border-[#43B5F5]/50 rounded-2xl p-4 shadow-sm space-y-2"
                               >
                                 <div className="flex items-center justify-between">
-                                  <h4 className="font-extrabold text-sm text-[#4A7B5B]">{ex.name}</h4>
-                                  <span className="px-2 py-0.5 bg-amber-50 text-[#b5800d] border border-amber-200 text-[10px] font-bold rounded-md">
+                                  <h4 className="font-extrabold text-sm text-[#0e6b9e]">{ex.name}</h4>
+                                  <span className="px-2 py-0.5 bg-amber-50 text-[#903C5A] border border-[#F8CF98] text-[10px] font-bold rounded-md">
                                     {ex.examMonth}
                                   </span>
                                 </div>
@@ -923,7 +975,7 @@ function AICounselorContent() {
                                     href={ex.officialWebsite}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-xs text-[#4A7B5B] hover:underline flex items-center gap-1 font-bold pt-1"
+                                    className="text-xs text-[#0e6b9e] hover:underline flex items-center gap-1 font-bold pt-1"
                                   >
                                     Official Portal <ExternalLink size={12} />
                                   </a>
@@ -939,16 +991,16 @@ function AICounselorContent() {
                             {msg.scholarships.map((sc, idx) => (
                               <div
                                 key={sc.name || idx}
-                                className="bg-white border border-emerald-200/80 rounded-2xl p-4 shadow-sm space-y-2"
+                                className="bg-white border border-[#08BD53]/30 rounded-2xl p-4 shadow-sm space-y-2"
                               >
                                 <div className="flex items-center justify-between">
                                   <h4 className="font-bold text-xs text-slate-800 leading-snug">{sc.name}</h4>
-                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-md shrink-0">
+                                  <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-[#08BD53]/30 text-[10px] font-bold rounded-md shrink-0">
                                     {sc.amount}
                                   </span>
                                 </div>
                                 <p className="text-[11px] text-slate-500">Provider: {sc.provider}</p>
-                                <div className="text-[11px] text-slate-600 bg-emerald-50/50 p-2 rounded-xl">
+                                <div className="text-[11px] text-slate-600 bg-sky-50/40 p-2 rounded-xl">
                                   <strong>Criteria:</strong> {sc.eligibility}
                                 </div>
                               </div>
@@ -958,11 +1010,11 @@ function AICounselorContent() {
 
                         {/* 6. Counselor Handoff Card */}
                         {(msg.counselorHandoff || assignedCounselorData) && (
-                          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div className="bg-gradient-to-r from-sky-50 via-white to-emerald-50 border border-[#43B5F5]/30 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
-                                <ShieldCheck size={18} className="text-[#4A7B5B]" />
-                                <h4 className="font-extrabold text-sm text-[#4A7B5B]">
+                                <ShieldCheck size={18} className="text-[#0e6b9e]" />
+                                <h4 className="font-extrabold text-sm text-[#0e6b9e]">
                                   {assignedCounselorData ? "Your Assigned Admission Counselor" : "Speak with an Admission Expert"}
                                 </h4>
                               </div>
@@ -986,7 +1038,7 @@ function AICounselorContent() {
                                     href={`https://wa.me/${assignedCounselorData.mobile.replace(/\D/g, "")}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="px-3.5 py-2 bg-[#25D366] text-white text-xs font-bold rounded-xl hover:bg-[#20ba59] transition-colors flex items-center gap-1.5 shadow-sm"
+                                    className="px-3.5 py-2 bg-[#08BD53] text-white text-xs font-bold rounded-xl hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-sm"
                                   >
                                     <MessageCircle size={13} /> WhatsApp
                                   </a>
@@ -995,7 +1047,8 @@ function AICounselorContent() {
                                 <button
                                   onClick={handleRequestCounselor}
                                   disabled={counselorRequestPending}
-                                  className="px-4 py-2 bg-[#4A7B5B] hover:bg-[#3d674c] text-white text-xs font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50"
+                                  style={{ background: ZIAF_GRADIENT }}
+                                  className="px-4 py-2 hover:opacity-95 text-white text-xs font-bold rounded-xl transition-opacity shadow-sm disabled:opacity-50"
                                 >
                                   {counselorRequestPending ? "Request Pending..." : "Request Free Counselor"}
                                 </button>
@@ -1019,10 +1072,10 @@ function AICounselorContent() {
                                     sendMessage(chip);
                                   }
                                 }}
-                                className="px-3 py-1.5 bg-white border border-[#4A7B5B]/30 hover:border-[#4A7B5B] hover:bg-[#E8F3EC] text-[#4A7B5B] text-xs font-bold rounded-full transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                                className="px-3.5 py-1.5 bg-white border border-[#43B5F5]/55 hover:border-[#43B5F5] hover:bg-sky-50 text-[#0e6b9e] text-xs font-bold rounded-full transition-all shadow-xs active:scale-95 flex items-center gap-1"
                               >
                                 <span>{chip}</span>
-                                <ChevronRight size={11} className="opacity-60" />
+                                <ChevronRight size={11} className="opacity-70" />
                               </button>
                             ))}
                           </div>
@@ -1036,13 +1089,11 @@ function AICounselorContent() {
               {/* Typing Animation */}
               {isTyping && (
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] flex items-center justify-center shrink-0 shadow-sm text-white mt-0.5">
-                    <Bot size={16} />
-                  </div>
-                  <div className="px-4 py-3 bg-[#F8FAFC] border border-slate-200/80 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-[#4A7B5B] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <div className="w-2 h-2 bg-[#4A7B5B] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <div className="w-2 h-2 bg-[#4A7B5B] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <ZiafAiBadge size="sm" />
+                  <div className="px-4 py-3 bg-white border border-slate-200/90 rounded-2xl rounded-tl-sm shadow-sm flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-[#43B5F5] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <div className="w-2 h-2 bg-[#08BD53] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <div className="w-2 h-2 bg-[#903C5A] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               )}
@@ -1050,55 +1101,70 @@ function AICounselorContent() {
               <div ref={bottomRef} />
             </div>
 
-            {/* Chat Input Bar */}
-            <div className="border-t border-slate-200 p-3 sm:p-4 bg-white space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="Ask about colleges, fees, scholarships, rankings, or courses..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage(input);
-                    }
-                  }}
-                  className="flex-1 px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-2xl text-xs sm:text-sm focus:outline-none focus:border-[#4A7B5B] focus:ring-2 focus:ring-[#4A7B5B]/10 placeholder:text-slate-400 transition-all"
-                />
+            {/* Legal Disclaimer Footer */}
+            <div className="px-4 sm:px-6 pt-2 pb-2.5 bg-white/80 border-t border-slate-200/70 flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-500 gap-1">
+              <p className="text-center sm:text-left leading-normal">
+                AI guidance is for informational purposes only. By using the assistant, you acknowledge the{" "}
+                <button
+                  type="button"
+                  onClick={() => setViewingPolicySlug("ai-counselor-terms-and-disclaimer")}
+                  className="text-[#0e6b9e] underline hover:text-[#43B5F5] font-semibold cursor-pointer"
+                >
+                  AI Counselor Terms &amp; Disclaimer
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() => setViewingPolicySlug("privacy-policy")}
+                  className="text-[#0e6b9e] underline hover:text-[#43B5F5] font-semibold cursor-pointer"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </p>
+              <span className="shrink-0 text-slate-500 font-semibold">Powered by Ziaf AI</span>
+            </div>
+
+            {/* Gradient Chat Input Dock */}
+            <div style={{ background: ZIAF_GRADIENT }} className="p-3 sm:p-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex-1 flex items-center bg-white rounded-xl shadow-sm px-3.5 py-1.5">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    placeholder="Hello! How can I help you? Ask about colleges, fees, scholarships, or courses..."
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(input);
+                      }
+                    }}
+                    className="flex-1 py-1.5 bg-transparent text-xs sm:text-sm text-slate-800 focus:outline-none placeholder:text-slate-400"
+                  />
+                  <button
+                    onClick={() => sendMessage(input)}
+                    disabled={!(input || "").trim() || isTyping}
+                    className="p-2 rounded-lg text-[#0e6b9e] hover:bg-sky-50 disabled:opacity-35 disabled:cursor-not-allowed transition-all shrink-0 cursor-pointer"
+                    title="Send message"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
 
                 <button
-                  onClick={() => sendMessage(input)}
-                  disabled={!(input || "").trim() || isTyping}
-                  className="w-12 h-12 bg-[#4A7B5B] hover:bg-[#3d674c] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl flex items-center justify-center transition-all shrink-0 shadow-sm active:scale-95"
+                  type="button"
+                  onClick={handleRequestCounselor}
+                  disabled={counselorRequestPending}
+                  title="Request Free Counselor"
+                  className="px-3.5 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-xl flex items-center gap-1.5 text-xs font-bold transition-colors shrink-0 cursor-pointer disabled:opacity-50"
                 >
-                  <Send size={18} />
+                  <Phone size={15} />
+                  <span className="hidden sm:inline">Counselor</span>
                 </button>
               </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-between text-[10px] text-slate-400 px-1 gap-1">
-                <p className="text-center sm:text-left leading-normal">
-                  AI guidance is for informational purposes only. By using the assistant, you acknowledge the{" "}
-                  <button
-                    type="button"
-                    onClick={() => setViewingPolicySlug("ai-counselor-terms-and-disclaimer")}
-                    className="text-[#4A7B5B] underline hover:text-[#3d674c] font-semibold cursor-pointer"
-                  >
-                    AI Counselor Terms &amp; Disclaimer
-                  </button>{" "}
-                  and{" "}
-                  <button
-                    type="button"
-                    onClick={() => setViewingPolicySlug("privacy-policy")}
-                    className="text-[#4A7B5B] underline hover:text-[#3d674c] font-semibold cursor-pointer"
-                  >
-                    Privacy Policy
-                  </button>
-                  .
-                </p>
-                <span className="shrink-0 text-slate-400 font-medium">⚡ Powered by Swayam Admission Engine</span>
-              </div>
+            </div>
             </div>
           </div>
         </div>

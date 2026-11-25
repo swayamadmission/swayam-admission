@@ -9,9 +9,7 @@ import * as bcryptLib from 'bcrypt';
 import { Role } from '@prisma/client';
 
 async function runComprehensiveVerification() {
-  console.log('=================================================================================');
   console.log('  SWAYAM ADMISSION — EMPLOYEE ID LOGIN & RECOVERY MASTER AUDIT SUITE             ');
-  console.log('=================================================================================\n');
 
   let app: any;
   try {
@@ -131,9 +129,7 @@ async function runComprehensiveVerification() {
     });
     pendingUserId = pendingUser.id;
 
-    // =================================================================================
     // SECTION A: EMPLOYEE ERP LOGIN TESTS (https://erp.swayamadmission.com)
-    // =================================================================================
 
     // Test A1: Valid Employee ID and password on ERP -> Success
     try {
@@ -220,9 +216,7 @@ async function runComprehensiveVerification() {
       record('A6', 'ERP Login', 'Employee ID case normalization works seamlessly', false, err.message);
     }
 
-    // =================================================================================
     // SECTION B: PROTECTED ADMIN PORTAL LOGIN TESTS (https://admin.swayamadmission.com)
-    // =================================================================================
 
     // Test B1: Authorized Super Admin login with administrator email -> Success
     try {
@@ -295,9 +289,7 @@ async function runComprehensiveVerification() {
         `Status: ${err.status}, Message: "${err.message}"`);
     }
 
-    // =================================================================================
     // SECTION C: FORGOT PASSWORD RECOVERY TESTS (Employee ID & Personal Email)
-    // =================================================================================
 
     // Test C1: Case A - Recovery using valid Employee ID dispatches OTP to personal email
     let otpDispatchedToPersonalEmail = false;
@@ -442,9 +434,7 @@ async function runComprehensiveVerification() {
       record('C7', 'Security Gate', 'Self-service recovery is strictly blocked for protected administrative accounts', false, err.message);
     }
 
-    // =================================================================================
     // SECTION D: SMTP & INFRASTRUCTURE INTEGRITY CHECKS
-    // =================================================================================
     const smtpHealth = emailChannel.getHealth();
     const passD1 = smtpHealth.status === 'HEALTHY' || smtpHealth.status === 'DEGRADED';
     record('D1', 'SMTP Integration', 'Centralized SMTP health check operational', passD1,
@@ -477,9 +467,7 @@ async function runComprehensiveVerification() {
 
     await app?.close();
 
-    console.log('\n=================================================================================');
     console.log('                          MASTER AUDIT SUMMARY                                   ');
-    console.log('=================================================================================');
     const totalPassed = results.filter((r) => r.passed).length;
     console.log(`Total Test Scenarios: ${results.length}`);
     console.log(`Passed: ${totalPassed} / ${results.length}`);
@@ -490,7 +478,6 @@ async function runComprehensiveVerification() {
     } else {
       console.log('\n⚠️ Some scenarios did not pass. Inspect details above.');
     }
-    console.log('=================================================================================\n');
   }
 }
 

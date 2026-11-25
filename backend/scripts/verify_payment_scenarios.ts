@@ -5,9 +5,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { ApplicationStatus, PaymentStatus } from '@prisma/client';
 
 async function runScenarios() {
-  console.log('===========================================================');
   console.log('🧪 SWAYAM ADMISSION — VERIFYING PAYMENT & SUBMISSION FLOWS');
-  console.log('===========================================================\n');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn'],
@@ -126,9 +124,7 @@ async function runScenarios() {
     return appRecord;
   }
 
-  // =========================================================================
   // SCENARIO 4: Counselor UNASSIGNED -> progress evaluates offering active and ready
-  // =========================================================================
   console.log('--- SCENARIO 4: Counselor UNASSIGNED Check ---');
   const appScen4 = await createReadyDraft('scen4');
   const progress4 = await appService.getApplicationProgress(appScen4.id, studentActor);
@@ -140,9 +136,7 @@ async function runScenarios() {
   }
   console.log('   ✔ PASS: Unassigned counselor does not block application progress!\n');
 
-  // =========================================================================
   // SCENARIO 6: Payment Cancellation -> Remains pending payment / draft
-  // =========================================================================
   console.log('--- SCENARIO 6: Payment Cancellation Flow ---');
   const appScen6 = await createReadyDraft('scen6');
   const init6: any = await appService.initiatePayment(appScen6.id, studentActor, {
@@ -159,9 +153,7 @@ async function runScenarios() {
   console.log(`   Application Status on cancellation: ${cancelCheck.status}`);
   console.log('   ✔ PASS: Application safely remains in DRAFT / PAYMENT_PENDING when user cancels.\n');
 
-  // =========================================================================
   // SCENARIO 2: 100% Coupon -> Payable ₹0 -> Direct Submission -> ₹0 Receipt
-  // =========================================================================
   console.log('--- SCENARIO 2: 100% Coupon (₹0 Payable) Direct Submission ---');
   const appScen2 = await createReadyDraft('scen2');
   const init2: any = await appService.initiatePayment(appScen2.id, studentActor, {
@@ -191,9 +183,7 @@ async function runScenarios() {
   }
   console.log('   ✔ PASS: 100% coupon submitted directly with ₹0 payable and valid receipt.\n');
 
-  // =========================================================================
   // SCENARIO 3: 50% Coupon -> Payable ₹750 -> Payment Intent & Submission
-  // =========================================================================
   console.log('--- SCENARIO 3: 50% Discount (₹750 Payable) ---');
   const appScen3 = await createReadyDraft('scen3');
   const init3: any = await appService.initiatePayment(appScen3.id, studentActor, {
@@ -222,9 +212,7 @@ async function runScenarios() {
   }
   console.log('   ✔ PASS: 50% coupon created correct payment order and completed submission.\n');
 
-  // =========================================================================
   // SCENARIO 1: Normal Payment (₹1500, no coupon, counselor unassigned)
-  // =========================================================================
   console.log('--- SCENARIO 1: Normal Payment (₹1500, Counselor Unassigned) ---');
   const appScen1 = await createReadyDraft('scen1');
   const init1: any = await appService.initiatePayment(appScen1.id, studentActor, {
@@ -252,9 +240,7 @@ async function runScenarios() {
   }
   console.log('   ✔ PASS: Full payment flow generated order, updated payment, and issued receipt.\n');
 
-  // =========================================================================
   // SCENARIO 5: Free Quota Submission (Fresh Student)
-  // =========================================================================
   console.log('--- SCENARIO 5: Free Quota Submission (Fresh Student) ---');
   const freshStudent = await prisma.user.create({
     data: {
@@ -330,9 +316,7 @@ async function runScenarios() {
   console.log(`   Submit Result: status=${submit5.status}, receipt=${submit5.receiptNumber}`);
   console.log('   ✔ PASS: Free quota allowed ₹0 submission with valid ₹0 receipt issued.\n');
 
-  // =========================================================================
   // SCENARIO 7: Refresh / Re-login Persistence
-  // =========================================================================
   console.log('--- SCENARIO 7: Refresh & DB Persistence Check ---');
   // Re-fetch app 1 using findOne and findMyApplications
   const fetchedApp1: any = await appService.findOne(appScen1.id, student.id);
@@ -347,9 +331,7 @@ async function runScenarios() {
   }
   console.log('   ✔ PASS: Status persists authoritatively in DB and returns in myApplications.\n');
 
-  console.log('===========================================================');
   console.log('🎉 ALL 7 SCENARIOS VERIFIED SUCCESSFULLY WITH ZERO ERRORS!');
-  console.log('===========================================================');
 
   await app.close();
 }

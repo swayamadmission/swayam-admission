@@ -8,9 +8,7 @@ import { ConsentService } from './src/legal/consent.service';
 import { GrievanceService } from './src/legal/grievance.service';
 
 async function runLegalConsentSmokeTest() {
-  console.log('================================================================');
   console.log(' SWAYAM ADMISSION — LEGAL & POLICIES + ACTION CONSENT SMOKE SUITE');
-  console.log('================================================================\n');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: false });
 
@@ -309,9 +307,7 @@ async function runLegalConsentSmokeTest() {
     });
     assert(auditLogs.length > 0, `Found ${auditLogs.length} audit log records for legal operations`);
 
-    console.log('\n================================================================');
     console.log(` ALL SMOKE TESTS PASSED SUCCESSFULLY! (${passedTests}/${totalTests} Passed)`);
-    console.log('================================================================\n');
   } finally {
     await app.close();
   }

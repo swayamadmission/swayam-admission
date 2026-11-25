@@ -8,6 +8,7 @@ import { StorageModule } from '../storage/storage.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { CouponModule } from '../coupons/coupon.module';
 import { LegalModule } from '../legal/legal.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { LegalModule } from '../legal/legal.module';
     PaymentsModule,
     CouponModule,
     LegalModule,
+    NotificationsModule,
   ],
   controllers: [StudyMaterialsController],
   providers: [StudyMaterialsService],

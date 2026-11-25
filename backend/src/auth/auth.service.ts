@@ -171,7 +171,11 @@ export class AuthService {
    * Never stores plain-text OTPs in database.
    */
   private hashOtp(otp: string): string {
-    const salt = process.env.JWT_SECRET || 'swayam-secret-otp-salt';
+    const salt =
+      process.env.JWT_SECRET ||
+      (process.env.NODE_ENV === 'test'
+        ? 'test_jwt_secret_key_minimum_32_characters_length'
+        : 'swayam_development_local_jwt_secret_key_32_chars');
     return crypto.createHash('sha256').update(`${otp}:${salt}`).digest('hex');
   }
 
@@ -224,11 +228,21 @@ export class AuthService {
    * Issues short-lived access token (15m) and securely rotates refresh token (7d).
    */
   private getRefreshSecret(): string {
-    return (
+    const isProd = process.env.NODE_ENV === 'production';
+    const secret =
       process.env.REFRESH_TOKEN_SECRET ||
       process.env.JWT_REFRESH_SECRET ||
-      process.env.JWT_SECRET ||
-      'swayam_super_secret_key'
+      process.env.JWT_SECRET;
+    if (isProd && (!secret || secret.length < 32 || secret === 'swayam_super_secret_key')) {
+      throw new Error(
+        'FATAL SECURITY ERROR: Insecure or missing REFRESH_TOKEN_SECRET / JWT_SECRET in production.',
+      );
+    }
+    return (
+      secret ||
+      (process.env.NODE_ENV === 'test'
+        ? 'test_refresh_secret_key_minimum_32_characters_length'
+        : 'swayam_development_local_refresh_secret_key_32_chars')
     );
   }
 
@@ -654,8 +668,9 @@ export class AuthService {
       process.env.GOOGLE_OAUTH_CLIENT_ID ||
       process.env.VITE_GOOGLE_CLIENT_ID;
 
-    // Synthetic test token bypass for local test runner and automated smoke tests only
+    // Synthetic test token bypass for local test runner and automated smoke tests only (STRICTLY DISABLED IN PRODUCTION)
     if (
+      process.env.NODE_ENV !== 'production' &&
       (process.env.NODE_ENV === 'test' ||
         process.env.ALLOW_TEST_AUTH === 'true') &&
       token.startsWith('test-google-token-')

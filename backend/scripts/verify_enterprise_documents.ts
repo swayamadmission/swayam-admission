@@ -6,9 +6,7 @@ import { PrismaService } from '../src/prisma/prisma.service';
 import { DocumentType, DocumentStatus, Role } from '@prisma/client';
 
 async function runEnterpriseDocumentsVerification() {
-  console.log('===============================================================');
   console.log('  SWAYAM ADMISSION — ENTERPRISE DOCUMENT & KYC VERIFICATION');
-  console.log('===============================================================');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: false,
@@ -147,9 +145,7 @@ async function runEnterpriseDocumentsVerification() {
   await prisma.document.delete({ where: { id: uploadedDocV1.id } });
   console.log('      ✓ Cleaned up test verification records.');
 
-  console.log('\n===============================================================');
   console.log('  ALL ENTERPRISE DOCUMENT ENGINE TESTS PASSED (100%)');
-  console.log('===============================================================');
 
   await app.close();
   process.exit(0);

@@ -924,9 +924,7 @@ export const PROGRAM_FAMILIES_SEED: CourseFamilySeedDefinition[] = [
 ];
 
 async function seedNormalizedCatalog() {
-  console.log('====================================================');
   console.log('🚀 SEEDING NORMALIZED PROGRAM FAMILIES & BRANCHES');
-  console.log('====================================================\n');
 
   // 1. Ensure Anchor College exists
   let anchorCollege = await prisma.college.findFirst({
@@ -1057,9 +1055,7 @@ async function seedNormalizedCatalog() {
   console.log(`✅ Seeded ${totalBranches} Child Branches / Specializations`);
   console.log(`✅ Seeded ${totalRules} Course Eligibility Rules\n`);
 
-  console.log('====================================================');
   console.log('🎉 NORMALIZED CATALOG SEED COMPLETED SUCCESSFULLY!');
-  console.log('====================================================');
 }
 
 seedNormalizedCatalog()

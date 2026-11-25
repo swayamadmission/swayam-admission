@@ -358,7 +358,7 @@ export const CollegeRankingsPage: React.FC = () => {
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 flex flex-col items-center justify-center shrink-0">
                       <span className="text-lg font-black text-slate-800">
-                        {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : `#${r.rank}`}
+                        {`#${r.rank}`}
                       </span>
                       <div className="mt-0.5">{getMovementBadge(r.movement, r.rankChange)}</div>
                     </div>

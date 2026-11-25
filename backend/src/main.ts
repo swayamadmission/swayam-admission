@@ -7,6 +7,22 @@ import * as fs from 'fs';
 import type { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
+  // Fail-closed validation for security-critical configuration in production
+  const isProd = process.env.NODE_ENV === 'production';
+  const jwtSecret = process.env.JWT_SECRET;
+  if (isProd) {
+    if (
+      !jwtSecret ||
+      jwtSecret.length < 32 ||
+      ['swayam_super_secret_key', 'secret', 'default', 'change_me', 'swayam_secret'].includes(jwtSecret)
+    ) {
+      console.error(
+        '❌ [FATAL SECURITY ERROR] In production, JWT_SECRET must be configured with at least 32 characters and cannot use default/insecure values. Server startup aborted.',
+      );
+      process.exit(1);
+    }
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Enable graceful shutdown for hosting environments (SIGTERM / SIGINT)

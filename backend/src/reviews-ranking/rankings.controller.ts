@@ -51,9 +51,7 @@ export class RankingsController {
     private readonly reportService: RankingReportService,
   ) {}
 
-  // =========================================================================
   // PUBLIC ENDPOINTS (Strictly returns published ranking snapshots)
-  // =========================================================================
 
   @Get('public')
   getPublicRankings(@Query('year') year?: string, @Query() query?: any) {
@@ -97,9 +95,7 @@ export class RankingsController {
     );
   }
 
-  // =========================================================================
   // ANNUAL RANKING CYCLES
-  // =========================================================================
 
   @Post('cycles')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -136,9 +132,7 @@ export class RankingsController {
     return this.rankingCyclesService.updateCycle(user, Number(year), dto);
   }
 
-  // =========================================================================
   // METHODOLOGY GOVERNANCE
-  // =========================================================================
 
   @Get('methodology/active')
   getActiveMethodology() {
@@ -179,9 +173,7 @@ export class RankingsController {
     return this.methodologyService.activateVersion(user, id);
   }
 
-  // =========================================================================
   // RANKING CALCULATION, APPROVAL & PUBLICATION
-  // =========================================================================
 
   @Post('calculate')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -250,9 +242,7 @@ export class RankingsController {
     return this.rankingEngineService.unpublishRankingEdition(user, Number(year), dto);
   }
 
-  // =========================================================================
   // STUDENT COLLEGE REPORTS
-  // =========================================================================
 
   @Get('student-reports/eligibility/:collegeId')
   @UseGuards(JwtAuthGuard)
@@ -300,9 +290,7 @@ export class RankingsController {
     return this.studentReportService.moderateReport(user, id, dto);
   }
 
-  // =========================================================================
   // SWAYAM MANUAL RESEARCH SURVEYS
-  // =========================================================================
 
   @Post('surveys')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -350,9 +338,7 @@ export class RankingsController {
     return this.surveyService.reviewSurvey(user, id, dto);
   }
 
-  // =========================================================================
   // VERIFICATION QUEUE & DATA PROVENANCE
-  // =========================================================================
 
   @Post('verification/datapoints')
   @UseGuards(JwtAuthGuard, PermissionGuard)
@@ -389,9 +375,7 @@ export class RankingsController {
     return this.verificationService.verifyDataPoint(user, id, dto);
   }
 
-  // =========================================================================
   // ANNUAL RESEARCH REPORTS
-  // =========================================================================
 
   @Post('annual-reports/generate')
   @UseGuards(JwtAuthGuard, PermissionGuard)

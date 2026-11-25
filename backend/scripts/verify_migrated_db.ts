@@ -95,13 +95,11 @@ async function verifyMigratedDb() {
   }
   console.log(`   - Total Broken App Relations: ${brokenAppRelations}`);
 
-  console.log('\n====================================================');
   if (brokenLeadRelations === 0 && brokenAppRelations === 0 && orphanBranches.length === 0) {
     console.log('🎉 ALL DATABASE INTEGRITY CHECKS PASSED WITH 100% SUCCESS!');
   } else {
     console.error('❌ INTEGRITY CHECK FAILURES FOUND');
   }
-  console.log('====================================================');
 }
 
 verifyMigratedDb()

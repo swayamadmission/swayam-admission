@@ -17,9 +17,7 @@ function resolveThumbnailUrl(thumbnail?: string | null): string | null {
 }
 
 async function runComprehensiveSmokeTest() {
-  console.log("=================================================");
   console.log("  STUDY MATERIAL THUMBNAIL MASTER SMOKE TEST");
-  console.log("=================================================");
 
   try {
     // 1. Authenticate as Admin
@@ -256,9 +254,7 @@ async function runComprehensiveSmokeTest() {
     const finalData = await finalRes.json();
     console.log(`✓ Total materials in database: ${finalData.total} (All existing production data 100% intact!)`);
 
-    console.log("\n=================================================");
     console.log("  ALL SMOKE TESTS COMPLETED AND PASSED (11/11)!  ");
-    console.log("=================================================");
   } catch (err) {
     console.error("❌ Smoke test failed:", err);
     process.exit(1);

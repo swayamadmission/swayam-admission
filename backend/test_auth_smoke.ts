@@ -4,9 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 
 async function runHttpAuthSmokeTest() {
-  console.log('====================================================');
   console.log(' SWAYAM ADMISSION — FULL AUTH & ROUTE SMOKE SUITE  ');
-  console.log('====================================================\n');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: false });
 
@@ -141,9 +139,7 @@ async function runHttpAuthSmokeTest() {
     }
     console.log('    ✅ Non-existent user correctly denied with 401.');
 
-    console.log('\n====================================================');
     console.log(' ✅ ALL AUTH & ROUTE SMOKE TESTS PASSED 100%!       ');
-    console.log('====================================================');
   } finally {
     await app.close();
   }

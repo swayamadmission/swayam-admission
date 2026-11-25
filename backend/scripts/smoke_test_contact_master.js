@@ -34,9 +34,7 @@ async function request(endpoint, options = {}) {
 }
 
 async function main() {
-  console.log('====================================================');
   console.log('SWAYAM ADMISSION — CONTACT & ENQUIRY MASTER SMOKE TEST');
-  console.log('====================================================\n');
 
   let passedTests = 0;
   let totalTests = 0;
@@ -327,9 +325,7 @@ async function main() {
     },
   });
 
-  console.log('\n====================================================');
   console.log(`ALL TESTS PASSED! (${passedTests}/${totalTests} assertions verified)`);
-  console.log('====================================================');
 }
 
 main()

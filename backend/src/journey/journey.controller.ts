@@ -165,9 +165,7 @@ export class JourneyController {
     return res.send(csvContent);
   }
 
-  // ==========================================
   // STAFF & COUNSELOR JOURNEY ENDPOINTS
-  // ==========================================
 
   /**
    * Counselor: View Assigned Student's Overall & Application Journeys

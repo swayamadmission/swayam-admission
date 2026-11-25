@@ -5,9 +5,7 @@ import { LeadService } from '../src/lead/lead.service';
 const prisma = new PrismaClient();
 
 async function runE2ETests() {
-  console.log('====================================================');
   console.log('🧪 RUNNING END-TO-END FLOW VERIFICATION');
-  console.log('====================================================\n');
 
   const mockAuditService: any = { logAction: async () => {} };
   const mockLeadRoutingService: any = {
@@ -131,9 +129,7 @@ async function runE2ETests() {
   });
   console.log('\nCleaned up ephemeral test leads.');
 
-  console.log('\n====================================================');
   console.log('🎉 ALL END-TO-END FLOW TESTS COMPLETED SUCCESSFULLY!');
-  console.log('====================================================\n');
 }
 
 runE2ETests()

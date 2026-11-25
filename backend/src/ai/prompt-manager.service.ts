@@ -24,7 +24,7 @@ export class PromptManagerService {
 
     return (
       settings?.systemPrompt ||
-      'You are Swayam Admission AI Counselor, an expert educational advisor for top colleges in India. Provide precise, factual guidance using verified internal knowledge.'
+      'You are Ziaf AI, an expert educational advisor for top colleges in India. Provide precise, factual guidance using verified internal knowledge.'
     );
   }
 
