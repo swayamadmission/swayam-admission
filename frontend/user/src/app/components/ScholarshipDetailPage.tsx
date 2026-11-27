@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ChevronRight, Award, Calendar, Users, CheckCircle, FileText, Clock,
-  ExternalLink, ChevronDown, ChevronUp, Bot, ArrowRight, IndianRupee
+  ExternalLink, ChevronDown, ChevronUp, ArrowRight, IndianRupee
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { scholarshipsApi } from "../../api/scholarships.api";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 
 const getCategoryColor = (category: string) => {
   switch (category?.toLowerCase()) {
@@ -506,18 +507,18 @@ export default function ScholarshipDetailPage() {
               </Link>
             </div>
 
-            {/* AI Counselor */}
-            <div className="rounded-2xl p-5 text-white" style={{ background: "linear-gradient(135deg, #4A7B5B 0%, #2d5a3f 100%)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Bot size={20} />
-                <span style={{ fontSize: "14px", fontWeight: 700 }}>Ask AI Counselor</span>
+            {/* Ziaf AI */}
+            <div className="rounded-2xl p-5 text-white shadow-md" style={{ background: ZIAF_GRADIENT }}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <ZiafAiLogo size="sm" variant="outline" />
+                <span style={{ fontSize: "14px", fontWeight: 700 }}>Ask Ziaf AI</span>
               </div>
-              <p style={{ fontSize: "12px", opacity: 0.85, lineHeight: 1.5 }} className="mb-4">
-                Not sure if you qualify? Ask our AI about this scholarship and get personalised guidance.
+              <p style={{ fontSize: "12px", opacity: 0.9, lineHeight: 1.5 }} className="mb-4">
+                Not sure if you qualify? Ask Ziaf AI about this scholarship and get personalized guidance.
               </p>
-              <Link to="/ai-counselor" className="flex items-center gap-1.5 px-4 py-2.5 bg-white rounded-xl hover:bg-[#E8F3EC] transition-colors"
-                style={{ fontSize: "12px", fontWeight: 700, color: "#4A7B5B" }}>
-                Chat Now <ArrowRight size={13} />
+              <Link to="/ai-counselor" className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white rounded-xl hover:bg-sky-50 transition-colors shadow-xs"
+                style={{ fontSize: "12px", fontWeight: 700, color: "#0e6b9e" }}>
+                Chat with Ziaf AI <ArrowRight size={13} />
               </Link>
             </div>
 

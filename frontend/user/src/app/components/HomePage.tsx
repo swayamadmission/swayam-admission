@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import {
-  Search, ArrowRight, Star, MapPin, Building2, Users, Award, Bot, Phone,
+  Search, ArrowRight, Star, MapPin, Building2, Users, Award, Phone,
   MessageCircle, Upload, Download, FileText, ChevronDown, ChevronUp, CheckCircle2,
   GraduationCap, TrendingUp, Cpu, Scale, Stethoscope, Hotel, Wrench, BookOpen,
-  Play, Pause, Sparkles, Clock, TrendingUp as TrendingIcon, Trophy, ShieldCheck, HelpCircle,
-  Eye, Lock, FileCode, Volume2, VolumeX
+  Sparkles, Clock, TrendingUp as TrendingIcon, Trophy, ShieldCheck, HelpCircle,
+  Eye, Lock, FileCode, ChevronLeft, ChevronRight
 } from "lucide-react";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 import { bannersApi, BannerItem } from "../../api/banners.api";
 import { PageBannerSlider } from "./common/PageBannerSlider";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
@@ -192,39 +193,71 @@ export default function HomePage() {
   const cleanWhatsapp = whatsappNum.replace(/\D/g, "");
   const whatsappHref = `https://wa.me/91${cleanWhatsapp.slice(-10)}`;
 
-  // 0. Hero Video & AI Counselor Banners
-  const heroVideoRef = useRef<HTMLVideoElement | null>(null);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  // 0. Hero Image Slider & AI Counselor Banners
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const heroTouchStartX = useRef<number>(0);
 
   const { data: heroBannersRes } = useQuery({
     queryKey: ["banner_slot_HOME_HERO_VIDEO"],
     queryFn: () => bannersApi.getPublic("HOME_HERO_VIDEO"),
   });
-  const heroBanner: BannerItem | undefined = heroBannersRes?.data?.[0];
+
+  const DEFAULT_HERO_SLIDES: Array<{
+    id: string;
+    imageUrl: string;
+    alt: string;
+    href?: string;
+    openInNewTab?: boolean;
+  }> = [
+    {
+      id: "default-hero-1",
+      imageUrl: "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=1200&q=80",
+      alt: "Swayam Admission Counseling",
+      href: "/apply-now",
+    },
+    {
+      id: "default-hero-2",
+      imageUrl: "https://images.unsplash.com/photo-1562774053-701939374585?w=1200&q=80",
+      alt: "Top Colleges & University Admissions",
+      href: "/colleges",
+    },
+    {
+      id: "default-hero-3",
+      imageUrl: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1200&q=80",
+      alt: "Scholarships & Course Guidance",
+      href: "/scholarships",
+    },
+  ];
+
+  const uploadedHeroSlides = Array.isArray(heroBannersRes?.data)
+    ? heroBannersRes.data
+        .filter((b) => Boolean(resolveThumbnailUrl(b.imageUrl)))
+        .map((b) => ({
+          id: b.id,
+          imageUrl: resolveThumbnailUrl(b.imageUrl) as string,
+          alt: b.title || "Swayam Admission Banner",
+          href: b.buttonUrl || undefined,
+          openInNewTab: Boolean(b.openInNewTab),
+        }))
+    : [];
+
+  const heroSlides = uploadedHeroSlides.length > 0 ? uploadedHeroSlides : DEFAULT_HERO_SLIDES;
+  const safeHeroIndex = heroSlideIndex % heroSlides.length;
+
+  useEffect(() => {
+    if (heroSlides.length <= 1 || heroPaused) return;
+    const timer = setInterval(() => {
+      setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [heroSlides.length, heroPaused]);
 
   const { data: aiCounselorBannersRes } = useQuery({
     queryKey: ["banner_slot_HOME_AI_COUNSELOR"],
     queryFn: () => bannersApi.getPublic("HOME_AI_COUNSELOR"),
   });
   const aiCounselorBanner: BannerItem | undefined = aiCounselorBannersRes?.data?.[0];
-
-  const toggleHeroVideo = () => {
-    if (!heroVideoRef.current) return;
-    if (heroVideoRef.current.paused) {
-      heroVideoRef.current.play().then(() => setIsVideoPlaying(true)).catch(() => {});
-    } else {
-      heroVideoRef.current.pause();
-      setIsVideoPlaying(false);
-    }
-  };
-
-  const toggleHeroMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!heroVideoRef.current) return;
-    heroVideoRef.current.muted = !heroVideoRef.current.muted;
-    setIsVideoMuted(heroVideoRef.current.muted);
-  };
 
   // 1. Popular / Featured Courses Query (Published + Featured)
   const { data: coursesRes, isLoading: isLoadingCourses } = useQuery({
@@ -351,158 +384,123 @@ export default function HomePage() {
           <div className="absolute top-4 left-10 w-24 h-24 bg-[#4A7B5B]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite]" />
           <div className="absolute bottom-10 right-10 w-32 h-32 bg-[#F0AE1A]/10 rounded-full blur-2xl animate-[pulse_3s_ease-in-out_infinite_1s]" />
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 sm:pt-4 lg:pt-5 pb-20 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 sm:pt-5 lg:pt-6 pb-14 sm:pb-20 relative z-10">
 
-          {/* Split Layout: Video Left | Content Right */}
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Split Layout: Image First on Mobile & Left on Desktop | Content Below on Mobile & Right on Desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 lg:gap-12 items-center">
 
-            {/* LEFT SIDE - VIDEO SHOWCASE */}
-            <div className="relative group order-2 lg:order-1 animate-[fadeIn_0.8s_ease-out]">
-              {/* Video Card */}
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-transparent bg-gradient-to-br from-[#4A7B5B]/10 via-transparent to-[#F0AE1A]/10 p-1">
-                <div className="relative rounded-[22px] overflow-hidden bg-white">
-                  {/* Video / Media Area (4:3 aspect ratio) */}
-                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-900">
-                    {heroBanner?.mediaType === "VIDEO" && heroBanner.videoUrl ? (
+            {/* LEFT / TOP ON MOBILE - RESPONSIVE AUTO-SLIDING IMAGE SHOWCASE */}
+            <div className="relative group order-1 w-full max-w-xl mx-auto lg:max-w-none animate-[fadeIn_0.8s_ease-out]">
+              <div
+                onMouseEnter={() => setHeroPaused(true)}
+                onMouseLeave={() => setHeroPaused(false)}
+                onTouchStart={(e) => {
+                  heroTouchStartX.current = e.touches[0].clientX;
+                }}
+                onTouchEnd={(e) => {
+                  const diff = heroTouchStartX.current - e.changedTouches[0].clientX;
+                  if (Math.abs(diff) > 40 && heroSlides.length > 1) {
+                    setHeroSlideIndex((prev) =>
+                      diff > 0
+                        ? (prev + 1) % heroSlides.length
+                        : (prev - 1 + heroSlides.length) % heroSlides.length
+                    );
+                  }
+                }}
+                className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl sm:shadow-2xl border-2 border-transparent bg-gradient-to-br from-[#4A7B5B]/15 via-transparent to-[#F0AE1A]/15 p-1"
+              >
+                <div className="relative rounded-[14px] sm:rounded-[22px] overflow-hidden bg-slate-100">
+                  {/* Sliding Image Track */}
+                  <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden">
+                    <div
+                      className="flex h-full w-full transition-transform duration-700 ease-out"
+                      style={{ transform: `translateX(-${safeHeroIndex * 100}%)` }}
+                    >
+                      {heroSlides.map((slide) => {
+                        const imageEl = (
+                          <ImageWithFallback
+                            src={slide.imageUrl}
+                            alt={slide.alt}
+                            className="w-full h-full object-cover object-center"
+                          />
+                        );
+
+                        return (
+                          <div key={slide.id} className="w-full h-full shrink-0">
+                            {slide.href ? (
+                              slide.href.startsWith("/") ? (
+                                <Link to={slide.href} className="block w-full h-full">
+                                  {imageEl}
+                                </Link>
+                              ) : (
+                                <a
+                                  href={slide.href}
+                                  target={slide.openInNewTab ? "_blank" : "_self"}
+                                  rel="noopener noreferrer"
+                                  className="block w-full h-full"
+                                >
+                                  {imageEl}
+                                </a>
+                              )
+                            ) : (
+                              imageEl
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Left / Right Controls */}
+                    {heroSlides.length > 1 && (
                       <>
-                        <video
-                          ref={heroVideoRef}
-                          src={heroBanner.videoUrl}
-                          playsInline
-                          autoPlay
-                          muted={isVideoMuted}
-                          loop
-                          preload="metadata"
-                          onPlay={() => setIsVideoPlaying(true)}
-                          onPause={() => setIsVideoPlaying(false)}
-                          className="w-full h-full object-cover cursor-pointer"
-                          onClick={toggleHeroVideo}
-                        />
-
-                        {/* Mute / Unmute Toggle Button */}
                         <button
                           type="button"
-                          onClick={toggleHeroMute}
-                          className="absolute bottom-4 right-4 z-20 w-8 h-8 rounded-full bg-slate-950/60 backdrop-blur text-white flex items-center justify-center hover:bg-slate-950/80 transition-colors"
-                          title={isVideoMuted ? "Unmute audio" : "Mute audio"}
+                          onClick={() =>
+                            setHeroSlideIndex(
+                              (prev) => (prev - 1 + heroSlides.length) % heroSlides.length
+                            )
+                          }
+                          aria-label="Previous slide"
+                          className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/85 hover:bg-white text-slate-800 flex items-center justify-center shadow-md opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
-                          {isVideoMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                          <ChevronLeft size={18} />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length)
+                          }
+                          aria-label="Next slide"
+                          className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/85 hover:bg-white text-slate-800 flex items-center justify-center shadow-md opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+
+                        {/* Slide Indicator Dots */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/35 backdrop-blur-sm">
+                          {heroSlides.map((slide, idx) => (
+                            <button
+                              key={slide.id}
+                              type="button"
+                              onClick={() => setHeroSlideIndex(idx)}
+                              aria-label={`Show slide ${idx + 1}`}
+                              className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                                idx === safeHeroIndex
+                                  ? "w-5 bg-white"
+                                  : "w-1.5 bg-white/55 hover:bg-white/85"
+                              }`}
+                            />
+                          ))}
+                        </div>
                       </>
-                    ) : (
-                      <ImageWithFallback
-                        src={
-                          heroBanner?.imageUrl ||
-                          "https://images.unsplash.com/photo-1573497620053-ea5300f94f21?w=800&q=80"
-                        }
-                        alt={heroBanner?.title || "Swayam Admission Counseling"}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
                     )}
-
-                    {/* Glassmorphism Overlay */}
-                    <div
-                      className={`absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent transition-opacity duration-300 pointer-events-none ${
-                        isVideoPlaying ? "opacity-30 group-hover:opacity-60" : "opacity-100"
-                      }`}
-                    />
-
-                    {/* Play / Pause Button in Existing Style */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={toggleHeroVideo}
-                        className={`w-20 h-20 rounded-full bg-white/95 backdrop-blur-sm flex items-center justify-center shadow-2xl transition-all duration-300 group-hover:bg-[#4A7B5B] group-hover:text-white cursor-pointer ${
-                          isVideoPlaying
-                            ? "opacity-0 group-hover:opacity-90 hover:scale-110"
-                            : "opacity-100 hover:scale-110 animate-[pulse_2s_ease-in-out_infinite]"
-                        }`}
-                        title={isVideoPlaying ? "Pause Video" : "Play Video"}
-                      >
-                        {isVideoPlaying ? (
-                          <Pause size={28} className="fill-current text-slate-800 group-hover:text-white" />
-                        ) : (
-                          <Play size={32} className="fill-current ml-1 text-[#4A7B5B] group-hover:text-white" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Overlay Text */}
-                    <div
-                      className={`absolute bottom-0 left-0 right-0 p-6 pointer-events-none transition-opacity duration-300 ${
-                        isVideoPlaying ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Sparkles size={16} className="text-[#F0AE1A]" />
-                        <span style={{fontSize:"11px",fontWeight:600,color:"white",textTransform:"uppercase",letterSpacing:"0.5px"}}>
-                          Watch Success Story
-                        </span>
-                      </div>
-                      <h3 className="text-white mb-1" style={{fontSize:"20px",fontWeight:800}}>
-                        {heroBanner?.title || "Swayam Admission Counseling"}
-                      </h3>
-                      <p className="text-white/90" style={{fontSize:"13px"}}>
-                        {heroBanner?.subtitle || "Helping Students Find Their Perfect Career Path"}
-                      </p>
-
-                      {heroBanner?.buttonText && heroBanner.buttonUrl && (
-                        <div className="mt-3 pointer-events-auto">
-                          {heroBanner.buttonUrl.startsWith("/") ? (
-                            <Link
-                              to={heroBanner.buttonUrl}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F0AE1A] text-slate-900 text-xs font-bold rounded-lg shadow hover:bg-[#e0a012]"
-                            >
-                              <span>{heroBanner.buttonText}</span>
-                              <ArrowRight size={12} />
-                            </Link>
-                          ) : (
-                            <a
-                              href={heroBanner.buttonUrl}
-                              target={heroBanner.openInNewTab ? "_blank" : "_self"}
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F0AE1A] text-slate-900 text-xs font-bold rounded-lg shadow hover:bg-[#e0a012]"
-                            >
-                              <span>{heroBanner.buttonText}</span>
-                              <ArrowRight size={12} />
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Floating Stats Badges */}
-                    <div className="absolute top-4 right-4 space-y-2 animate-[fadeIn_1s_ease-out_0.5s_both] pointer-events-none">
-                      <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg border border-white/20 hover:scale-105 transition-transform">
-                        <div style={{fontSize:"16px",fontWeight:800,color:"#4A7B5B"}}>50,000+</div>
-                        <div style={{fontSize:"9px",color:"#64748b",fontWeight:600}}>Students Guided</div>
-                      </div>
-                      <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg border border-white/20 hover:scale-105 transition-transform">
-                        <div style={{fontSize:"16px",fontWeight:800,color:"#4A7B5B"}}>500+</div>
-                        <div style={{fontSize:"9px",color:"#64748b",fontWeight:600}}>Colleges</div>
-                      </div>
-                      <div className="bg-white/95 backdrop-blur-sm rounded-2xl px-3 py-2 shadow-lg border border-white/20 hover:scale-105 transition-transform">
-                        <div className="flex items-center gap-1">
-                          <Bot size={14} className="text-[#4A7B5B]" />
-                          <span style={{fontSize:"10px",fontWeight:700,color:"#4A7B5B"}}>AI-Powered</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Floating Badge Top Left */}
-                    <div className="absolute top-4 left-4 animate-[fadeIn_1s_ease-out_0.3s_both] pointer-events-none">
-                      <div className="bg-gradient-to-r from-[#4A7B5B] to-[#3d6b4d] text-white rounded-full px-3 py-1.5 shadow-lg flex items-center gap-1.5">
-                        <div className="w-2 h-2 bg-[#F0AE1A] rounded-full animate-pulse" />
-                        <span style={{fontSize:"10px",fontWeight:700}}>LIVE COUNSELING</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* RIGHT SIDE - EXISTING CONTENT */}
-            <div className="order-1 lg:order-2 text-center lg:text-left animate-[fadeIn_0.8s_ease-out_0.2s_both] relative z-30">
+            {/* RIGHT / BELOW BANNER ON MOBILE - EXISTING CONTENT */}
+            <div className="order-2 text-center lg:text-left animate-[fadeIn_0.8s_ease-out_0.2s_both] relative z-30">
               <h1 style={{ fontSize:"clamp(28px,5vw,52px)", fontWeight:800, lineHeight:1.15, color:"#4A7B5B" }} className="mb-5">
                 Find Your Dream College{" "}
                 <span style={{ color:"#4A7B5B" }}>with Smart AI</span>{" "}
@@ -567,34 +565,37 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── AI COUNSELOR BANNER ── */}
+      {/* ── ZIAF AI BANNER ── */}
       <section className="py-14 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           <div
             className="rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center gap-8 overflow-hidden relative shadow-lg"
             style={{
               background: aiCounselorBanner?.imageUrl
-                ? `linear-gradient(rgba(30, 60, 42, 0.88), rgba(45, 94, 63, 0.94)), url(${aiCounselorBanner.imageUrl}) center/cover no-repeat`
-                : "linear-gradient(to bottom right, #4A7B5B, #2d5e3f)",
+                ? `linear-gradient(135deg, rgba(14, 107, 158, 0.88), rgba(144, 60, 90, 0.9)), url(${aiCounselorBanner.imageUrl}) center/cover no-repeat`
+                : ZIAF_GRADIENT,
             }}
           >
-            <div className="absolute right-0 top-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/3 translate-x-1/4 pointer-events-none"/>
+            <div className="absolute right-0 top-0 w-72 h-72 bg-white/10 rounded-full -translate-y-1/3 translate-x-1/4 pointer-events-none"/>
             <div className="flex-1 relative z-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-full mb-4">
-                <div className="w-2 h-2 bg-[#F0AE1A] rounded-full animate-pulse"/>
-                <span style={{fontSize:"11px",fontWeight:600,color:"white"}}>AI Active — Online Now</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 backdrop-blur-xs rounded-full mb-4">
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"/>
+                <span style={{fontSize:"11px",fontWeight:700,color:"white"}}>Ziaf AI Active — Online Now</span>
               </div>
-              <h2 className="text-white mb-3" style={{fontSize:"clamp(20px,3vw,30px)",fontWeight:800}}>
-                {aiCounselorBanner?.title || "Meet Ziaf AI"}
-              </h2>
-              <p className="text-white/80 mb-6 max-w-md" style={{fontSize:"14px",lineHeight:1.7}}>
-                {aiCounselorBanner?.subtitle || "Tell your marks, budget and career goals. Our AI will instantly recommend perfect colleges and courses — for free!"}
+              <div className="flex items-center gap-3 mb-3">
+                <ZiafAiLogo size="md" variant="outline" />
+                <h2 className="text-white" style={{fontSize:"clamp(20px,3vw,30px)",fontWeight:800}}>
+                  {aiCounselorBanner?.title?.replace(/Swayam (Admission )?AI Counselor/gi, "Ziaf AI") || "Ziaf AI"}
+                </h2>
+              </div>
+              <p className="text-white/90 mb-6 max-w-md" style={{fontSize:"14px",lineHeight:1.7}}>
+                {aiCounselorBanner?.subtitle || "Tell your marks, budget and career goals. Ziaf AI will instantly recommend perfect colleges and courses — for free."}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
-                <Link to="/ai-counselor" className="flex items-center gap-2 px-5 py-2.5 bg-white text-[#4A7B5B] rounded-xl hover:bg-gray-50 transition-colors shadow-sm" style={{fontWeight:700,fontSize:"14px"}}>
-                  <Bot size={15}/> Start AI Chat
+                <Link to="/ai-counselor" className="flex items-center gap-2 px-5 py-2.5 bg-white text-[#0e6b9e] rounded-xl hover:bg-sky-50 transition-colors shadow-sm" style={{fontWeight:700,fontSize:"14px"}}>
+                  <ZiafAiLogo size="xs" /> Ask Ziaf AI
                 </Link>
-                <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-[#25D366] text-white rounded-xl hover:bg-[#1ebe5d] transition-colors shadow-sm" style={{fontWeight:600,fontSize:"14px"}}>
+                <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2.5 bg-white/15 border border-white/30 text-white rounded-xl hover:bg-white/25 transition-colors shadow-sm" style={{fontWeight:600,fontSize:"14px"}}>
                   <MessageCircle size={15}/> WhatsApp Us
                 </a>
                 {aiCounselorBanner?.buttonText && aiCounselorBanner.buttonUrl && (
@@ -612,15 +613,15 @@ export default function HomePage() {
             </div>
             {/* Chat preview */}
             <div className="w-full md:w-72 relative z-10 shrink-0">
-              <div className="bg-white/10 backdrop-blur rounded-2xl p-4 space-y-3">
+              <div className="bg-slate-950/20 backdrop-blur-md border border-white/20 rounded-2xl p-4 space-y-3">
                 {[
-                  {side:"ai", msg:"Namaste! I'm your AI counselor. Share your marks and budget to get personalized recommendations."},
+                  {side:"ai", msg:"Namaste! I am Ziaf AI. Share your marks and budget to get personalized recommendations."},
                   {side:"user", msg:"I got 75% in PCM. Budget is ₹2L/year"},
-                  {side:"ai", msg:"Perfect! Found 12 B.Tech colleges in your budget. Top pick: DTU Delhi"},
+                  {side:"ai", msg:"Found 12 B.Tech colleges in your budget. Top pick: DTU Delhi"},
                 ].map((m,i)=>(
                   <div key={i} className={`flex items-end gap-2 ${m.side==="user"?"justify-end":""}`}>
-                    {m.side==="ai"&&<div className="w-6 h-6 rounded-full bg-[#F0AE1A] flex items-center justify-center shrink-0"><Bot size={12} className="text-white"/></div>}
-                    <div className={`rounded-2xl px-3 py-2 max-w-[85%] ${m.side==="ai"?"bg-white/20 rounded-tl-none text-white":"bg-white rounded-tr-none text-gray-700"}`} style={{fontSize:"12px",lineHeight:1.5}}>
+                    {m.side==="ai" && <ZiafAiLogo size="xs" variant="outline" />}
+                    <div className={`rounded-2xl px-3 py-2 max-w-[85%] ${m.side==="ai"?"bg-white/20 rounded-tl-none text-white":"bg-white rounded-tr-none text-slate-800"}`} style={{fontSize:"12px",lineHeight:1.5}}>
                       {m.msg}
                     </div>
                   </div>
@@ -1427,8 +1428,13 @@ export default function HomePage() {
                 <Link to="/apply-now" className="flex items-center gap-2 px-7 py-3.5 bg-white text-[#4A7B5B] rounded-2xl hover:bg-gray-50 transition-colors" style={{fontWeight:700}}>
                   Apply Now Free <ArrowRight size={16}/>
                 </Link>
-                <Link to="/ai-counselor" className="flex items-center gap-2 px-7 py-3.5 bg-white/20 text-white border border-white/30 rounded-2xl hover:bg-white/30 transition-colors" style={{fontWeight:600}}>
-                  <Bot size={15}/> Talk to AI
+                <Link
+                  to="/ai-counselor"
+                  style={{ background: ZIAF_GRADIENT }}
+                  className="flex items-center gap-2 px-7 py-3.5 text-white rounded-2xl hover:opacity-95 transition-opacity shadow-sm"
+                >
+                  <ZiafAiLogo size="xs" variant="outline" />
+                  <span style={{ fontWeight: 700 }}>Ask Ziaf AI</span>
                 </Link>
               </div>
             </div>

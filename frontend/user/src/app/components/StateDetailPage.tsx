@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ChevronRight, MapPin, GraduationCap, Users, Award, ArrowRight,
-  Building2, Search, Star, Phone, Bot, Filter, Calendar, BookOpen,
+  Building2, Search, Star, Phone, Filter, Calendar, BookOpen,
   Globe, Clock, CheckCircle2
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +14,7 @@ import { geographyApi } from "../../api/geography.api";
 
 import { scholarshipsApi, Scholarship } from "../../api/scholarships.api";
 import { usePublicSettings } from "../../context/PublicSettingsContext";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 
 const TABS = ["Overview", "Colleges", "Scholarships", "Exam", "Cities", "Updates"];
 
@@ -754,14 +755,14 @@ export default function StateDetailPage() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Bot size={16} className="text-[#F0AE1A]" />
-                <span className="text-white" style={{ fontSize: "13px", fontWeight: 700 }}>AI Counselor</span>
+            <div style={{ background: ZIAF_GRADIENT }} className="rounded-2xl p-5 shadow-md">
+              <div className="flex items-center gap-2.5 mb-2">
+                <ZiafAiLogo size="sm" variant="outline" />
+                <span className="text-white" style={{ fontSize: "13px", fontWeight: 700 }}>Ziaf AI</span>
               </div>
-              <p className="text-white/80 mb-3" style={{ fontSize: "12px" }}>Find the best colleges in {stateName} for your profile</p>
-              <Link to="/ai-counselor" className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-[#4A7B5B] rounded-xl" style={{ fontWeight: 600, fontSize: "13px" }}>
-                Get Suggestions
+              <p className="text-white/90 mb-3" style={{ fontSize: "12px" }}>Find the best colleges in {stateName} for your profile</p>
+              <Link to="/ai-counselor" className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-[#0e6b9e] rounded-xl hover:bg-sky-50 transition-colors shadow-xs" style={{ fontWeight: 700, fontSize: "13px" }}>
+                Ask Ziaf AI
               </Link>
             </div>
 

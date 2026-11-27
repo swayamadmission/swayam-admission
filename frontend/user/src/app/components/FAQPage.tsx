@@ -8,7 +8,6 @@ import {
   ThumbsDown,
   HelpCircle,
   Sparkles,
-  Bot,
   ArrowRight,
   CheckCircle2,
   BookOpen,
@@ -23,6 +22,7 @@ import {
   User,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { faqsApi, PublicFaqQueryParams } from "../../api/faqs.api";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -504,7 +504,7 @@ export default function FAQPage() {
                       No matching FAQs found
                     </h3>
                     <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                      Try searching with different keywords or ask our AI Counselor directly.
+                      Try searching with different keywords or ask Ziaf AI directly.
                     </p>
                     <div className="flex items-center justify-center gap-3 pt-2">
                       <button
@@ -516,9 +516,10 @@ export default function FAQPage() {
                       </button>
                       <Link
                         to="/ai-counselor"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800"
+                        style={{ background: ZIAF_GRADIENT }}
+                        className="inline-flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-xs font-bold hover:opacity-95 shadow-sm"
                       >
-                        <Bot size={16} /> Ask AI Counselor
+                        <ZiafAiLogo size="xs" variant="outline" /> Ask Ziaf AI
                       </Link>
                     </div>
                   </div>
@@ -603,20 +604,23 @@ export default function FAQPage() {
 
           {/* Sidebar */}
           <div className="lg:w-80 space-y-6 shrink-0">
-            {/* AI Counselor Banner */}
-            <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-6 text-white shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <Bot size={20} className="text-[#F0AE1A]" />
+            {/* Ziaf AI Banner */}
+            <div
+              style={{ background: ZIAF_GRADIENT }}
+              className="rounded-2xl p-6 text-white shadow-sm space-y-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <ZiafAiLogo size="sm" variant="outline" />
                 <h3 className="font-bold text-base">Have a specific question?</h3>
               </div>
-              <p className="text-white/80 text-xs leading-relaxed">
+              <p className="text-white/90 text-xs leading-relaxed">
                 Chat with Ziaf AI for personalized admission answers based on your marks, location, and budget.
               </p>
               <Link
                 to="/ai-counselor"
-                className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-white text-[#4A7B5B] rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-white text-[#0e6b9e] rounded-xl text-xs font-bold hover:bg-sky-50 transition-colors"
               >
-                Ask AI Counselor <ArrowRight size={14} />
+                Ask Ziaf AI <ArrowRight size={14} />
               </Link>
             </div>
 

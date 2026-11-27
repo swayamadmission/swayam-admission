@@ -15,7 +15,6 @@ import {
   GraduationCap,
   Calendar,
   Layers,
-  Bot,
   MessageCircle,
   AlertCircle,
   RefreshCw,
@@ -23,6 +22,7 @@ import {
   Gift,
 } from "lucide-react";
 import { leadsApi } from "../../api/leads.api";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 import { applicationsApi } from "../../api/applications.api";
 import { geographyApi, StateItem, DistrictItem } from "../../api/geography.api";
 import { coursesApi, Course, CourseBranch } from "../../api/courses.api";
@@ -1549,9 +1549,10 @@ export default function ApplyNowPage() {
                     </a>
                     <Link
                       to="/ai-counselor"
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl transition-all text-xs font-semibold"
+                      style={{ background: ZIAF_GRADIENT }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 text-white rounded-xl hover:opacity-95 transition-opacity text-xs font-bold shadow-sm"
                     >
-                      <Bot size={15} /> Talk to AI Counselor
+                      <ZiafAiLogo size="xs" variant="outline" /> Ask Ziaf AI
                     </Link>
                   </div>
                 </div>

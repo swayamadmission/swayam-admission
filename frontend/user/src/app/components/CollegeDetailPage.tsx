@@ -5,7 +5,6 @@ import {
   Star,
   Phone,
   CheckCircle2,
-  Bot,
   ArrowRight,
   Building2,
   Users,
@@ -23,6 +22,7 @@ import {
   Bookmark,
 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { collegesApi } from "../../api/colleges.api";
@@ -220,8 +220,11 @@ export default function CollegeDetailPage() {
                     </span>
                   )}
                   {matchData?.matchScore && (
-                    <span className="px-2.5 py-0.5 rounded-full text-white bg-[#F0AE1A] inline-flex items-center gap-1" style={{ fontSize: "11px", fontWeight: 800 }}>
-                      <Bot size={11} /> {matchData.matchScore}% AI Match
+                    <span
+                      style={{ background: ZIAF_GRADIENT, fontSize: "11px", fontWeight: 800 }}
+                      className="px-2.5 py-0.5 rounded-full text-white inline-flex items-center gap-1.5 shadow-xs"
+                    >
+                      <ZiafAiLogo size="xs" variant="outline" /> {matchData.matchScore}% Ziaf AI Match
                     </span>
                   )}
                 </div>
@@ -767,20 +770,23 @@ export default function CollegeDetailPage() {
             </div>
 
             {/* AI Admission Guidance Card */}
-            <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5 text-white shadow-md">
+            <div
+              style={{ background: ZIAF_GRADIENT }}
+              className="rounded-2xl p-5 text-white shadow-md"
+            >
               <div className="flex items-center gap-2 mb-2.5">
-                <Bot size={20} className="text-[#F0AE1A]" />
-                <span className="font-bold text-sm text-[#F0AE1A]">AI Admission Match</span>
+                <ZiafAiLogo size="sm" variant="outline" />
+                <span className="font-bold text-sm text-white">Ziaf AI Match</span>
               </div>
-              <p className="text-white/80 text-xs leading-relaxed mb-4">
+              <p className="text-white/90 text-xs leading-relaxed mb-4">
                 {matchData?.matchReason ||
-                  `Our AI career counselor analyzed ${apiCollege.name}'s curriculum, placement trends, and fee affordability to give you personalized guidance.`}
+                  `Ziaf AI analyzed ${apiCollege.name}'s curriculum, placement trends, and fee affordability to give you personalized guidance.`}
               </p>
               <Link
                 to="/ai-counselor"
-                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-[#4A7B5B] rounded-xl font-bold text-xs hover:bg-gray-50 transition-colors shadow-sm"
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-white text-[#0e6b9e] rounded-xl font-bold text-xs hover:bg-sky-50 transition-colors shadow-sm"
               >
-                Ask AI Counselor about this College
+                Ask Ziaf AI about this College
               </Link>
             </div>
           </div>

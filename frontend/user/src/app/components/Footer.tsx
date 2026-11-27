@@ -133,7 +133,7 @@ export default function Footer() {
                 { label: "Colleges", href: "/colleges" },
                 { label: "Study Materials", href: "/study-materials" },
                 { label: "Top States", href: "/states" },
-                { label: "AI Counselor", href: "/ai-counselor" },
+                { label: "Ziaf AI", href: "/ai-counselor" },
                 { label: "Apply Now", href: "/apply-now" },
                 { label: "Scholarships", href: "/scholarships" },
                 { label: "Blogs", href: "/blogs" },

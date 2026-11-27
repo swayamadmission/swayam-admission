@@ -13,9 +13,9 @@ import {
   FileText,
   Share2,
   Check,
-  Bot,
 } from "lucide-react";
 import { faqsApi } from "../../api/faqs.api";
+import { ZiafAiLogo } from "./common/ZiafAiBrand";
 
 export default function FAQDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -230,9 +230,9 @@ export default function FAQDetailPage() {
 
             <Link
               to="/ai-counselor"
-              className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-[#4A7B5B] hover:underline"
+              className="hidden sm:flex items-center gap-2 text-xs font-bold text-[#0e6b9e] hover:underline"
             >
-              <Bot size={15} /> Ask AI Counselor
+              <ZiafAiLogo size="xs" /> Ask Ziaf AI
             </Link>
           </div>
         </article>

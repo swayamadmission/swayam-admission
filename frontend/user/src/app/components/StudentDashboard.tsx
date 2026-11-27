@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { ZIAF_GRADIENT, ZiafAiLogo } from "./common/ZiafAiBrand";
 import { useAuth } from "./Navbar";
 import { useAuth as useAuthContext } from "../../context/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -1892,15 +1893,15 @@ export default function StudentDashboard() {
                   )}
                 </div>
 
-                {/* AI Counselor card */}
-                <div className="bg-gradient-to-br from-[#4A7B5B] to-[#2d5e3f] rounded-2xl p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Bot size={18} className="text-[#F0AE1A]"/>
-                    <span className="text-white" style={{fontSize:"14px",fontWeight:700}}>AI Counselor Active</span>
+                {/* Ziaf AI card */}
+                <div style={{ background: ZIAF_GRADIENT }} className="rounded-2xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <ZiafAiLogo size="sm" variant="outline" />
+                    <span className="text-white" style={{fontSize:"14px",fontWeight:700}}>Ziaf AI Active</span>
                   </div>
-                  <p className="text-white/80 mb-4" style={{fontSize:"12px"}}>Interact with your personalized AI counselor to find your best matches.</p>
-                  <Link to="/ai-counselor" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-[#4A7B5B] rounded-xl" style={{fontWeight:600,fontSize:"13px"}}>
-                    Start Chat <ChevronRight size={14}/>
+                  <p className="text-white/90 mb-4" style={{fontSize:"12px"}}>Interact with Ziaf AI to find your best college and course matches.</p>
+                  <Link to="/ai-counselor" className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-[#0e6b9e] rounded-xl hover:bg-sky-50 transition-colors" style={{fontWeight:700,fontSize:"13px"}}>
+                    Chat with Ziaf AI <ChevronRight size={14}/>
                   </Link>
                 </div>
               </div>
@@ -2812,9 +2813,10 @@ export default function StudentDashboard() {
                       </Link>
                       <Link
                         to="/ai-counselor"
-                        className="px-4 py-2.5 bg-[#E8F3EC] text-[#4A7B5B] text-xs font-bold rounded-xl hover:bg-[#d8e8dc] transition-all flex items-center gap-1.5"
+                        style={{ background: ZIAF_GRADIENT }}
+                        className="px-4 py-2.5 text-white text-xs font-bold rounded-xl hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-sm"
                       >
-                        <Bot size={14} /> Talk to AI Counselor
+                        <ZiafAiLogo size="xs" variant="outline" /> Ask Ziaf AI
                       </Link>
                     </div>
                   </div>

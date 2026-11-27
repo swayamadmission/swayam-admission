@@ -41,12 +41,12 @@ export const BANNER_SLOT_METADATA: Record<BannerSlot, SlotMetadata> = {
   },
   [BANNER_SLOTS.HOME_HERO_VIDEO]: {
     slot: BANNER_SLOTS.HOME_HERO_VIDEO,
-    label: 'Home Page — Hero Video Showcase',
+    label: 'Home Page — Hero Image Showcase',
     page: 'Home Page',
-    location: 'Hero section upper-left showcase',
+    location: 'Hero section upper-left image showcase',
     recommendedDimensions: '1280 × 960 px / 1600 × 1200 px',
     aspectRatio: '4:3',
-    supportsVideo: true,
+    supportsVideo: false,
     supportsImage: true,
   },
   [BANNER_SLOTS.HOME_AI_COUNSELOR]: {
