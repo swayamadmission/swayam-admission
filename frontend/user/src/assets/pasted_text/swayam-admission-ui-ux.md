@@ -21,9 +21,7 @@ The website should feel:
 - scalable
 - intelligent
 
-========================================
 BRAND IDENTITY
-========================================
 
 Brand Name:
 Swayam Admission
@@ -65,9 +63,7 @@ Avoid:
 - coaching-center aesthetic
 - dark heavy UI
 
-========================================
 TARGET USERS
-========================================
 
 - Students across India
 - Mostly mobile users
@@ -80,9 +76,7 @@ TARGET USERS
   - direct admission
   - career guidance
 
-========================================
 WEBSITE TYPE
-========================================
 
 Create a FULL PUBLIC WEBSITE including:
 - responsive desktop design
@@ -93,9 +87,7 @@ Create a FULL PUBLIC WEBSITE including:
 - realistic interactions
 - proper navigation system
 
-========================================
 MAIN WEBSITE STRUCTURE
-========================================
 
 HOME
 COURSES
@@ -110,9 +102,7 @@ ABOUT
 CONTACT
 STUDENT LOGIN
 
-========================================
 AUTHENTICATION SYSTEM
-========================================
 
 Create modern authentication flows.
 
@@ -144,9 +134,7 @@ The authentication UI should feel:
 - trustworthy
 - easy for Indian students
 
-========================================
 PAGE 1 — HOMEPAGE
-========================================
 
 Create a premium modern homepage.
 
@@ -226,9 +214,7 @@ Upload-ready area for:
 - WhatsApp
 - Apply Now
 
-========================================
 PAGE 2 — COURSE LISTING PAGE
-========================================
 
 Create a modern course discovery page.
 
@@ -242,9 +228,7 @@ Include:
 - duration
 - career opportunities
 
-========================================
 PAGE 3 — COLLEGE LISTING PAGE
-========================================
 
 Include:
 - smart search
@@ -262,9 +246,7 @@ College cards should include:
 - courses
 - Apply button
 
-========================================
 PAGE 4 — COLLEGE DETAILS PAGE
-========================================
 
 Include:
 - college banner
@@ -278,9 +260,7 @@ Include:
 - related colleges
 - AI recommendation widget
 
-========================================
 PAGE 5 — AI COUNSELOR PAGE
-========================================
 
 Create a modern AI chatbot interface named:
 
@@ -310,9 +290,7 @@ The chatbot should feel:
 - modern
 - trustworthy
 
-========================================
 PAGE 6 — APPLY NOW FLOW
-========================================
 
 Create a step-by-step admission inquiry flow.
 
@@ -333,9 +311,7 @@ STEP 4:
 - Submit
 - Success confirmation
 
-========================================
 PAGE 7 — STUDENT DASHBOARD
-========================================
 
 After login student should see:
 
@@ -348,9 +324,7 @@ After login student should see:
 - study materials
 - notifications
 
-========================================
 PAGE 8 — BLOG SYSTEM
-========================================
 
 Modern blog listing and detail pages.
 
@@ -360,9 +334,7 @@ Include:
 - trending blogs
 - SEO-friendly layout
 
-========================================
 IMPORTANT FEATURES
-========================================
 
 Include proper UI/UX for:
 
@@ -378,9 +350,7 @@ Include proper UI/UX for:
 - modern footer
 - sticky CTA buttons
 
-========================================
 MOBILE-FIRST DESIGN
-========================================
 
 The website should primarily feel optimized for smartphones.
 
@@ -395,9 +365,7 @@ So design should feel:
 - readable
 - touch-friendly
 
-========================================
 VISUAL STYLE
-========================================
 
 Inspired by:
 - modern SaaS products
@@ -410,9 +378,7 @@ Reference feel:
 - Perplexity
 - modern AI products
 
-========================================
 FINAL OUTPUT
-========================================
 
 Generate a complete premium public website UI/UX system for Swayam Admission with:
 - all major public pages

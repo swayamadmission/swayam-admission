@@ -1,0 +1,42 @@
+# SWAYAM ADMISSION — COMPLETE TECHNICAL & FUNCTIONAL AUDIT
+## 10. Third-Party Integrations and External Services
+
+This document audits every external service, cloud API, third-party library, and integration channel discovered across the Swayam Admission codebase.
+
+---
+
+### 1. Master Integrations Audit Matrix
+
+| External Service / Provider | Purpose & Architectural Role | Primary Source Files | Environment Variables (Names Only) | API Endpoints Involved | Implementation Status | Failure Handling & Fallback Behavior | Credential & Security Handling |
+|---|---|---|---|---|---|---|---|
+| **Gmail / SMTP Relay** | Transactional HTML emails for account activation, password resets, and outbox delivery. | `backend/src/notifications/notification-channels.service.ts`, `backend/src/notifications/durable-outbox.service.ts` | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` | Outbound SMTP connection via TLS/SSL | **ACTIVE / FULLY CONFIGURED** | In-process Outbox retries up to 3 times before marking status `FAILED`. Quota cooldown triggers if sending quota exceeded. | Encrypted credentials stored in environment variables; password masked in health probes. |
+| **Meta WhatsApp Cloud API** | Transactional WhatsApp notifications for admission approvals, payment receipts, and OTPs. | `backend/src/notifications/notification-channels.service.ts`, `backend/src/notifications/notifications.controller.ts` | `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_API_VERSION`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET` | Outbound POST to `https://graph.facebook.com/v20.0/{phone_id}/messages`; Inbound Webhook `/v1/notifications/webhook/whatsapp` | **CODE SUPPORTED / REQUIRES TOKEN** | Fails gracefully to `FAILED` status in outbox without crashing the server. | Bearer token authorization header; incoming webhooks verified with verify-token and SHA256 app secret. |
+| **Fast2SMS Gateway** | Indian mobile SMS OTP delivery and broadcast marketing alerts. | `backend/src/auth/auth.service.ts`, `backend/src/notifications/notification-channels.service.ts` | `FAST2SMS_API_KEY`, `FAST2SMS_ROUTE`, `FAST2SMS_SENDER_ID`, `FAST2SMS_WEBHOOK_SECRET` | Outbound POST to `https://www.fast2sms.com/dev/bulkV2`; Inbound Webhook `/v1/notifications/webhook/sms` | **ACTIVE / FULLY CONFIGURED** | Catches HTTP errors; logs failure reason in `CommunicationDelivery.metadata`. | API key passed in `authorization` header; never exposed to frontend clients. |
+| **Razorpay Gateway** | Student fee checkout, application fees, study material purchases, and webhooks. | `backend/src/payments/gateways/payment-gateway.service.ts`, `backend/src/payments/payment-webhook.controller.ts` | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Inbound Webhook `/v1/payments/webhook`; Client-side Checkout SDK | **ACTIVE / FULLY CONFIGURED** | Webhook handles asynchronous payment capture; failed payments marked `FAILED` with retry option. | Key Secret strictly server-side; client only receives public Key ID; webhooks validated using HMAC SHA-256. |
+| **Cashfree, Stripe & PhonePe** | Secondary payment gateway abstraction layer. | `backend/src/payments/gateways/payment-gateway.service.ts`, `backend/src/payments/services/payment-governance.service.ts` | Configured in `IntegrationSetting` DB model | Internal adapter dispatch | **CODE SUPPORTED / INACTIVE** | Throws `NotImplementedException` if selected without active gateway credentials. | Credentials stored encrypted in `IntegrationSetting` database records. |
+| **Google OAuth 2.0** | "Sign in with Google" student authentication. | `backend/src/auth/auth.service.ts` | `GOOGLE_CLIENT_ID` (backend & frontend) | `/v1/auth/google` | **ACTIVE / FULLY CONFIGURED** | Rejects unverified or mismatched Google JWT tokens with HTTP 401. | Uses official `google-auth-library` to cryptographically verify token signatures against Google certs. |
+| **Google Gemini API** | AI Counselor conversational reasoning and RAG answers. | `backend/src/ai/provider.service.ts`, `backend/src/ai/ai.service.ts` | `GEMINI_API_KEY` | Calls `https://generativelanguage.googleapis.com` | **ACTIVE / FULLY CONFIGURED** | Falls back to OpenAI or rule-based response if Gemini quota exhausted or API key invalid. | Server-side API key passed in request headers; never leaked to frontend. |
+| **OpenAI API** | Secondary AI provider fallback for AI Counselor. | `backend/src/ai/provider.service.ts` | `OPENAI_API_KEY` | Calls `https://api.openai.com/v1` | **CODE SUPPORTED / FALLBACK** | Transparent fallback invoked when Gemini returns 5xx error. | Server-side API key passed via Bearer auth header. |
+| **SendGrid & Amazon SES** | Alternative enterprise email transport adapters. | `backend/src/notifications/notification-channels.service.ts` | `SENDGRID_WEBHOOK_SECRET`, `EMAIL_PROVIDER` | Inbound delivery callbacks | **CODE SUPPORTED / INACTIVE** | Selectable via `EMAIL_PROVIDER="SENDGRID"` or `"SES"`; defaults to SMTP. | API keys and webhook signing secrets. |
+| **Local File Storage / Vault** | Document storage, watermark processing, avatar images. | `backend/src/storage/storage.service.ts`, `backend/src/documents/document-watermark.service.ts` | `STORAGE_PROVIDER`, `UPLOAD_DIR` | Private vault `/storage/private_vault/` and `/uploads/` | **ACTIVE / PRODUCTION DEFAULT** | Throws 403 on direct static document access; streams through authenticated endpoint `/v1/documents/:id/download`. | Enforces MIME type whitelisting (PDF, PNG, JPG), 10MB file limit, and PDF watermark stamping. |
+| **SheetJS (XLSX)** | Bulk Excel parsing for college directory ingestion. | `backend/src/colleges/colleges-bulk.service.ts` | None | `/v1/colleges/bulk-import` | **ACTIVE / FULLY CONFIGURED** | Rejects malformed workbooks; outputs row-by-row error logs. | In-memory buffer parsing; validates column header mappings before committing to DB. |
+| **PDF-Lib & Sharp** | Dynamic server-side PDF watermarking and image manipulation. | `backend/src/documents/document-watermark.service.ts` | None | Internal pipeline during document ingestion | **ACTIVE / FULLY CONFIGURED** | Gracefully logs error and preserves original document if PDF parsing fails. | Watermarks applicant identity, application ID, and timestamp across all pages. |
+| **Redis & BullMQ** | Asynchronous queue engine. | `backend/src/jobs/jobs.module.ts` | `REDIS_ENABLED`, `REDIS_URL`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | Redis connection port 6379 | **CODE SUPPORTED / DISABLED** | When `REDIS_ENABLED !== 'true'`, system uses in-process `DurableOutboxService` instead of BullMQ. | Password authentication via Redis URL. |
+| **Socket.io** | Real-time counselor chat and cross-tab LiveSync events. | `backend/src/events/live-sync.gateway.ts`, `backend/src/support/support.gateway.ts` | None | WebSocket connections on `/socket.io` | **ACTIVE / FULLY CONFIGURED** | Client automatically falls back to HTTP long-polling if WebSockets are blocked by proxies. | Validates JWT token in connection handshake query or headers before joining rooms. |
+
+---
+
+### 2. Analysis of Provider Readiness vs Code Support
+
+1. **Storage: Local Filesystem vs Cloud Buckets (S3/GCS)**:
+   - **Finding**: While environment variables name `STORAGE_PROVIDER`, there are **0 occurrences** of `@aws-sdk/client-s3` or `@google-cloud/storage` in `backend/package.json`.
+   - **Conclusion**: The production application **exclusively uses the local disk storage provider**. Files uploaded to Render are written to the container filesystem or persistent disk. S3 and GCS support does not exist in the current compiled code.
+
+2. **Durable Outbox vs Redis BullMQ**:
+   - **Finding**: BullMQ and IORedis are installed in `backend/package.json`, and `jobs.module.ts` exists. However, `jobs.module.ts` is **not mounted in `app.module.ts`**.
+   - **Conclusion**: The platform does **not rely on Redis**. Instead, it uses `DurableOutboxService`, an in-process worker that polls the PostgreSQL database (`CommunicationDelivery` table) every 5 seconds. This eliminates the dependency on a Redis cluster.
+
+3. **Multi-Gateway Payment Architecture**:
+   - **Finding**: The codebase includes schema models and DTOs for Cashfree, Stripe, and PhonePe.
+   - **Conclusion**: The **only fully wired and active gateway is Razorpay**. All frontend checkout buttons and webhook routes route to Razorpay. Cashfree, Stripe, and PhonePe are placeholder adapters for future multi-gateway routing.
+

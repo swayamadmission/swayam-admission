@@ -11,6 +11,7 @@ import {
   Twitter,
   Linkedin,
   Github,
+  ArrowRight,
 } from "lucide-react";
 import logoImg from "../../assets/SA_logo-removebg-preview.png";
 import { usePublicSettings } from "../../context/PublicSettingsContext";
@@ -47,7 +48,6 @@ export default function Footer() {
   const mainTagline = settings.mainTagline || settings.tagline || "India Ka Mission Swayam Admission";
   const brandPromise = settings.brandPromise || "Your Trusted Education Partner";
   const primaryColor = settings.primaryColor || "#4A7B5B";
-  const accentColor = settings.accentColor || "#F0AE1A";
 
   const contact1 = settings.contactNumber1 || settings.supportPhone || "6284308664";
   const contact2 = settings.contactNumber2 || "6399102731";
@@ -55,7 +55,6 @@ export default function Footer() {
   const cleanWhatsapp = whatsappNum.replace(/\D/g, "");
   const whatsappHref = `https://wa.me/91${cleanWhatsapp.slice(-10)}`;
 
-  const generalEmail = settings.generalEmail || "swayamadmissions@gmail.com";
   const supportEmail = settings.supportEmail || "support@swayamadmision.com";
   const admissionEmail = settings.admissionEmail || "getadmission@swayamadmission.com";
 
@@ -79,51 +78,123 @@ export default function Footer() {
   ].filter((item) => item.url && item.url.trim().length > 0);
 
   return (
-    <footer style={{ backgroundColor: primaryColor }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-14">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-          {/* Brand */}
-          <div>
-            <div className="flex items-center gap-2.5 mb-4">
+    <footer
+      className="relative overflow-hidden border-t border-slate-200/80"
+      style={{ backgroundColor: "#F6F7F9" }}
+    >
+      {/* Decorative Brand #4A7B5B Grainy Horizon Waves */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* Soft upper #4A7B5B tint wash */}
+        <div
+          className="absolute inset-x-0 top-0 h-56"
+          style={{
+            background:
+              "radial-gradient(ellipse 75% 80% at 15% 0%, rgba(74, 123, 91, 0.14) 0%, transparent 65%), radial-gradient(ellipse 65% 70% at 85% 5%, rgba(74, 123, 91, 0.10) 0%, transparent 65%)",
+          }}
+        />
+
+        {/* Bottom layered #4A7B5B brand wave hills */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-56 sm:h-72 opacity-95"
+          style={{
+            background:
+              "radial-gradient(ellipse 65% 85% at 12% 100%, rgba(74, 123, 91, 0.62) 0%, rgba(74, 123, 91, 0.28) 45%, transparent 75%), radial-gradient(ellipse 55% 90% at 48% 100%, rgba(56, 98, 70, 0.56) 0%, rgba(74, 123, 91, 0.24) 50%, transparent 78%), radial-gradient(ellipse 60% 88% at 84% 100%, rgba(74, 123, 91, 0.60) 0%, rgba(98, 150, 116, 0.28) 45%, transparent 76%), radial-gradient(ellipse 45% 70% at 62% 72%, rgba(135, 183, 151, 0.30) 0%, transparent 70%), radial-gradient(ellipse 50% 70% at 28% 68%, rgba(74, 123, 91, 0.24) 0%, transparent 72%)",
+          }}
+        />
+
+        {/* SVG flowing ridge waves in #4A7B5B shades */}
+        <svg
+          className="absolute inset-x-0 bottom-0 w-full h-44 sm:h-60 opacity-65 mix-blend-multiply"
+          viewBox="0 0 1440 320"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            <linearGradient id="swayamFooterWave1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#87B797" stopOpacity="0.6" />
+              <stop offset="35%" stopColor="#4A7B5B" stopOpacity="0.72" />
+              <stop offset="70%" stopColor="#629674" stopOpacity="0.65" />
+              <stop offset="100%" stopColor="#4A7B5B" stopOpacity="0.78" />
+            </linearGradient>
+            <linearGradient id="swayamFooterWave2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#4A7B5B" stopOpacity="0.8" />
+              <stop offset="40%" stopColor="#3B644A" stopOpacity="0.72" />
+              <stop offset="75%" stopColor="#629674" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#4A7B5B" stopOpacity="0.82" />
+            </linearGradient>
+          </defs>
+          <path
+            fill="url(#swayamFooterWave1)"
+            d="M0,192 C240,110 420,250 690,158 C940,72 1180,195 1440,122 L1440,320 L0,320 Z"
+          />
+          <path
+            fill="url(#swayamFooterWave2)"
+            d="M0,248 C280,175 510,285 780,210 C1020,145 1230,245 1440,188 L1440,320 L0,320 Z"
+          />
+        </svg>
+
+        {/* Fine paper/film grain texture overlay */}
+        <svg className="absolute inset-0 w-full h-full opacity-[0.14]" aria-hidden="true">
+          <filter id="swayamFooterNoise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#swayamFooterNoise)" />
+        </svg>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10">
+          {/* Left Brand Block */}
+          <div className="lg:col-span-4">
+            <Link to="/" className="inline-flex items-center gap-2.5 mb-4">
               <img
                 src={settings.logo || logoImg}
                 alt={brandName}
                 className="h-9 w-auto"
-                style={{ filter: "brightness(0) invert(1)" }}
               />
               <div>
-                <div style={{ fontSize: "14px", fontWeight: 700, color: "white" }}>{brandName}</div>
-                <div style={{ fontSize: "10px", color: accentColor, fontWeight: 600 }}>{mainTagline}</div>
+                <div className="text-[16px] font-extrabold text-slate-900 leading-tight">
+                  {brandName}
+                </div>
+                <div
+                  className="text-[10px] font-semibold leading-tight mt-0.5"
+                  style={{ color: primaryColor }}
+                >
+                  {mainTagline}
+                </div>
               </div>
-            </div>
-            <p style={{ fontSize: "13px", color: "#e2e8f0", lineHeight: 1.7 }} className="mb-2">
+            </Link>
+
+            <p className="text-[13px] text-slate-600 leading-relaxed max-w-xs mb-2">
               {brandPromise}. Connecting students across India with accredited colleges, scholarships, and verified counseling.
             </p>
-            <p style={{ fontSize: "11px", color: "#cbd5e1" }} className="mb-5">
+            <p className="text-[12px] text-slate-500 max-w-xs mb-5">
               {settings.primaryAudience || "Students seeking admission guidance across India."}
             </p>
 
-            {/* Social Icons — dynamic & hides blank optional links (e.g. Discord) */}
-            <div className="flex flex-wrap gap-2">
-              {socialLinks.map(({ name, url, icon: Icon }) => (
-                <a
-                  key={name}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={name}
-                  title={name}
-                  className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/25 transition-colors text-white"
-                >
-                  <Icon size={14} />
-                </a>
-              ))}
-            </div>
+            {/* Outlined Square Social Icons */}
+            {socialLinks.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {socialLinks.map(({ name, url, icon: Icon }) => (
+                  <a
+                    key={name}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={name}
+                    title={name}
+                    className="w-8 h-8 rounded-lg border border-slate-300/80 bg-white/80 backdrop-blur-xs flex items-center justify-center text-slate-700 hover:border-slate-900 hover:text-slate-900 hover:bg-white transition-all shadow-2xs"
+                  >
+                    <Icon size={14} />
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Quick Links */}
-          <div>
-            <h4 style={{ fontSize: "13px", fontWeight: 700, color: "white", marginBottom: "16px" }}>
+          <div className="lg:col-span-2">
+            <h4 className="text-[13px] font-bold text-slate-900 mb-4">
               Quick Links
             </h4>
             <ul className="space-y-2.5">
@@ -145,11 +216,16 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     to={link.href}
-                    className="flex items-center gap-2 hover:text-white transition-colors"
-                    style={{ fontSize: "12px", color: "#cbd5e1" }}
+                    className="group inline-flex items-center text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] focus-visible:text-[#4A7B5B] transition-colors duration-200"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
-                    {link.label}
+                    <ArrowRight
+                      size={12}
+                      strokeWidth={2.5}
+                      className="w-0 opacity-0 -translate-x-1.5 mr-0 text-[#4A7B5B] group-hover:w-3.5 group-hover:opacity-100 group-hover:translate-x-0 group-hover:mr-1.5 group-active:w-3.5 group-active:opacity-100 group-active:translate-x-0 group-active:mr-1.5 group-focus-visible:w-3.5 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:mr-1.5 transition-all duration-200 shrink-0"
+                    />
+                    <span className="group-hover:font-semibold group-active:font-semibold transition-all duration-200">
+                      {link.label}
+                    </span>
                   </Link>
                 </li>
               ))}
@@ -157,8 +233,8 @@ export default function Footer() {
           </div>
 
           {/* Popular Courses */}
-          <div>
-            <h4 style={{ fontSize: "13px", fontWeight: 700, color: "white", marginBottom: "16px" }}>
+          <div className="lg:col-span-3">
+            <h4 className="text-[13px] font-bold text-slate-900 mb-4">
               Popular Courses
             </h4>
             <ul className="space-y-2.5">
@@ -176,99 +252,98 @@ export default function Footer() {
                 <li key={c}>
                   <Link
                     to={`/courses?search=${encodeURIComponent(c)}`}
-                    className="flex items-center gap-2 hover:text-white transition-colors"
-                    style={{ fontSize: "12px", color: "#cbd5e1" }}
+                    className="group inline-flex items-center text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] focus-visible:text-[#4A7B5B] transition-colors duration-200"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
-                    {c}
+                    <ArrowRight
+                      size={12}
+                      strokeWidth={2.5}
+                      className="w-0 opacity-0 -translate-x-1.5 mr-0 text-[#4A7B5B] group-hover:w-3.5 group-hover:opacity-100 group-hover:translate-x-0 group-hover:mr-1.5 group-active:w-3.5 group-active:opacity-100 group-active:translate-x-0 group-active:mr-1.5 group-focus-visible:w-3.5 group-focus-visible:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:mr-1.5 transition-all duration-200 shrink-0"
+                    />
+                    <span className="group-hover:font-semibold group-active:font-semibold transition-all duration-200">
+                      {c}
+                    </span>
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Contact Details */}
-          <div>
+          {/* Contact Us */}
+          <div className="lg:col-span-3">
             <div className="flex items-center justify-between mb-4">
-              <h4 style={{ fontSize: "13px", fontWeight: 700, color: "white" }}>
+              <h4 className="text-[13px] font-bold text-slate-900">
                 Contact Us
               </h4>
               <Link
                 to="/contact"
-                className="hover:underline flex items-center gap-1 text-[11px] transition-colors"
-                style={{ color: accentColor }}
+                className="group inline-flex items-center text-[12px] font-semibold transition-colors"
+                style={{ color: primaryColor }}
               >
-                Helpdesk & Form →
+                <ArrowRight
+                  size={12}
+                  strokeWidth={2.5}
+                  className="w-0 opacity-0 -translate-x-1.5 mr-0 group-hover:w-3 group-hover:opacity-100 group-hover:translate-x-0 group-hover:mr-1 group-active:w-3 group-active:opacity-100 group-active:translate-x-0 group-active:mr-1 transition-all duration-200 shrink-0"
+                />
+                <span>Helpdesk &amp; Form</span>
               </Link>
             </div>
-            <div className="space-y-3 mb-5">
-              {/* Phone 1 & 2 */}
+
+            <div className="space-y-2.5 mb-5">
               <a
                 href={`tel:${contact1}`}
-                className="flex items-center gap-3 hover:text-white transition-colors"
-                style={{ fontSize: "12px", color: "#cbd5e1" }}
+                className="group flex items-center gap-2.5 text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] transition-colors"
               >
-                <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <Phone size={13} className="text-white" />
+                <div className="w-7 h-7 rounded-lg bg-white/85 border border-slate-200/80 group-hover:border-[#4A7B5B]/40 group-hover:text-[#4A7B5B] flex items-center justify-center shrink-0 text-slate-700 shadow-2xs transition-colors">
+                  <Phone size={13} />
                 </div>
-                <span>+91 {contact1}</span>
+                <span className="group-hover:translate-x-0.5 transition-transform duration-200">+91 {contact1}</span>
               </a>
 
               {contact2 && (
                 <a
                   href={`tel:${contact2}`}
-                  className="flex items-center gap-3 hover:text-white transition-colors"
-                  style={{ fontSize: "12px", color: "#cbd5e1" }}
+                  className="group flex items-center gap-2.5 text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] transition-colors"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                    <Phone size={13} className="text-white" />
+                  <div className="w-7 h-7 rounded-lg bg-white/85 border border-slate-200/80 group-hover:border-[#4A7B5B]/40 group-hover:text-[#4A7B5B] flex items-center justify-center shrink-0 text-slate-700 shadow-2xs transition-colors">
+                    <Phone size={13} />
                   </div>
-                  <span>+91 {contact2}</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform duration-200">+91 {contact2}</span>
                 </a>
               )}
 
-              {/* Support & Admission Emails */}
               <a
                 href={`mailto:${supportEmail}`}
-                className="flex items-center gap-3 hover:text-white transition-colors"
-                style={{ fontSize: "12px", color: "#cbd5e1" }}
+                className="group flex items-center gap-2.5 text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] transition-colors"
               >
-                <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <Mail size={13} className="text-white" />
+                <div className="w-7 h-7 rounded-lg bg-white/85 border border-slate-200/80 group-hover:border-[#4A7B5B]/40 group-hover:text-[#4A7B5B] flex items-center justify-center shrink-0 text-slate-700 shadow-2xs transition-colors">
+                  <Mail size={13} />
                 </div>
-                <span className="truncate">{supportEmail}</span>
+                <span className="truncate group-hover:translate-x-0.5 transition-transform duration-200">{supportEmail}</span>
               </a>
 
               <a
                 href={`mailto:${admissionEmail}`}
-                className="flex items-center gap-3 hover:text-white transition-colors"
-                style={{ fontSize: "12px", color: "#cbd5e1" }}
+                className="group flex items-center gap-2.5 text-[13px] font-medium text-slate-600 hover:text-[#4A7B5B] active:text-[#4A7B5B] transition-colors"
               >
-                <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <Mail size={13} className="text-white" />
+                <div className="w-7 h-7 rounded-lg bg-white/85 border border-slate-200/80 group-hover:border-[#4A7B5B]/40 group-hover:text-[#4A7B5B] flex items-center justify-center shrink-0 text-slate-700 shadow-2xs transition-colors">
+                  <Mail size={13} />
                 </div>
-                <span className="truncate">{admissionEmail}</span>
+                <span className="truncate group-hover:translate-x-0.5 transition-transform duration-200">{admissionEmail}</span>
               </a>
 
-              {/* Address */}
-              <div
-                className="flex items-center gap-3"
-                style={{ fontSize: "12px", color: "#cbd5e1" }}
-              >
-                <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-                  <MapPin size={13} className="text-white" />
+              <div className="flex items-center gap-2.5 text-[13px] text-slate-600">
+                <div className="w-7 h-7 rounded-lg bg-white/85 border border-slate-200/80 flex items-center justify-center shrink-0 text-slate-700 shadow-2xs">
+                  <MapPin size={13} />
                 </div>
                 <span>{settings.address || "New Delhi, India"}</span>
               </div>
             </div>
 
-            {/* WhatsApp CTA with official format */}
             <a
               href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 py-2.5 bg-[#25D366] text-white rounded-xl text-sm hover:bg-[#1ebe5d] transition-colors shadow-sm"
-              style={{ fontWeight: 600 }}
+              className="flex items-center justify-center gap-2 py-2.5 px-4 bg-[#25D366] text-white rounded-xl text-sm font-semibold hover:bg-[#1ebe5d] transition-colors shadow-sm"
             >
               <MessageCircle size={15} /> Chat on WhatsApp
             </a>
@@ -277,46 +352,39 @@ export default function Footer() {
       </div>
 
       {/* Footer Bottom Bar */}
-      <div className="border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p style={{ fontSize: "11px", color: "#cbd5e1" }}>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 pb-20 sm:pb-24">
+        <div className="border-t border-slate-400/35 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-slate-800/85 font-medium">
             © {new Date().getFullYear()} {brandName}. All rights reserved.
           </p>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <Link
-              to="/terms"
-              style={{ fontSize: "11px", color: "#cbd5e1" }}
-              className="hover:text-white transition-colors"
-            >
-              Terms & Conditions
-            </Link>
-            <Link
-              to="/privacy"
-              style={{ fontSize: "11px", color: "#cbd5e1" }}
-              className="hover:text-white transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              to="/refund"
-              style={{ fontSize: "11px", color: "#cbd5e1" }}
-              className="hover:text-white transition-colors"
-            >
-              Refund Policy
-            </Link>
-            <Link
-              to="/policies/grievance-redressal-policy"
-              style={{ fontSize: "11px", color: "#cbd5e1" }}
-              className="hover:text-white transition-colors"
-            >
-              Grievance Redressal
-            </Link>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            {[
+              { label: "Terms & Conditions", href: "/terms" },
+              { label: "Privacy Policy", href: "/privacy" },
+              { label: "Refund Policy", href: "/refund" },
+              { label: "Grievance Redressal", href: "/policies/grievance-redressal-policy" },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="group inline-flex items-center text-xs text-slate-800/85 hover:text-[#4A7B5B] active:text-[#4A7B5B] font-medium transition-colors"
+              >
+                <ArrowRight
+                  size={11}
+                  strokeWidth={2.5}
+                  className="w-0 opacity-0 -translate-x-1 mr-0 text-[#4A7B5B] group-hover:w-3 group-hover:opacity-100 group-hover:translate-x-0 group-hover:mr-1 group-active:w-3 group-active:opacity-100 group-active:translate-x-0 group-active:mr-1 transition-all duration-200 shrink-0"
+                />
+                <span className="group-hover:font-semibold transition-all duration-200">
+                  {item.label}
+                </span>
+              </Link>
+            ))}
             <Link
               to="/policies"
-              style={{ fontSize: "11px", color: accentColor, fontWeight: 600 }}
-              className="hover:underline transition-colors"
+              className="group inline-flex items-center text-xs text-slate-900 hover:text-[#4A7B5B] active:text-[#4A7B5B] font-bold underline underline-offset-4 transition-colors"
             >
-              All Policies →
+              <span>All Policies →</span>
             </Link>
           </div>
         </div>
